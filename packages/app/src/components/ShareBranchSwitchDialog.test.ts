@@ -117,7 +117,7 @@ describe('ShareBranchSwitchDialog — branch-info + checkout wiring', () => {
     expect(timeoutIdx).toBeGreaterThan(completeIdx);
     const okBranchBody = SRC.slice(completeIdx, timeoutIdx);
     expect(okBranchBody).toMatch(/bridge\.project[\s\n.]+open\(/);
-    expect(okBranchBody).toContain('pendingDeepLinkDoc');
+    expect(okBranchBody).toContain('pendingDeepLinkTarget');
     expect(okBranchBody).toContain('pendingBranch');
   });
 
@@ -137,7 +137,7 @@ describe('ShareBranchSwitchDialog — open-current (OQ2 sibling) + cancel', () =
     expect(endIdx).toBeGreaterThan(idx);
     const body = SRC.slice(idx, endIdx);
     expect(body).toMatch(/bridge\.project[\s\n.]+open\(/);
-    expect(body).toContain('pendingDeepLinkDoc');
+    expect(body).toContain('pendingDeepLinkTarget');
     expect(body).not.toContain('pendingBranch');
   });
 

@@ -36,7 +36,7 @@ const validBranchInfo: BranchInfoResponse = {
   currentBranch: 'main',
   currentHeadSha: null,
   detached: false,
-  shareFileExists: true,
+  shareTargetExists: true,
   dirtyConflicts: { conflicts: false, files: [] },
   branchIsLocal: true,
 };
@@ -97,10 +97,61 @@ describe('proxyFetchBranchInfo', () => {
       });
     }) as typeof fetch;
     const result = await proxyFetchBranchInfo(
-      { projectPath: '/tmp/p', branch: 'feat/foo', docPath: 'docs/foo.md' },
+      { projectPath: '/tmp/p', branch: 'feat/foo', kind: 'doc', path: 'docs/foo.md' },
       buildDeps({ fetch: fetchMock }),
     );
     expect(result).toEqual(validBranchInfo);
+  });
+
+  test('forwards kind=doc into the server query', async () => {
+    let seenUrl = '';
+    const fetchMock: typeof fetch = (async (input) => {
+      seenUrl = String(input);
+      return new Response(JSON.stringify(validBranchInfo), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }) as typeof fetch;
+    await proxyFetchBranchInfo(
+      { projectPath: '/tmp/p', branch: 'main', kind: 'doc', path: 'docs/foo.md' },
+      buildDeps({ fetch: fetchMock }),
+    );
+    expect(seenUrl).toMatch(/[?&]kind=doc(&|$)/);
+    expect(seenUrl).toMatch(/path=docs%2Ffoo\.md/);
+  });
+
+  test('forwards kind=folder into the server query', async () => {
+    let seenUrl = '';
+    const fetchMock: typeof fetch = (async (input) => {
+      seenUrl = String(input);
+      return new Response(JSON.stringify(validBranchInfo), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }) as typeof fetch;
+    await proxyFetchBranchInfo(
+      { projectPath: '/tmp/p', branch: 'main', kind: 'folder', path: 'docs/guides' },
+      buildDeps({ fetch: fetchMock }),
+    );
+    expect(seenUrl).toMatch(/[?&]kind=folder(&|$)/);
+    expect(seenUrl).toMatch(/path=docs%2Fguides/);
+  });
+
+  test('forwards kind=folder with an empty path for a content-root folder share', async () => {
+    let seenUrl = '';
+    const fetchMock: typeof fetch = (async (input) => {
+      seenUrl = String(input);
+      return new Response(JSON.stringify(validBranchInfo), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }) as typeof fetch;
+    await proxyFetchBranchInfo(
+      { projectPath: '/tmp/p', branch: 'main', kind: 'folder', path: '' },
+      buildDeps({ fetch: fetchMock }),
+    );
+    expect(seenUrl).toMatch(/[?&]kind=folder(&|$)/);
+    expect(seenUrl).toMatch(/[?&]path=(&|$)/);
   });
 
   test('sends client version headers (kind=desktop-main) on the branch-info GET', async () => {
@@ -113,7 +164,7 @@ describe('proxyFetchBranchInfo', () => {
       });
     }) as typeof fetch;
     await proxyFetchBranchInfo(
-      { projectPath: '/tmp/p', branch: 'main', docPath: 'a.md' },
+      { projectPath: '/tmp/p', branch: 'main', kind: 'doc', path: 'a.md' },
       buildDeps({ fetch: fetchMock }),
     );
     expect(headerOf(seen, 'x-ok-client-protocol')).toBe('1');
@@ -123,7 +174,7 @@ describe('proxyFetchBranchInfo', () => {
 
   test('returns null when the server returns non-2xx', async () => {
     const result = await proxyFetchBranchInfo(
-      { projectPath: '/tmp/p', branch: 'main', docPath: 'a.md' },
+      { projectPath: '/tmp/p', branch: 'main', kind: 'doc', path: 'a.md' },
       buildDeps({ fetch: (async () => new Response(null, { status: 500 })) as typeof fetch }),
     );
     expect(result).toBeNull();
@@ -136,7 +187,7 @@ describe('proxyFetchBranchInfo', () => {
         headers: { 'content-type': 'application/json' },
       })) as typeof fetch;
     const result = await proxyFetchBranchInfo(
-      { projectPath: '/tmp/p', branch: 'main', docPath: 'a.md' },
+      { projectPath: '/tmp/p', branch: 'main', kind: 'doc', path: 'a.md' },
       buildDeps({ fetch: fetchMock }),
     );
     expect(result).toBeNull();
@@ -144,7 +195,7 @@ describe('proxyFetchBranchInfo', () => {
 
   test('returns null when the server lock never resolves', async () => {
     const result = await proxyFetchBranchInfo(
-      { projectPath: '/tmp/p', branch: 'main', docPath: 'a.md' },
+      { projectPath: '/tmp/p', branch: 'main', kind: 'doc', path: 'a.md' },
       buildDeps({ readServerLock: () => null }),
     );
     expect(result).toBeNull();
@@ -152,7 +203,7 @@ describe('proxyFetchBranchInfo', () => {
 
   test('returns null when fetch throws (network error / timeout)', async () => {
     const result = await proxyFetchBranchInfo(
-      { projectPath: '/tmp/p', branch: 'main', docPath: 'a.md' },
+      { projectPath: '/tmp/p', branch: 'main', kind: 'doc', path: 'a.md' },
       buildDeps({
         fetch: (async () => {
           throw new Error('boom');
@@ -351,7 +402,7 @@ describe('AbortSignal cancellation', () => {
     controller.abort();
     let fetchCalls = 0;
     const result = await proxyFetchBranchInfo(
-      { projectPath: '/tmp/p', branch: 'main', docPath: 'a.md' },
+      { projectPath: '/tmp/p', branch: 'main', kind: 'doc', path: 'a.md' },
       buildDeps({
         fetch: (async () => {
           fetchCalls += 1;
@@ -411,7 +462,7 @@ describe('AbortSignal cancellation', () => {
         headers: { 'content-type': 'application/json' },
       })) as typeof fetch;
     const result = await proxyFetchBranchInfo(
-      { projectPath: '/tmp/p', branch: 'main', docPath: 'a.md' },
+      { projectPath: '/tmp/p', branch: 'main', kind: 'doc', path: 'a.md' },
       buildDeps({ fetch: fetchMock }),
     );
     expect(result).toEqual(validBranchInfo);

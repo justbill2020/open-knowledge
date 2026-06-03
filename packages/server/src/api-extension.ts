@@ -238,8 +238,9 @@ import type { RecentlyRemovedDocs } from './recently-removed-docs.ts';
 import { readServerLock } from './server-lock.ts';
 import {
   buildGitHubBlobUrl,
+  buildGitHubTreeUrl,
   emitShareConstructUrlLog,
-  isValidShareDocPath,
+  isValidSharePath,
   SHARE_BASE_URL,
   SHARE_CONSTRUCT_URL_HANDLER_TAG,
 } from './share/construct-url.ts';
@@ -346,7 +347,7 @@ import {
 import {
   BRANCH_INFO_HANDLER_TAG,
   computeBranchInfo,
-  isValidBranchInfoDocPath,
+  isValidBranchInfoPath,
   isValidBranchName,
 } from './git-branch-info.ts';
 import { CHECKOUT_HANDLER_TAG, runCheckoutFlow } from './git-checkout.ts';
@@ -10113,7 +10114,7 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
     async (_req, res, body) => {
       try {
         if (!projectDir) {
-          emitShareConstructUrlLog('no-remote');
+          emitShareConstructUrlLog('no-remote', { kind: body.kind });
           successResponse(
             res,
             200,
@@ -10123,8 +10124,9 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
           );
           return;
         }
-        if (!isValidShareDocPath(body.docPath)) {
-          emitShareConstructUrlLog('invalid-path');
+        const sharePath = body.kind === 'doc' ? body.docPath : body.folderPath;
+        if (!isValidSharePath(sharePath, body.kind)) {
+          emitShareConstructUrlLog('invalid-path', { kind: body.kind });
           successResponse(
             res,
             200,
@@ -10138,7 +10140,7 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
         if (branch === null) {
           const originPeek = readOriginGitHubRepo(projectDir);
           if (originPeek.kind === 'no-remote') {
-            emitShareConstructUrlLog('no-remote');
+            emitShareConstructUrlLog('no-remote', { kind: body.kind });
             successResponse(
               res,
               200,
@@ -10148,7 +10150,7 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
             );
             return;
           }
-          emitShareConstructUrlLog('detached-head');
+          emitShareConstructUrlLog('detached-head', { kind: body.kind });
           successResponse(
             res,
             200,
@@ -10160,7 +10162,7 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
         }
         const origin = readOriginGitHubRepo(projectDir);
         if (origin.kind === 'no-remote') {
-          emitShareConstructUrlLog('no-remote');
+          emitShareConstructUrlLog('no-remote', { kind: body.kind });
           successResponse(
             res,
             200,
@@ -10171,7 +10173,7 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
           return;
         }
         if (origin.kind === 'non-github') {
-          emitShareConstructUrlLog('non-github-remote');
+          emitShareConstructUrlLog('non-github-remote', { kind: body.kind });
           successResponse(
             res,
             200,
@@ -10183,7 +10185,10 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
         }
         const branchExists = branchExistsOnOrigin(projectDir, branch);
         if (!branchExists) {
-          emitShareConstructUrlLog('branch-not-on-origin', false);
+          emitShareConstructUrlLog('branch-not-on-origin', {
+            branchExists: false,
+            kind: body.kind,
+          });
           successResponse(
             res,
             200,
@@ -10193,14 +10198,32 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
           );
           return;
         }
-        const blobUrl = buildGitHubBlobUrl(origin.owner, origin.repo, branch, body.docPath);
-        const shareUrl = `${SHARE_BASE_URL}${encodeShareUrl(blobUrl)}`;
-        emitShareConstructUrlLog('ok', true);
+        const contentRel = toGitRelativePath(projectDir, contentDir);
+        if (contentRel === null) {
+          throw new Error('content dir is not contained within the project dir');
+        }
+        const sharingNonRootTarget =
+          body.kind === 'doc' ? body.docPath !== '' : body.folderPath !== '';
+        if (contentRel !== '' && sharingNonRootTarget) {
+          getLogger('share').warn(
+            { action: 'construct-url', kind: body.kind },
+            '[share] content.dir != "." — non-root share URL omits the content.dir prefix; the github.com link may point at the wrong subtree. In-app receive navigation is content-relative and lands correctly.',
+          );
+        }
+        let sharedUrl: string;
+        if (body.kind === 'doc') {
+          sharedUrl = buildGitHubBlobUrl(origin.owner, origin.repo, branch, body.docPath);
+        } else {
+          const treePath = body.folderPath === '' ? contentRel : body.folderPath;
+          sharedUrl = buildGitHubTreeUrl(origin.owner, origin.repo, branch, treePath);
+        }
+        const shareUrl = `${SHARE_BASE_URL}${encodeShareUrl(sharedUrl)}`;
+        emitShareConstructUrlLog('ok', { branchExists: true, kind: body.kind });
         successResponse(
           res,
           200,
           ShareConstructUrlResponseSchema,
-          { ok: true, shareUrl, blobUrl, branch },
+          { ok: true, shareUrl, sharedUrl, branch },
           { handler: SHARE_CONSTRUCT_URL_HANDLER_TAG },
         );
       } catch (err) {
@@ -10234,7 +10257,9 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
         }
         const url = new URL(req.url ?? '', 'http://localhost');
         const branch = url.searchParams.get('branch');
-        const docPath = url.searchParams.get('path');
+        const path = url.searchParams.get('path');
+        const kindParam = url.searchParams.get('kind');
+        const kind: 'doc' | 'folder' = kindParam === 'folder' ? 'folder' : 'doc';
         if (!isValidBranchName(branch)) {
           errorResponse(
             res,
@@ -10245,7 +10270,7 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
           );
           return;
         }
-        if (!isValidBranchInfoDocPath(docPath)) {
+        if (!isValidBranchInfoPath(path, kind)) {
           errorResponse(
             res,
             400,
@@ -10255,7 +10280,7 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
           );
           return;
         }
-        const info = await computeBranchInfo(projectDir, branch, docPath);
+        const info = await computeBranchInfo(projectDir, branch, path, kind);
         successResponse(res, 200, BranchInfoResponseSchema, info, {
           handler: BRANCH_INFO_HANDLER_TAG,
         });

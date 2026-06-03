@@ -68,4 +68,34 @@ describe('buildFolderOverviewData', () => {
 
     expect(data.children[0]).toMatchObject({ kind: 'file', title: 'readme' });
   });
+
+  test('content-root (empty folderPath) lists only top-level children', () => {
+    const data = buildFolderOverviewData('', {
+      pages: new Set(['intro', 'README', 'docs/a', 'docs/b', 'reports/q1/summary']),
+      pageTitles: new Map([['intro', 'Intro']]),
+      pageMeta: new Map([['intro', { size: 10, modified: '2026-05-01T00:00:00Z' }]]),
+      folderPaths: new Set(['docs', 'reports', 'reports/q1']),
+    });
+
+    expect(data.children).toEqual([
+      { kind: 'folder', path: 'docs', name: 'docs', title: 'docs' },
+      { kind: 'folder', path: 'reports', name: 'reports', title: 'reports' },
+      {
+        kind: 'file',
+        path: 'intro',
+        name: 'intro',
+        title: 'Intro',
+        size: 10,
+        modified: '2026-05-01T00:00:00Z',
+      },
+      {
+        kind: 'file',
+        path: 'README',
+        name: 'README',
+        title: 'README',
+        size: 0,
+        modified: '',
+      },
+    ]);
+  });
 });

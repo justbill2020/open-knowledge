@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { parseGitHubBlobUrl, parseGitUrl } from './url.ts';
+import { parseGitHubBlobUrl, parseGitHubShareUrl, parseGitHubTreeUrl, parseGitUrl } from './url.ts';
 
 describe('parseGitUrl', () => {
   describe('https:// URLs', () => {
@@ -370,7 +370,7 @@ describe('parseGitHubBlobUrl', () => {
     ).toBeNull();
   });
 
-  test('malformed path (no /blob/ segment) returns null', () => {
+  test('tree (folder) URL returns null from blob-only parser', () => {
     expect(parseGitHubBlobUrl('https://github.com/owner/repo/tree/main/README.md')).toBeNull();
   });
 
@@ -423,5 +423,163 @@ describe('parseGitHubBlobUrl', () => {
         });
       });
     }
+  });
+});
+
+describe('parseGitHubTreeUrl', () => {
+  test('happy path: tree URL with a folder path', () => {
+    const result = parseGitHubTreeUrl(
+      'https://github.com/inkeep/open-knowledge/tree/main/docs/sub',
+    );
+    expect(result).toEqual({
+      owner: 'inkeep',
+      repo: 'open-knowledge',
+      branch: 'main',
+      path: 'docs/sub',
+    });
+  });
+
+  test('root folder: tree/<branch> (no path, no trailing slash) -> path ""', () => {
+    const result = parseGitHubTreeUrl('https://github.com/owner/repo/tree/main');
+    expect(result).toEqual({ owner: 'owner', repo: 'repo', branch: 'main', path: '' });
+  });
+
+  test('root folder: tree/<branch>/ (trailing slash) -> path ""', () => {
+    const result = parseGitHubTreeUrl('https://github.com/owner/repo/tree/main/');
+    expect(result).toEqual({ owner: 'owner', repo: 'repo', branch: 'main', path: '' });
+  });
+
+  test('branch containing slash (percent-encoded) round-trips', () => {
+    const result = parseGitHubTreeUrl(
+      'https://github.com/inkeep/open-knowledge/tree/feat%2Ffoo/docs',
+    );
+    expect(result).toEqual({
+      owner: 'inkeep',
+      repo: 'open-knowledge',
+      branch: 'feat/foo',
+      path: 'docs',
+    });
+  });
+
+  test('%2F-encoded slashed branch at root round-trips', () => {
+    const result = parseGitHubTreeUrl('https://github.com/owner/repo/tree/feat%2Ffoo');
+    expect(result).toEqual({ owner: 'owner', repo: 'repo', branch: 'feat/foo', path: '' });
+  });
+
+  test('percent-encoded path segments round-trip', () => {
+    const result = parseGitHubTreeUrl(
+      'https://github.com/owner/repo/tree/main/docs/Q4%20OKRs%20%E2%80%94%20Marketing',
+    );
+    expect(result).toEqual({
+      owner: 'owner',
+      repo: 'repo',
+      branch: 'main',
+      path: 'docs/Q4 OKRs — Marketing',
+    });
+  });
+
+  test('accepts www.github.com host', () => {
+    const result = parseGitHubTreeUrl('https://www.github.com/owner/repo/tree/main/docs');
+    expect(result).toEqual({ owner: 'owner', repo: 'repo', branch: 'main', path: 'docs' });
+  });
+
+  test('ignores query string and fragment', () => {
+    const result = parseGitHubTreeUrl('https://github.com/owner/repo/tree/main/docs?ref=x#frag');
+    expect(result).toEqual({ owner: 'owner', repo: 'repo', branch: 'main', path: 'docs' });
+  });
+
+  test('blob URL returns null', () => {
+    expect(parseGitHubTreeUrl('https://github.com/owner/repo/blob/main/README.md')).toBeNull();
+  });
+
+  test('non-github host returns null', () => {
+    expect(parseGitHubTreeUrl('https://gitlab.com/owner/repo/tree/main/docs')).toBeNull();
+  });
+
+  test('subdomain spoofing returns null', () => {
+    expect(
+      parseGitHubTreeUrl('https://github.com.evil.example/owner/repo/tree/main/docs'),
+    ).toBeNull();
+  });
+
+  test('empty intermediate path segment returns null', () => {
+    expect(parseGitHubTreeUrl('https://github.com/owner/repo/tree/main/a//b')).toBeNull();
+  });
+
+  test('missing branch (path ends after /tree/) returns null', () => {
+    expect(parseGitHubTreeUrl('https://github.com/owner/repo/tree/')).toBeNull();
+  });
+
+  test('not a URL returns null', () => {
+    expect(parseGitHubTreeUrl('not-a-url')).toBeNull();
+  });
+
+  test('empty string returns null', () => {
+    expect(parseGitHubTreeUrl('')).toBeNull();
+  });
+});
+
+describe('parseGitHubShareUrl (dispatcher)', () => {
+  test('blob URL dispatches to kind:"doc"', () => {
+    const result = parseGitHubShareUrl(
+      'https://github.com/inkeep/open-knowledge/blob/main/README.md',
+    );
+    expect(result).toEqual({
+      kind: 'doc',
+      owner: 'inkeep',
+      repo: 'open-knowledge',
+      branch: 'main',
+      path: 'README.md',
+    });
+  });
+
+  test('tree URL with path dispatches to kind:"folder"', () => {
+    const result = parseGitHubShareUrl('https://github.com/owner/repo/tree/main/docs/sub');
+    expect(result).toEqual({
+      kind: 'folder',
+      owner: 'owner',
+      repo: 'repo',
+      branch: 'main',
+      path: 'docs/sub',
+    });
+  });
+
+  test('tree root URL dispatches to kind:"folder" with empty path', () => {
+    const result = parseGitHubShareUrl('https://github.com/owner/repo/tree/main');
+    expect(result).toEqual({
+      kind: 'folder',
+      owner: 'owner',
+      repo: 'repo',
+      branch: 'main',
+      path: '',
+    });
+  });
+
+  test('tree root URL with trailing slash dispatches to kind:"folder" with empty path', () => {
+    const result = parseGitHubShareUrl('https://github.com/owner/repo/tree/main/');
+    expect(result).toEqual({
+      kind: 'folder',
+      owner: 'owner',
+      repo: 'repo',
+      branch: 'main',
+      path: '',
+    });
+  });
+
+  test('%2F-encoded slashed branch on a tree URL round-trips', () => {
+    const result = parseGitHubShareUrl('https://github.com/owner/repo/tree/feat%2Ffoo/docs');
+    expect(result).toEqual({
+      kind: 'folder',
+      owner: 'owner',
+      repo: 'repo',
+      branch: 'feat/foo',
+      path: 'docs',
+    });
+  });
+
+  test('non-github / malformed input returns null', () => {
+    expect(parseGitHubShareUrl('https://gitlab.com/owner/repo/tree/main/docs')).toBeNull();
+    expect(parseGitHubShareUrl('not-a-url')).toBeNull();
+    expect(parseGitHubShareUrl('')).toBeNull();
   });
 });

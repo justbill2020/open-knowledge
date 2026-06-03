@@ -148,6 +148,7 @@ export function FolderOverview({ folderPath }: { folderPath: string }) {
 
   const data = buildFolderOverviewData(folderPath, { pages, pageTitles, pageMeta, folderPaths });
   const sorted = sortEntries(data.children, sortKey, sortDir);
+  const heading = data.title || (folderPath === '' ? t`All files` : data.title);
 
   function handleSort(key: SortKey) {
     if (key === sortKey) {
@@ -166,7 +167,7 @@ export function FolderOverview({ folderPath }: { folderPath: string }) {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="flex items-center gap-2">
                 <FolderOpen className="size-5 text-muted-foreground" />
-                <h1 className="text-2xl font-light tracking-tight">{data.title}</h1>
+                <h1 className="text-2xl font-light tracking-tight">{heading}</h1>
               </div>
               <Button onClick={() => setCreateDialogOpen(true)}>
                 <Plus className="size-4" />

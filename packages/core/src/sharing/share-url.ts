@@ -2,7 +2,7 @@ const SHARE_URL_VERSION_V1 = 0x01;
 
 export interface DecodedShare {
   version: number;
-  blobUrl: string;
+  sharedUrl: string;
 }
 
 export class UnsupportedShareVersionError extends Error {
@@ -21,8 +21,8 @@ export class InvalidShareUrlError extends Error {
   }
 }
 
-export function encodeShareUrl(blobUrl: string): string {
-  const blobBytes = new TextEncoder().encode(blobUrl);
+export function encodeShareUrl(sharedUrl: string): string {
+  const blobBytes = new TextEncoder().encode(sharedUrl);
   const bytes = new Uint8Array(1 + blobBytes.length);
   bytes[0] = SHARE_URL_VERSION_V1;
   bytes.set(blobBytes, 1);
@@ -52,14 +52,14 @@ export function decodeShareUrl(encoded: string): DecodedShare {
   }
 
   const decoder = new TextDecoder('utf-8', { fatal: true });
-  let blobUrl: string;
+  let sharedUrl: string;
   try {
-    blobUrl = decoder.decode(bytes.subarray(1));
+    sharedUrl = decoder.decode(bytes.subarray(1));
   } catch {
     throw new InvalidShareUrlError('Share payload body is not valid UTF-8');
   }
 
-  return { version, blobUrl };
+  return { version, sharedUrl };
 }
 
 function uint8ArrayToBase64Url(bytes: Uint8Array): string {

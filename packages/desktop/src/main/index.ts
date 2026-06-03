@@ -102,7 +102,7 @@ import {
   type BundleReplaceWatcherHandle,
   startBundleReplaceWatcher,
 } from './bundle-replace-detector.ts';
-import { checkDocExists as checkDocExistsImpl } from './check-doc-exists.ts';
+import { checkTargetExists as checkTargetExistsImpl } from './check-target-exists.ts';
 import { requestUserConsent, walkExceedsCap } from './consent-dialog.ts';
 import {
   CreateNewProjectError,
@@ -642,16 +642,17 @@ const BOOT_BUDGET_FILE_CAP = 10_000;
 async function openProject(
   projectPath: string,
   entryPoint: EntryPoint,
-  pendingDeepLinkDoc?: string,
+  pendingDeepLinkTarget?: { kind: 'doc' | 'folder'; path: string },
   pendingBranch?: string | null,
   pendingMultiCandidate?: boolean,
   pendingShareBranchSwitch?: ShareDeepLinkBranchSwitchPayload,
+  pendingTargetMissing?: boolean,
 ) {
   getLogger('project').info(
     {
       projectName: basename(projectPath),
       entryPoint,
-      hasDeepLinkDoc: !!pendingDeepLinkDoc,
+      hasDeepLinkTarget: !!pendingDeepLinkTarget,
       hasPendingBranch: !!pendingBranch,
     },
     'opening project',
@@ -889,9 +890,10 @@ async function openProject(
 
   const ctx = await wm.createProjectWindow({
     projectPath: resolvedProjectDir,
-    pendingDeepLinkDoc,
+    pendingDeepLinkTarget,
     pendingBranch,
     pendingMultiCandidate,
+    pendingTargetMissing,
     pendingShareBranchSwitch,
     didEnsureGit,
     consentVersion: 1,
@@ -939,19 +941,21 @@ async function openProject(
 async function openProjectOrFallbackToNavigator(
   projectPath: string,
   entryPoint: EntryPoint,
-  pendingDeepLinkDoc?: string,
+  pendingDeepLinkTarget?: { kind: 'doc' | 'folder'; path: string },
   pendingBranch?: string | null,
   pendingMultiCandidate?: boolean,
   pendingShareBranchSwitch?: ShareDeepLinkBranchSwitchPayload,
+  pendingTargetMissing?: boolean,
 ) {
   try {
     await openProject(
       projectPath,
       entryPoint,
-      pendingDeepLinkDoc,
+      pendingDeepLinkTarget,
       pendingBranch,
       pendingMultiCandidate,
       pendingShareBranchSwitch,
+      pendingTargetMissing,
     );
   } catch (err) {
     const errorMessage = (err as Error).message;
@@ -1653,13 +1657,14 @@ function registerIpcHandlers() {
         `ok:project:open rejected: invalid entryPoint '${String(request.entryPoint)}'`,
       );
     }
-    if (request.pendingDeepLinkDoc !== undefined && wm) {
+    if (request.pendingDeepLinkTarget !== undefined && wm) {
       const existing = wm.focusWindowForProject(request.path) as
         | (BrowserWindowLike & { webContents: BrowserWindowLike['webContents'] })
         | null;
       if (existing) {
         sendToRenderer(existing.webContents, 'ok:deep-link', {
-          doc: request.pendingDeepLinkDoc,
+          doc: request.pendingDeepLinkTarget.path,
+          kind: request.pendingDeepLinkTarget.kind,
           branch: request.pendingBranch ?? null,
           multiCandidate: request.pendingMultiCandidate === true,
         });
@@ -1669,7 +1674,7 @@ function registerIpcHandlers() {
     await openProjectOrFallbackToNavigator(
       request.path,
       request.entryPoint,
-      request.pendingDeepLinkDoc,
+      request.pendingDeepLinkTarget,
       request.pendingBranch,
       request.pendingMultiCandidate,
     );
@@ -1683,8 +1688,8 @@ function registerIpcHandlers() {
     });
   });
 
-  handle('ok:project:check-doc-exists', async (_event, request) => {
-    return checkDocExistsImpl(request.projectPath, request.docPath);
+  handle('ok:project:check-target-exists', async (_event, request) => {
+    return checkTargetExistsImpl(request.projectPath, request.kind, request.path);
   });
 
   handle('ok:project:read-head-branch', async (_event, projectPath) => {
@@ -2117,10 +2122,11 @@ function bootPrimaryInstance(): void {
       await openProjectOrFallbackToNavigator(
         projectPath,
         'deep-link',
-        opts?.pendingDeepLinkDoc,
+        opts?.pendingDeepLinkTarget,
         opts?.pendingBranch,
         opts?.pendingMultiCandidate,
         opts?.pendingShareBranchSwitch,
+        opts?.pendingTargetMissing,
       );
       const ctx = wm?.getWindowFor(projectPath);
       if (!ctx) {
@@ -2140,6 +2146,8 @@ function bootPrimaryInstance(): void {
       resolveShareTargetMain(share, {
         listRecent: () => annotateMissing(appState),
       }),
+    checkShareTargetExists: (projectPath, kind, path) =>
+      checkTargetExistsImpl(projectPath, kind, path),
     routeShareToNavigator: (payload) => {
       openNavigator(payload);
     },

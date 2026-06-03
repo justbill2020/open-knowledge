@@ -197,9 +197,23 @@ const bridge: OkDesktopBridge = {
     return () => ipcRenderer.removeListener('ok:update:stuck-hint', listener);
   },
 
-  onDeepLink(cb: (evt: { doc: string; branch?: string | null }) => void) {
-    const listener = (_event: IpcRendererEvent, evt: { doc: string; branch?: string | null }) =>
-      cb(evt);
+  onDeepLink(
+    cb: (evt: {
+      doc: string;
+      kind: 'doc' | 'folder';
+      branch?: string | null;
+      multiCandidate?: boolean;
+    }) => void,
+  ) {
+    const listener = (
+      _event: IpcRendererEvent,
+      evt: {
+        doc: string;
+        kind: 'doc' | 'folder';
+        branch?: string | null;
+        multiCandidate?: boolean;
+      },
+    ) => cb(evt);
     // biome-ignore lint/plugin/no-loosely-typed-webcontents-ipc: preload-side subscription wrapper (precedent #14)
     ipcRenderer.on('ok:deep-link', listener);
     return () => ipcRenderer.removeListener('ok:deep-link', listener);
@@ -278,7 +292,7 @@ const bridge: OkDesktopBridge = {
     createNew: (args) => invoke('ok:project:create-new', args),
     recordCreateNewBannerShown: (banner) =>
       invoke('ok:project:record-create-new-banner-shown', banner),
-    checkDocExists: (request) => invoke('ok:project:check-doc-exists', request),
+    checkTargetExists: (request) => invoke('ok:project:check-target-exists', request),
     readHeadBranch: (projectPath: string) => invoke('ok:project:read-head-branch', projectPath),
     fetchBranchInfo: (request) => invoke('ok:project:fetch-branch-info', request),
     runCheckout: (request) => invoke('ok:project:run-checkout', request),

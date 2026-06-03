@@ -177,7 +177,7 @@ export function PublishToGitHubDialog({ open, onOpenChange }: PublishToGitHubDia
     void (async () => {
       try {
         const docPath = docNameToMarkdownPath(activeDocName);
-        const response = await requestShareConstructUrl(docPath);
+        const response = await requestShareConstructUrl({ kind: 'doc', docPath });
         if (cancelled) return;
         if (response.ok) {
           setShareUrl(response.shareUrl);

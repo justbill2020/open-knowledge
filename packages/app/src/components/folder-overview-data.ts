@@ -50,7 +50,7 @@ export function buildFolderOverviewData(
     folderPaths: ReadonlySet<string>;
   },
 ): FolderOverviewData {
-  const prefix = `${folderPath}/`;
+  const prefix = folderPath === '' ? '' : `${folderPath}/`;
 
   const folders: FolderOverviewEntry[] = [...options.folderPaths]
     .filter((path) => path.startsWith(prefix))

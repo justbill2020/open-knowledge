@@ -1462,14 +1462,14 @@ describe('WindowManager.focusWindowForProject (M4 URL-scheme warm-start)', () =>
   });
 });
 
-describe('WindowManager — pendingDeepLinkDoc dom-ready gate (M4 US-007 / Finding 2)', () => {
+describe('WindowManager — pendingDeepLinkTarget dom-ready gate (M4 US-007 / Finding 2)', () => {
   let env: TestEnv;
 
   beforeEach(() => {
     env = buildEnv();
   });
 
-  test('spawn path: pendingDeepLinkDoc registers dom-ready listener BEFORE loadURL resolves', async () => {
+  test('spawn path: pendingDeepLinkTarget registers dom-ready listener BEFORE loadURL resolves', async () => {
     let onceCalledBeforeLoadResolved = false;
     let domReadyRegistrations = 0;
     env.deps.createWindow = () => {
@@ -1492,7 +1492,7 @@ describe('WindowManager — pendingDeepLinkDoc dom-ready gate (M4 US-007 / Findi
     const wm = new WindowManager(env.deps);
     const pending = wm.createProjectWindow({
       projectPath: '/tmp/deep-link-proj',
-      pendingDeepLinkDoc: 'notes/meeting',
+      pendingDeepLinkTarget: { kind: 'doc', path: 'notes/meeting' },
     });
     env.utilities[0]?.fire({ type: 'ready', port: 51220, apiOrigin: 'http://localhost:51220' });
     await pending;
@@ -1508,12 +1508,13 @@ describe('WindowManager — pendingDeepLinkDoc dom-ready gate (M4 US-007 / Findi
     expect(deepLinkCall).toBeDefined();
     expect(deepLinkCall?.[1]).toEqual({
       doc: 'notes/meeting',
+      kind: 'doc',
       branch: null,
       multiCandidate: false,
     });
   });
 
-  test('spawn path: no pendingDeepLinkDoc → no ok:deep-link event fires on dom-ready', async () => {
+  test('spawn path: no pendingDeepLinkTarget → no ok:deep-link event fires on dom-ready', async () => {
     const wm = new WindowManager(env.deps);
     const pending = wm.createProjectWindow({ projectPath: '/tmp/no-deep-link' });
     env.utilities[0]?.fire({ type: 'ready', port: 51221, apiOrigin: 'http://localhost:51221' });
@@ -1526,7 +1527,7 @@ describe('WindowManager — pendingDeepLinkDoc dom-ready gate (M4 US-007 / Findi
     expect(sendCalls.find((c) => c[0] === 'ok:deep-link')).toBeUndefined();
   });
 
-  test('attach path: pendingDeepLinkDoc also fires on dom-ready', async () => {
+  test('attach path: pendingDeepLinkTarget also fires on dom-ready', async () => {
     const liveLock: ServerLockMetadataLike = {
       pid: 65793,
       hostname: 'my-host',
@@ -1544,7 +1545,7 @@ describe('WindowManager — pendingDeepLinkDoc dom-ready gate (M4 US-007 / Findi
     const wm = new WindowManager(env.deps);
     const ctx = await wm.createProjectWindow({
       projectPath: '/tmp/attach-deep-link',
-      pendingDeepLinkDoc: 'attached/note',
+      pendingDeepLinkTarget: { kind: 'doc', path: 'attached/note' },
     });
     expect(ctx.ownsServer).toBe(false);
 
@@ -1556,6 +1557,7 @@ describe('WindowManager — pendingDeepLinkDoc dom-ready gate (M4 US-007 / Findi
     expect(deepLinkCall).toBeDefined();
     expect(deepLinkCall?.[1]).toEqual({
       doc: 'attached/note',
+      kind: 'doc',
       branch: null,
       multiCandidate: false,
     });
@@ -1565,7 +1567,7 @@ describe('WindowManager — pendingDeepLinkDoc dom-ready gate (M4 US-007 / Findi
     const wm = new WindowManager(env.deps);
     const pending = wm.createProjectWindow({
       projectPath: '/tmp/branch-aware-spawn',
-      pendingDeepLinkDoc: 'docs/page.md',
+      pendingDeepLinkTarget: { kind: 'doc', path: 'docs/page.md' },
       pendingBranch: 'feat/foo',
     });
     env.utilities[0]?.fire({ type: 'ready', port: 51222, apiOrigin: 'http://localhost:51222' });
@@ -1578,6 +1580,7 @@ describe('WindowManager — pendingDeepLinkDoc dom-ready gate (M4 US-007 / Findi
     const deepLinkCall = sendCalls.find((c) => c[0] === 'ok:deep-link');
     expect(deepLinkCall?.[1]).toEqual({
       doc: 'docs/page.md',
+      kind: 'doc',
       branch: 'feat/foo',
       multiCandidate: false,
     });
@@ -1601,7 +1604,7 @@ describe('WindowManager — pendingDeepLinkDoc dom-ready gate (M4 US-007 / Findi
     const wm = new WindowManager(env.deps);
     await wm.createProjectWindow({
       projectPath: '/tmp/attach-branch',
-      pendingDeepLinkDoc: 'attached/note',
+      pendingDeepLinkTarget: { kind: 'doc', path: 'attached/note' },
       pendingBranch: 'release/v2',
     });
 
@@ -1612,7 +1615,30 @@ describe('WindowManager — pendingDeepLinkDoc dom-ready gate (M4 US-007 / Findi
     const deepLinkCall = sendCalls.find((c) => c[0] === 'ok:deep-link');
     expect(deepLinkCall?.[1]).toEqual({
       doc: 'attached/note',
+      kind: 'doc',
       branch: 'release/v2',
+      multiCandidate: false,
+    });
+  });
+
+  test('spawn path: pendingDeepLinkTarget threads the folder kind into the deep-link payload', async () => {
+    const wm = new WindowManager(env.deps);
+    const pending = wm.createProjectWindow({
+      projectPath: '/tmp/folder-share-spawn',
+      pendingDeepLinkTarget: { kind: 'folder', path: 'docs' },
+    });
+    env.utilities[0]?.fire({ type: 'ready', port: 51223, apiOrigin: 'http://localhost:51223' });
+    await pending;
+
+    const window = env.windows[0];
+    if (!window) throw new Error('expected window to be created');
+    window.fireDomReady();
+    const sendCalls = (window.webContents.send as ReturnType<typeof mock>).mock.calls;
+    const deepLinkCall = sendCalls.find((c) => c[0] === 'ok:deep-link');
+    expect(deepLinkCall?.[1]).toEqual({
+      doc: 'docs',
+      kind: 'folder',
+      branch: null,
       multiCandidate: false,
     });
   });

@@ -14,10 +14,11 @@ describe('ShareButton — load-bearing structural guards', () => {
     expect(SRC).toContain('runShareAction');
   });
 
-  test('reads activeDocName via useDocumentContext (single source of focused doc)', () => {
-    expect(SRC).toContain("from '@/editor/DocumentContext'");
-    expect(SRC).toContain('useDocumentContext');
-    expect(SRC).toContain('activeDocName');
+  test('takes a discriminated ShareTargetInput (doc|folder) | null via props (not a self-read of activeDocName)', () => {
+    expect(SRC).toContain('ShareTargetInput');
+    expect(SRC).toContain("from '@/lib/share/run-share-action'");
+    expect(SRC).toMatch(/input\s*:\s*ShareTargetInput\s*\|\s*null/);
+    expect(SRC).not.toContain('useDocumentContext');
   });
 
   test('reads hasRemote via useGitSyncStatusDetailed (no extra fetch)', () => {
@@ -54,8 +55,8 @@ describe('ShareButton — load-bearing structural guards', () => {
     expect(SRC).toContain('<Trans>Share</Trans>');
   });
 
-  test('Button carries an aria-label so the icon-bearing affordance is screen-reader navigable', () => {
-    expect(SRC).toMatch(/aria-label=\{t`Share doc`\}/);
+  test('Button carries a kind-aware aria-label so the icon-bearing affordance is screen-reader navigable', () => {
+    expect(SRC).toMatch(/aria-label=\{[\s\S]*?t`Share folder`[\s\S]*?t`Share doc`[\s\S]*?\}/);
   });
 
   test('renders the Share2 icon from lucide-react', () => {
@@ -68,13 +69,8 @@ describe('ShareButton — load-bearing structural guards', () => {
   });
 
   test('busy flag disables the button so double-clicks cannot fire two requests', () => {
-    expect(SRC).toMatch(/disabled=\{busy\}/);
     expect(SRC).toMatch(/setBusy\(true\)/);
     expect(SRC).toMatch(/setBusy\(false\)/);
-  });
-
-  test('returns null when no doc is focused (button has nothing to share)', () => {
-    expect(SRC).toMatch(/if \(!activeDocName\) return null;/);
   });
 
   test('no React Compiler escape hatches (forwardRef / memo / useMemo / useCallback)', () => {

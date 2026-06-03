@@ -2,7 +2,7 @@ const SHARE_URL_VERSION_V1 = 0x01;
 
 interface DecodedShare {
   version: number;
-  blobUrl: string;
+  sharedUrl: string;
 }
 
 class UnsupportedShareVersionError extends Error {
@@ -44,14 +44,14 @@ function decodeShareUrl(encoded: string): DecodedShare {
   }
 
   const decoder = new TextDecoder('utf-8', { fatal: true });
-  let blobUrl: string;
+  let sharedUrl: string;
   try {
-    blobUrl = decoder.decode(bytes.subarray(1));
+    sharedUrl = decoder.decode(bytes.subarray(1));
   } catch {
     throw new InvalidShareUrlError('Share payload body is not valid UTF-8');
   }
 
-  return { version, blobUrl };
+  return { version, sharedUrl };
 }
 
 function base64UrlToUint8Array(input: string): Uint8Array {
@@ -74,6 +74,17 @@ export interface ParsedGitHubBlobUrl {
   branch: string;
   path: string;
 }
+
+export interface ParsedGitHubTreeUrl {
+  owner: string;
+  repo: string;
+  branch: string;
+  path: string;
+}
+
+export type ParsedGitHubShareTarget =
+  | { kind: 'doc'; owner: string; repo: string; branch: string; path: string }
+  | { kind: 'folder'; owner: string; repo: string; branch: string; path: string };
 
 function parseGitHubBlobUrl(input: string): ParsedGitHubBlobUrl | null {
   let url: URL;
@@ -111,11 +122,61 @@ function parseGitHubBlobUrl(input: string): ParsedGitHubBlobUrl | null {
   return { owner, repo, branch, path: pathParts.join('/') };
 }
 
+function parseGitHubTreeUrl(input: string): ParsedGitHubTreeUrl | null {
+  let url: URL;
+  try {
+    url = new URL(input);
+  } catch {
+    return null;
+  }
+
+  if (url.hostname !== 'github.com' && url.hostname !== 'www.github.com') {
+    return null;
+  }
+
+  const rawSegments = url.pathname.split('/');
+
+  if (rawSegments.length < 5) return null;
+  if (rawSegments[0] !== '') return null; // leading-slash hygiene
+  if (rawSegments[3] !== 'tree') return null;
+
+  const pathSegmentsRaw = rawSegments.slice(5);
+  if (pathSegmentsRaw.length === 1 && pathSegmentsRaw[0] === '') pathSegmentsRaw.pop();
+
+  let owner: string;
+  let repo: string;
+  let branch: string;
+  let pathParts: string[];
+  try {
+    owner = decodeURIComponent(rawSegments[1]);
+    repo = decodeURIComponent(rawSegments[2]);
+    branch = decodeURIComponent(rawSegments[4]);
+    pathParts = pathSegmentsRaw.map((s) => decodeURIComponent(s));
+  } catch {
+    return null;
+  }
+
+  if (!owner || !repo || !branch) return null;
+  if (pathParts.some((p) => p.length === 0)) return null;
+
+  return { owner, repo, branch, path: pathParts.join('/') };
+}
+
+function parseGitHubShareUrl(input: string): ParsedGitHubShareTarget | null {
+  const blob = parseGitHubBlobUrl(input);
+  if (blob) return { kind: 'doc', ...blob };
+
+  const tree = parseGitHubTreeUrl(input);
+  if (tree) return { kind: 'folder', ...tree };
+
+  return null;
+}
+
 export const SPLASH_DOWNLOAD_URL =
   'https://github.com/inkeep/open-knowledge/releases/latest/download/Open-Knowledge-arm64.dmg';
 
-export function buildCustomSchemeUrl(blobUrl: string): string {
-  return `openknowledge://share?url=${encodeURIComponent(blobUrl)}`;
+export function buildCustomSchemeUrl(sharedUrl: string): string {
+  return `openknowledge://share?url=${encodeURIComponent(sharedUrl)}`;
 }
 
 function isCommonDefaultBranch(branch: string): boolean {
@@ -125,13 +186,14 @@ function isCommonDefaultBranch(branch: string): boolean {
 export type SplashView =
   | {
       kind: 'ok';
+      target: 'doc' | 'folder';
       filename: string;
       owner: string;
       repo: string;
       repoPath: string;
       branch: string;
       isDefaultBranch: boolean;
-      blobUrl: string;
+      sharedUrl: string;
       customSchemeUrl: string;
       githubUrl: string;
     }
@@ -152,25 +214,27 @@ export function buildSplashViewModel(encoded: string): SplashView {
     return { kind: 'invalid' };
   }
 
-  const parsed = parseGitHubBlobUrl(decoded.blobUrl);
+  const parsed = parseGitHubShareUrl(decoded.sharedUrl);
   if (!parsed) {
     return { kind: 'invalid' };
   }
 
-  const { owner, repo, branch, path } = parsed;
-  const segments = path.split('/');
-  const filename = segments[segments.length - 1] ?? path;
+  const { kind, owner, repo, branch, path } = parsed;
+  const segments = path.split('/').filter((s) => s.length > 0);
+  const basename = segments[segments.length - 1];
+  const filename = basename ?? repo;
 
   return {
     kind: 'ok',
+    target: kind,
     filename,
     owner,
     repo,
     repoPath: `${owner}/${repo}`,
     branch,
     isDefaultBranch: isCommonDefaultBranch(branch),
-    blobUrl: decoded.blobUrl,
-    customSchemeUrl: buildCustomSchemeUrl(decoded.blobUrl),
-    githubUrl: decoded.blobUrl,
+    sharedUrl: decoded.sharedUrl,
+    customSchemeUrl: buildCustomSchemeUrl(decoded.sharedUrl),
+    githubUrl: decoded.sharedUrl,
   };
 }

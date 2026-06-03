@@ -1,11 +1,24 @@
 import type {
   ShareConstructUrlErrorCode,
+  ShareConstructUrlRequest,
   ShareConstructUrlResponse,
 } from '@inkeep/open-knowledge-core';
 import { ShareConstructUrlResponseSchema } from '@inkeep/open-knowledge-core';
 import { docNameToMarkdownPath } from '@/lib/doc-paths';
 
 const SHARE_CONSTRUCT_URL_PATH = '/api/share/construct-url';
+
+export type ShareTargetInput =
+  | { kind: 'doc'; docName: string }
+  | { kind: 'folder'; folderRelativePath: string };
+
+export function buildDocShareInput(docName: string): ShareTargetInput {
+  return { kind: 'doc', docName };
+}
+
+export function buildFolderShareInput(folderRelativePath: string): ShareTargetInput {
+  return { kind: 'folder', folderRelativePath };
+}
 
 export interface ShareActionDeps {
   fetchFn?: typeof fetch;
@@ -15,11 +28,10 @@ export interface ShareActionDeps {
   logEvent: (msg: string) => void;
 }
 
-export interface RunShareActionInput {
-  docName: string;
+export type RunShareActionInput = {
   hasRemote: boolean;
   onClickWhenNoRemote: () => void;
-}
+} & ShareTargetInput;
 
 export type RunShareActionResult =
   | { kind: 'opened-wizard' }
@@ -32,19 +44,19 @@ const TRANSPORT_ERROR_TOAST = 'Could not construct share URL.';
 const CLIPBOARD_ERROR_TOAST = 'Link ready but could not copy to clipboard.';
 
 export async function requestShareConstructUrl(
-  docPath: string,
+  body: ShareConstructUrlRequest,
   fetchFn: typeof fetch = fetch,
 ): Promise<ShareConstructUrlResponse> {
   const res = await fetchFn(SHARE_CONSTRUCT_URL_PATH, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ docPath }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     throw new Error(`construct-url transport ${res.status}`);
   }
-  const body = await res.json();
-  const parsed = ShareConstructUrlResponseSchema.safeParse(body);
+  const responseBody = await res.json();
+  const parsed = ShareConstructUrlResponseSchema.safeParse(responseBody);
   if (!parsed.success) {
     throw new Error('construct-url response shape mismatch');
   }
@@ -77,11 +89,14 @@ export async function runShareAction(
     return { kind: 'opened-wizard' };
   }
 
-  const docPath = docNameToMarkdownPath(input.docName);
+  const body: ShareConstructUrlRequest =
+    input.kind === 'folder'
+      ? { kind: 'folder', folderPath: input.folderRelativePath }
+      : { kind: 'doc', docPath: docNameToMarkdownPath(input.docName) };
 
   let response: ShareConstructUrlResponse;
   try {
-    response = await requestShareConstructUrl(docPath, deps.fetchFn);
+    response = await requestShareConstructUrl(body, deps.fetchFn);
   } catch {
     deps.toastError(TRANSPORT_ERROR_TOAST);
     return { kind: 'transport-error' };
@@ -95,7 +110,7 @@ export async function runShareAction(
       deps.logEvent('[share] action=link-construct result=clipboard-failed');
       return { kind: 'clipboard-failed', shareUrl: response.shareUrl };
     }
-    deps.toastSuccess('Link copied.');
+    deps.toastSuccess(input.kind === 'folder' ? 'Folder share link copied.' : 'Link copied.');
     deps.logEvent('[share] action=link-construct');
     return { kind: 'copied', shareUrl: response.shareUrl, branch: response.branch };
   }

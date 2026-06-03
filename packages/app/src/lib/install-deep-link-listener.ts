@@ -1,16 +1,11 @@
 import { toast } from 'sonner';
 import type { OkDesktopBridge } from '@/lib/desktop-bridge-types';
+import { encodeShareTargetForHash } from '@/lib/doc-hash';
 
 interface InstallDeepLinkListenerOptions {
   bridge: OkDesktopBridge | undefined;
   setHash?: (hash: string) => void;
   emitToast?: (message: string, opts: { description: string; duration: number }) => void;
-}
-
-function encodeDocForHash(doc: string, branch?: string | null): string {
-  const base = `#/${encodeURIComponent(doc)}`;
-  if (branch === undefined || branch === null || branch === '') return base;
-  return `${base}?branch=${encodeURIComponent(branch)}`;
 }
 
 export function deriveShareReceiveToast(
@@ -43,7 +38,20 @@ export function installDeepLinkListener(
       toast(message, toastOpts);
     });
   return bridge.onDeepLink((evt) => {
-    setHash(encodeDocForHash(evt.doc, evt.branch));
+    const kind = evt.kind ?? 'doc';
+    if (evt.targetMissing === true) {
+      const label = kind === 'folder' ? 'folder' : 'file';
+      const onBranch =
+        evt.branch === undefined || evt.branch === null || evt.branch === ''
+          ? ''
+          : ` on branch ${evt.branch}`;
+      emitToast(`This ${label} isn't in your local checkout${onBranch} yet`, {
+        description: 'Pull the latest changes, then open the share link again.',
+        duration: 5000,
+      });
+      return;
+    }
+    setHash(encodeShareTargetForHash(kind, evt.doc, kind === 'doc' ? evt.branch : undefined));
     const payload = deriveShareReceiveToast(evt, bridge.config.projectPath);
     if (payload !== null) {
       emitToast(payload.message, { description: payload.description, duration: 3000 });

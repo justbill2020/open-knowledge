@@ -116,25 +116,51 @@ describe('requestShareConstructUrl', () => {
         json: async () => ({
           ok: true,
           shareUrl: 'https://openknowledge.ai/d/AaaXX',
-          blobUrl: 'https://github.com/o/r/blob/main/a.md',
+          sharedUrl: 'https://github.com/o/r/blob/main/a.md',
           branch: 'main',
         }),
       } as unknown as Response;
     }) as unknown as typeof fetch;
 
-    const result = await requestShareConstructUrl('a.md', stubFetch);
+    const result = await requestShareConstructUrl({ kind: 'doc', docPath: 'a.md' }, stubFetch);
 
     expect(calls).toHaveLength(1);
     expect(calls[0].url).toBe('/api/share/construct-url');
     expect(calls[0].init?.method).toBe('POST');
     expect(calls[0].init?.headers).toMatchObject({ 'Content-Type': 'application/json' });
-    expect(JSON.parse(String(calls[0].init?.body))).toEqual({ docPath: 'a.md' });
+    expect(JSON.parse(String(calls[0].init?.body))).toEqual({ kind: 'doc', docPath: 'a.md' });
     expect(result).toEqual({
       ok: true,
       shareUrl: 'https://openknowledge.ai/d/AaaXX',
-      blobUrl: 'https://github.com/o/r/blob/main/a.md',
+      sharedUrl: 'https://github.com/o/r/blob/main/a.md',
       branch: 'main',
     });
+  });
+
+  test('POSTs the folder-variant body verbatim (folderPath, including the empty content-root sentinel)', async () => {
+    const calls: Array<{ url: string; init: RequestInit | undefined }> = [];
+    const stubFetch = (async (url: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({ url: String(url), init });
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ok: true,
+          shareUrl: 'https://openknowledge.ai/d/BbbYY',
+          sharedUrl: 'https://github.com/o/r/tree/main/guides',
+          branch: 'main',
+        }),
+      } as unknown as Response;
+    }) as unknown as typeof fetch;
+
+    await requestShareConstructUrl({ kind: 'folder', folderPath: 'guides' }, stubFetch);
+    expect(JSON.parse(String(calls[0].init?.body))).toEqual({
+      kind: 'folder',
+      folderPath: 'guides',
+    });
+
+    await requestShareConstructUrl({ kind: 'folder', folderPath: '' }, stubFetch);
+    expect(JSON.parse(String(calls[1].init?.body))).toEqual({ kind: 'folder', folderPath: '' });
   });
 
   test('throws when transport returns non-2xx (so callers route to transport-error)', async () => {
@@ -145,9 +171,9 @@ describe('requestShareConstructUrl', () => {
         json: async () => ({ type: 'urn:ok:error:internal-server-error', detail: 'boom' }),
       }) as unknown as Response) as unknown as typeof fetch;
 
-    await expect(requestShareConstructUrl('a.md', stubFetch)).rejects.toThrow(
-      /construct-url transport 500/,
-    );
+    await expect(
+      requestShareConstructUrl({ kind: 'doc', docPath: 'a.md' }, stubFetch),
+    ).rejects.toThrow(/construct-url transport 500/);
   });
 
   test('throws when response body fails schema validation', async () => {
@@ -155,12 +181,12 @@ describe('requestShareConstructUrl', () => {
       ({
         ok: true,
         status: 200,
-        json: async () => ({ ok: true /* missing shareUrl + blobUrl + branch */ }),
+        json: async () => ({ ok: true /* missing shareUrl + sharedUrl + branch */ }),
       }) as unknown as Response) as unknown as typeof fetch;
 
-    await expect(requestShareConstructUrl('a.md', stubFetch)).rejects.toThrow(
-      /response shape mismatch/,
-    );
+    await expect(
+      requestShareConstructUrl({ kind: 'doc', docPath: 'a.md' }, stubFetch),
+    ).rejects.toThrow(/response shape mismatch/);
   });
 
   test('parses the branch field on a branch-not-on-origin error response', async () => {
@@ -175,7 +201,7 @@ describe('requestShareConstructUrl', () => {
         }),
       }) as unknown as Response) as unknown as typeof fetch;
 
-    const result = await requestShareConstructUrl('a.md', stubFetch);
+    const result = await requestShareConstructUrl({ kind: 'doc', docPath: 'a.md' }, stubFetch);
     if (result.ok) throw new Error('expected error variant');
     expect(result.error).toBe('branch-not-on-origin');
     expect(result.branch).toBe('feat/sharing-virality-flow');
@@ -187,7 +213,7 @@ describe('runShareAction — happy path', () => {
     const okResponse: ShareConstructUrlResponse = {
       ok: true,
       shareUrl: 'https://openknowledge.ai/d/Aaa',
-      blobUrl: 'https://github.com/o/r/blob/main/a.md',
+      sharedUrl: 'https://github.com/o/r/blob/main/a.md',
       branch: 'main',
     };
     const deps = makeDeps({ fetchResponse: okResponse });
@@ -195,6 +221,7 @@ describe('runShareAction — happy path', () => {
 
     const result = await runShareAction(
       {
+        kind: 'doc',
         docName: 'a',
         hasRemote: true,
         onClickWhenNoRemote: () => {
@@ -220,32 +247,82 @@ describe('runShareAction — happy path', () => {
     const okResponse: ShareConstructUrlResponse = {
       ok: true,
       shareUrl: 'https://openknowledge.ai/d/Aaa',
-      blobUrl: 'https://github.com/o/r/blob/main/foo.md',
+      sharedUrl: 'https://github.com/o/r/blob/main/foo.md',
       branch: 'main',
     };
     const deps = makeDeps({ fetchResponse: okResponse });
 
-    await runShareAction({ docName: 'foo', hasRemote: true, onClickWhenNoRemote: () => {} }, deps);
+    await runShareAction(
+      { kind: 'doc', docName: 'foo', hasRemote: true, onClickWhenNoRemote: () => {} },
+      deps,
+    );
 
     expect(deps.fetchCalls).toHaveLength(1);
-    expect(deps.fetchCalls[0].body).toEqual({ docPath: 'foo.md' });
+    expect(deps.fetchCalls[0].body).toEqual({ kind: 'doc', docPath: 'foo.md' });
   });
 
   test('nested docName "docs/sub/page" maps to docPath "docs/sub/page.md"', async () => {
     const okResponse: ShareConstructUrlResponse = {
       ok: true,
       shareUrl: 'https://openknowledge.ai/d/Aaa',
-      blobUrl: 'https://github.com/o/r/blob/main/docs/sub/page.md',
+      sharedUrl: 'https://github.com/o/r/blob/main/docs/sub/page.md',
       branch: 'main',
     };
     const deps = makeDeps({ fetchResponse: okResponse });
 
     await runShareAction(
-      { docName: 'docs/sub/page', hasRemote: true, onClickWhenNoRemote: () => {} },
+      { kind: 'doc', docName: 'docs/sub/page', hasRemote: true, onClickWhenNoRemote: () => {} },
       deps,
     );
 
-    expect(deps.fetchCalls[0].body).toEqual({ docPath: 'docs/sub/page.md' });
+    expect(deps.fetchCalls[0].body).toEqual({ kind: 'doc', docPath: 'docs/sub/page.md' });
+  });
+
+  test('folder input POSTs {kind:folder, folderPath} verbatim + folder-specific success toast', async () => {
+    const okResponse: ShareConstructUrlResponse = {
+      ok: true,
+      shareUrl: 'https://openknowledge.ai/d/Fff',
+      sharedUrl: 'https://github.com/o/r/tree/main/guides/onboarding',
+      branch: 'main',
+    };
+    const deps = makeDeps({ fetchResponse: okResponse });
+
+    const result = await runShareAction(
+      {
+        kind: 'folder',
+        folderRelativePath: 'guides/onboarding',
+        hasRemote: true,
+        onClickWhenNoRemote: () => {},
+      },
+      deps,
+    );
+
+    expect(result).toEqual({
+      kind: 'copied',
+      shareUrl: 'https://openknowledge.ai/d/Fff',
+      branch: 'main',
+    });
+    expect(deps.fetchCalls[0].body).toEqual({ kind: 'folder', folderPath: 'guides/onboarding' });
+    expect(deps.successToasts).toEqual(['Folder share link copied.']);
+    expect(deps.clipboardTexts).toEqual(['https://openknowledge.ai/d/Fff']);
+  });
+
+  test('content-root folder input POSTs the empty folderPath sentinel', async () => {
+    const okResponse: ShareConstructUrlResponse = {
+      ok: true,
+      shareUrl: 'https://openknowledge.ai/d/Root',
+      sharedUrl: 'https://github.com/o/r/tree/main',
+      branch: 'main',
+    };
+    const deps = makeDeps({ fetchResponse: okResponse });
+
+    await runShareAction(
+      { kind: 'folder', folderRelativePath: '', hasRemote: true, onClickWhenNoRemote: () => {} },
+      deps,
+    );
+
+    expect(deps.fetchCalls[0].body).toEqual({ kind: 'folder', folderPath: '' });
+    expect(deps.successToasts).toEqual(['Folder share link copied.']);
   });
 });
 
@@ -256,6 +333,7 @@ describe('runShareAction — no-remote routing', () => {
 
     const result = await runShareAction(
       {
+        kind: 'doc',
         docName: 'a',
         hasRemote: false,
         onClickWhenNoRemote: () => {
@@ -281,6 +359,7 @@ describe('runShareAction — no-remote routing', () => {
 
     const result = await runShareAction(
       {
+        kind: 'doc',
         docName: 'a',
         hasRemote: true,
         onClickWhenNoRemote: () => {
@@ -305,7 +384,7 @@ describe('runShareAction — business-error toasts', () => {
     });
 
     const result = await runShareAction(
-      { docName: 'a', hasRemote: true, onClickWhenNoRemote: () => {} },
+      { kind: 'doc', docName: 'a', hasRemote: true, onClickWhenNoRemote: () => {} },
       deps,
     );
 
@@ -329,7 +408,7 @@ describe('runShareAction — business-error toasts', () => {
     });
 
     const result = await runShareAction(
-      { docName: 'a', hasRemote: true, onClickWhenNoRemote: () => {} },
+      { kind: 'doc', docName: 'a', hasRemote: true, onClickWhenNoRemote: () => {} },
       deps,
     );
 
@@ -346,7 +425,10 @@ describe('runShareAction — business-error toasts', () => {
       fetchResponse: { ok: false, error: 'non-github-remote' },
     });
 
-    await runShareAction({ docName: 'a', hasRemote: true, onClickWhenNoRemote: () => {} }, deps);
+    await runShareAction(
+      { kind: 'doc', docName: 'a', hasRemote: true, onClickWhenNoRemote: () => {} },
+      deps,
+    );
 
     expect(deps.errorToasts).toEqual(['Sharing supports GitHub remotes only.']);
   });
@@ -356,7 +438,10 @@ describe('runShareAction — business-error toasts', () => {
       fetchResponse: { ok: false, error: 'invalid-path' },
     });
 
-    await runShareAction({ docName: 'a', hasRemote: true, onClickWhenNoRemote: () => {} }, deps);
+    await runShareAction(
+      { kind: 'doc', docName: 'a', hasRemote: true, onClickWhenNoRemote: () => {} },
+      deps,
+    );
 
     expect(deps.errorToasts).toEqual(["Can't share this path."]);
   });
@@ -367,7 +452,7 @@ describe('runShareAction — transport / clipboard failures', () => {
     const deps = makeDeps({ fetchThrows: new Error('network down') });
 
     const result = await runShareAction(
-      { docName: 'a', hasRemote: true, onClickWhenNoRemote: () => {} },
+      { kind: 'doc', docName: 'a', hasRemote: true, onClickWhenNoRemote: () => {} },
       deps,
     );
 
@@ -380,7 +465,7 @@ describe('runShareAction — transport / clipboard failures', () => {
     const okResponse: ShareConstructUrlResponse = {
       ok: true,
       shareUrl: 'https://openknowledge.ai/d/Aaa',
-      blobUrl: 'https://github.com/o/r/blob/main/a.md',
+      sharedUrl: 'https://github.com/o/r/blob/main/a.md',
       branch: 'main',
     };
     const deps = makeDeps({
@@ -389,7 +474,7 @@ describe('runShareAction — transport / clipboard failures', () => {
     });
 
     const result = await runShareAction(
-      { docName: 'a', hasRemote: true, onClickWhenNoRemote: () => {} },
+      { kind: 'doc', docName: 'a', hasRemote: true, onClickWhenNoRemote: () => {} },
       deps,
     );
 
@@ -406,7 +491,7 @@ describe('runShareAction — transport / clipboard failures', () => {
     const deps = makeDeps({ fetchStatus: 500 });
 
     const result = await runShareAction(
-      { docName: 'a', hasRemote: true, onClickWhenNoRemote: () => {} },
+      { kind: 'doc', docName: 'a', hasRemote: true, onClickWhenNoRemote: () => {} },
       deps,
     );
 

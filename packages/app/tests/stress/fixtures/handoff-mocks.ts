@@ -252,7 +252,7 @@ export async function installHandoffMocks(page: Page, cfg: HandoffMockConfig): P
           open: async () => {},
           createNew: async () => {},
           recordCreateNewBannerShown: async () => {},
-          checkDocExists: async () => 'unreadable' as const,
+          checkTargetExists: async () => 'unreadable' as const,
           readHeadBranch: async () => ({ currentBranch: null, headSha: null, detached: false }),
           fetchBranchInfo: async () => null,
           runCheckout: async () => null,

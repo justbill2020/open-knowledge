@@ -2,7 +2,12 @@ import { describe, expect, mock, test } from 'bun:test';
 import type { OkDesktopBridge, OkDesktopConfig } from './desktop-bridge-types';
 import { deriveShareReceiveToast, installDeepLinkListener } from './install-deep-link-listener';
 
-type DeepLinkPayload = { doc: string; branch?: string | null; multiCandidate?: boolean };
+type DeepLinkPayload = {
+  doc: string;
+  kind?: 'doc' | 'folder';
+  branch?: string | null;
+  multiCandidate?: boolean;
+};
 
 function makeBridge(overrides: Partial<OkDesktopBridge> = {}): OkDesktopBridge & {
   fireDeepLink: (evt: DeepLinkPayload) => void;
@@ -157,6 +162,40 @@ describe('installDeepLinkListener (M4 US-007)', () => {
     installDeepLinkListener({ bridge, setHash });
     bridge.fireDeepLink({ doc: 'page.md', branch: '日本語' });
     expect(setHash.mock.calls[0]?.[0]).toBe('#/page.md?branch=%E6%97%A5%E6%9C%AC%E8%AA%9E');
+  });
+
+  test('explicit kind:doc behaves identically to legacy (omitted kind)', () => {
+    const bridge = makeBridge();
+    const setHash = mock(() => {});
+    installDeepLinkListener({ bridge, setHash });
+    bridge.fireDeepLink({ doc: 'intro.md', kind: 'doc', branch: 'main' });
+    expect(setHash.mock.calls[0]?.[0]).toBe('#/intro.md?branch=main');
+  });
+});
+
+describe('installDeepLinkListener — folder + content-root shares (US-010)', () => {
+  test('folder event navigates to the trailing-slash folder hash', () => {
+    const bridge = makeBridge();
+    const setHash = mock(() => {});
+    installDeepLinkListener({ bridge, setHash });
+    bridge.fireDeepLink({ doc: 'docs/sub', kind: 'folder' });
+    expect(setHash.mock.calls[0]?.[0]).toBe('#/docs/sub/');
+  });
+
+  test('content-root folder event (empty doc) navigates to the root hash #/', () => {
+    const bridge = makeBridge();
+    const setHash = mock(() => {});
+    installDeepLinkListener({ bridge, setHash });
+    bridge.fireDeepLink({ doc: '', kind: 'folder' });
+    expect(setHash.mock.calls[0]?.[0]).toBe('#/');
+  });
+
+  test('folder event does NOT append ?branch= (branch resolved upstream)', () => {
+    const bridge = makeBridge();
+    const setHash = mock(() => {});
+    installDeepLinkListener({ bridge, setHash });
+    bridge.fireDeepLink({ doc: 'docs/sub', kind: 'folder', branch: 'feat/x' });
+    expect(setHash.mock.calls[0]?.[0]).toBe('#/docs/sub/');
   });
 });
 

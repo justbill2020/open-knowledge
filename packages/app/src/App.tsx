@@ -25,7 +25,7 @@ import {
 } from '@/editor/DocumentContext';
 import { fetchApiConfig } from '@/lib/api-config';
 import { ConfigProvider } from '@/lib/config-provider';
-import { assetPathFromHash, docNameFromHash } from '@/lib/doc-hash';
+import { assetPathFromHash, docNameFromHash, isContentRootHash } from '@/lib/doc-hash';
 import { mark, ProfilerBoundary } from '@/lib/perf';
 import { isSettingsShortcut, SETTINGS_OPEN_HASH } from '@/lib/use-settings-route';
 
@@ -100,6 +100,11 @@ function NavigationHandler() {
           assetPath,
           mediaKind,
         });
+        return;
+      }
+      if (isContentRootHash(window.location.hash)) {
+        mark('ok/nav/hash-change', { docName: null, kind: 'folder' });
+        openTargetTransition({ kind: 'folder', target: '', folderPath: '' });
         return;
       }
       const docName = docNameFromHash(window.location.hash);

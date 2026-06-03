@@ -12,7 +12,7 @@ import {
 const SEED: ConsentFlowSeed = {
   candidatePath: '/wt/feat-bar',
   branch: 'feat-bar',
-  docPath: 'docs/x.md',
+  targetPath: 'docs/x.md',
   parentProjectName: 'agents-private',
 };
 

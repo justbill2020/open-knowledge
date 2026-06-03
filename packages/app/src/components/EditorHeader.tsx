@@ -7,6 +7,11 @@ import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDocumentContext } from '@/editor/DocumentContext';
 import { formatShortcut } from '@/lib/keyboard-shortcuts';
+import {
+  buildDocShareInput,
+  buildFolderShareInput,
+  type ShareTargetInput,
+} from '@/lib/share/run-share-action';
 import { useWorkspace } from '@/lib/use-workspace';
 import { cn } from '@/lib/utils';
 import { PresenceBar } from '@/presence/PresenceBar';
@@ -63,6 +68,16 @@ export function EditorHeader({
     return buildHandoffInput({ docName: activeDocName, workspace });
   })();
   const menuHandoffInput = openInAgentMenuInput ?? handoffInput;
+
+  const shareInput: ShareTargetInput | null = (() => {
+    if (activeTarget?.kind === 'folder') {
+      return buildFolderShareInput(activeTarget.folderPath);
+    }
+    if (activeDocName) {
+      return buildDocShareInput(activeDocName);
+    }
+    return null;
+  })();
 
   const isElectronHost = typeof window !== 'undefined' && window.okDesktop != null;
   const isCollapsed = sidebarState === 'collapsed';
@@ -143,7 +158,7 @@ export function EditorHeader({
           open={openInAgentMenuOpen}
           onOpenChange={onOpenInAgentMenuOpenChange}
         />
-        <ShareButton onClickWhenNoRemote={() => setPublishOpen(true)} />
+        <ShareButton input={shareInput} onClickWhenNoRemote={() => setPublishOpen(true)} />
         <PublishToGitHubDialog open={publishOpen} onOpenChange={setPublishOpen} />
         <SyncStatusBadge onSignIn={onSignIn} onSetIdentity={onSetIdentity} />
         <PresenceBar />

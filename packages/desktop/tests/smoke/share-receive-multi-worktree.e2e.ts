@@ -118,10 +118,8 @@ test.describe('share-receive multi-worktree smoke (US-014 / J1 silent dispatch)'
     const firstWindow = await app.firstWindow({ timeout: 15_000 });
     expect(firstWindow).toBeDefined();
 
-    const shareUrl =
-      'openknowledge://share?' +
-      `owner=inkeep&repo=open-knowledge&branch=feat-bar&path=docs%2Fx.md&` +
-      `blobUrl=${encodeURIComponent('https://github.com/inkeep/open-knowledge/blob/feat-bar/docs/x.md')}`;
+    const githubBlobUrl = 'https://github.com/inkeep/open-knowledge/blob/feat-bar/docs/x.md';
+    const shareUrl = `openknowledge://share?url=${encodeURIComponent(githubBlobUrl)}`;
     execSync(`open -g "${shareUrl}"`, { stdio: 'pipe' });
 
     await expect(async () => {

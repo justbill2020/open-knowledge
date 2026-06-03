@@ -294,7 +294,9 @@ describe('registerProtocolHandler — queue-then-flush', () => {
     await flushPromises();
 
     await flushPromises();
-    expect(env.openProject).toHaveBeenCalledWith('/tmp/p', { pendingDeepLinkDoc: 'a.md' });
+    expect(env.openProject).toHaveBeenCalledWith('/tmp/p', {
+      pendingDeepLinkTarget: { kind: 'doc', path: 'a.md' },
+    });
     expect(env.sendDeepLink).not.toHaveBeenCalled();
   });
 
@@ -319,10 +321,10 @@ describe('registerProtocolHandler — queue-then-flush', () => {
 
     expect(env.openProject).toHaveBeenCalledTimes(2);
     expect(env.openProject).toHaveBeenNthCalledWith(1, '/tmp/p1', {
-      pendingDeepLinkDoc: 'a.md',
+      pendingDeepLinkTarget: { kind: 'doc', path: 'a.md' },
     });
     expect(env.openProject).toHaveBeenNthCalledWith(2, '/tmp/p2', {
-      pendingDeepLinkDoc: 'b.md',
+      pendingDeepLinkTarget: { kind: 'doc', path: 'b.md' },
     });
     expect(env.sendDeepLink).not.toHaveBeenCalled();
   });
@@ -354,7 +356,9 @@ describe('registerProtocolHandler — queue-then-flush', () => {
     expect(env.openProject).not.toHaveBeenCalled();
     tickTimer(env);
     await flushPromises();
-    expect(env.openProject).toHaveBeenCalledWith('/tmp/p', { pendingDeepLinkDoc: 'a.md' });
+    expect(env.openProject).toHaveBeenCalledWith('/tmp/p', {
+      pendingDeepLinkTarget: { kind: 'doc', path: 'a.md' },
+    });
     expect(env.timers.length).toBe(0);
     expect(env.openProject).toHaveBeenCalledTimes(1);
   });
@@ -404,7 +408,7 @@ describe('registerProtocolHandler — queue-then-flush', () => {
 
     expect(env.focusWindowForProject).toHaveBeenCalledWith('/tmp/p');
     expect(env.openProject).not.toHaveBeenCalled();
-    expect(env.sendDeepLink).toHaveBeenCalledWith(existingWin, { doc: 'b.md' });
+    expect(env.sendDeepLink).toHaveBeenCalledWith(existingWin, { doc: 'b.md', kind: 'doc' });
   });
 
   test('spawns new window when project is not yet open (warm different-project)', async () => {
@@ -426,7 +430,9 @@ describe('registerProtocolHandler — queue-then-flush', () => {
     await flushPromises();
     await flushPromises();
 
-    expect(env.openProject).toHaveBeenCalledWith('/tmp/B', { pendingDeepLinkDoc: 'x.md' });
+    expect(env.openProject).toHaveBeenCalledWith('/tmp/B', {
+      pendingDeepLinkTarget: { kind: 'doc', path: 'x.md' },
+    });
     expect(env.sendDeepLink).not.toHaveBeenCalled();
   });
 
@@ -455,7 +461,7 @@ describe('registerProtocolHandler — queue-then-flush', () => {
     await flushPromises();
 
     expect(openProjectStub).toHaveBeenCalledWith('/tmp/broken', {
-      pendingDeepLinkDoc: 'x.md',
+      pendingDeepLinkTarget: { kind: 'doc', path: 'x.md' },
     });
     expect(env.sendDeepLink).not.toHaveBeenCalled();
   });
@@ -483,7 +489,9 @@ describe('registerProtocolHandler — second-instance argv parsing', () => {
     await flushPromises();
     await flushPromises();
 
-    expect(env.openProject).toHaveBeenCalledWith('/tmp/si', { pendingDeepLinkDoc: 'readme.md' });
+    expect(env.openProject).toHaveBeenCalledWith('/tmp/si', {
+      pendingDeepLinkTarget: { kind: 'doc', path: 'readme.md' },
+    });
   });
 
   test('ignores argv entries that are not openknowledge:// URLs', async () => {
@@ -528,7 +536,9 @@ describe('registerProtocolHandler — cold-start process.argv scan', () => {
     await flushPromises();
     await flushPromises();
 
-    expect(env.openProject).toHaveBeenCalledWith('/tmp/cs', { pendingDeepLinkDoc: 'a.md' });
+    expect(env.openProject).toHaveBeenCalledWith('/tmp/cs', {
+      pendingDeepLinkTarget: { kind: 'doc', path: 'a.md' },
+    });
   });
 
   test('no-op when no openknowledge:// URLs in initial argv', async () => {
@@ -595,8 +605,8 @@ describe('registerProtocolHandler — share-flow routing', () => {
       owner: 'inkeep',
       repo: 'playbooks',
       branch: 'main',
-      path: 'x.md',
-      blobUrl,
+      sharedUrl: blobUrl,
+      target: { kind: 'doc', docPath: 'x.md' },
     });
     expect(env.sendDeepLink).not.toHaveBeenCalled();
   });
@@ -728,7 +738,7 @@ describe('registerProtocolHandler — share-flow routing', () => {
     env.app.fireOpenUrl('openknowledge://open?project=/tmp/p&doc=a.md');
     await flushPromises();
 
-    expect(env.sendDeepLink).toHaveBeenCalledWith(focusedWin, { doc: 'a.md' });
+    expect(env.sendDeepLink).toHaveBeenCalledWith(focusedWin, { doc: 'a.md', kind: 'doc' });
     expect(sendShareDeepLink).not.toHaveBeenCalled();
   });
 });
@@ -743,8 +753,8 @@ describe('registerProtocolHandler — resolved share routing (US-003)', () => {
       owner: 'inkeep',
       repo: 'playbooks',
       branch: 'main',
-      path: 'docs/getting-started.md',
-      blobUrl: 'https://github.com/inkeep/playbooks/blob/main/docs/getting-started.md',
+      sharedUrl: 'https://github.com/inkeep/playbooks/blob/main/docs/getting-started.md',
+      target: { kind: 'doc', docPath: 'docs/getting-started.md' },
     };
   }
 
@@ -801,7 +811,7 @@ describe('registerProtocolHandler — resolved share routing (US-003)', () => {
     expect(resolveShareTarget).toHaveBeenCalledTimes(1);
     expect(resolveShareTarget).toHaveBeenCalledWith(expectedSharePayload());
     expect(env.openProject).toHaveBeenCalledWith('/Users/me/playbooks', {
-      pendingDeepLinkDoc: 'docs/getting-started.md',
+      pendingDeepLinkTarget: { kind: 'doc', path: 'docs/getting-started.md' },
       pendingBranch: 'main',
       pendingMultiCandidate: true,
     });
@@ -837,7 +847,7 @@ describe('registerProtocolHandler — resolved share routing (US-003)', () => {
     await flushPromises();
 
     expect(env.openProject).toHaveBeenCalledWith('/Users/me/solo-clone', {
-      pendingDeepLinkDoc: 'docs/getting-started.md',
+      pendingDeepLinkTarget: { kind: 'doc', path: 'docs/getting-started.md' },
       pendingBranch: 'main',
       pendingMultiCandidate: false,
     });
@@ -876,6 +886,7 @@ describe('registerProtocolHandler — resolved share routing (US-003)', () => {
     expect(env.focusWindowForProject).toHaveBeenCalledWith('/Users/me/playbooks');
     expect(env.sendDeepLink).toHaveBeenCalledWith(editorWin, {
       doc: 'docs/getting-started.md',
+      kind: 'doc',
       branch: 'main',
       multiCandidate: true,
     });
@@ -1450,11 +1461,11 @@ describe('registerProtocolHandler — resolved share routing (US-003)', () => {
 
     expect(env.openProject).toHaveBeenCalledWith(
       '/p/repo-b',
-      expect.objectContaining({ pendingDeepLinkDoc: 'b.md' }),
+      expect.objectContaining({ pendingDeepLinkTarget: { kind: 'doc', path: 'b.md' } }),
     );
     expect(env.openProject).toHaveBeenCalledWith(
       '/p/repo-a',
-      expect.objectContaining({ pendingDeepLinkDoc: 'a.md' }),
+      expect.objectContaining({ pendingDeepLinkTarget: { kind: 'doc', path: 'a.md' } }),
     );
   });
 });
@@ -1628,8 +1639,8 @@ describe('registerProtocolHandler — continue-activity Handoff path', () => {
       owner: 'inkeep',
       repo: 'playbooks',
       branch: 'main',
-      path: 'x.md',
-      blobUrl: 'https://github.com/inkeep/playbooks/blob/main/x.md',
+      sharedUrl: 'https://github.com/inkeep/playbooks/blob/main/x.md',
+      target: { kind: 'doc', docPath: 'x.md' },
     });
   });
 
@@ -1895,7 +1906,7 @@ describe('registerProtocolHandler — continue-activity Handoff path', () => {
 
     env.app.fireOpenUrl('openknowledge://open?project=/tmp/p&doc=a.md');
     await flushPromises();
-    expect(env.sendDeepLink).toHaveBeenCalledWith(focusedWin, { doc: 'a.md' });
+    expect(env.sendDeepLink).toHaveBeenCalledWith(focusedWin, { doc: 'a.md', kind: 'doc' });
 
     const blobUrl = 'https://github.com/o/r/blob/main/x.md';
     env.app.fireOpenUrl(`openknowledge://share?url=${encodeURIComponent(blobUrl)}`);

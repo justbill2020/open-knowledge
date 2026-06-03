@@ -89,13 +89,19 @@ async function bootRig(
   };
 }
 
-function buildUrl(port: number, branch: string, path: string): string {
+function buildUrl(port: number, branch: string, path: string, kind?: 'doc' | 'folder'): string {
   const params = new URLSearchParams({ branch, path });
+  if (kind) params.set('kind', kind);
   return `http://localhost:${port}/api/git/branch-info?${params.toString()}`;
 }
 
-async function getBranchInfo(port: number, branch: string, path: string): Promise<Response> {
-  return fetch(buildUrl(port, branch, path));
+async function getBranchInfo(
+  port: number,
+  branch: string,
+  path: string,
+  kind?: 'doc' | 'folder',
+): Promise<Response> {
+  return fetch(buildUrl(port, branch, path, kind));
 }
 
 let rig: TestRig | null = null;
@@ -122,13 +128,13 @@ describe('GET /api/git/branch-info', () => {
       currentBranch: 'main',
       currentHeadSha: null,
       detached: false,
-      shareFileExists: true,
+      shareTargetExists: true,
       dirtyConflicts: { conflicts: false, files: [] },
       branchIsLocal: true,
     });
   });
 
-  test('branch mismatch + file exists on current branch reports shareFileExists=true', async () => {
+  test('branch mismatch + file exists on current branch reports shareTargetExists=true', async () => {
     rig = await bootRig((projectDir) => {
       initRepo(projectDir);
       write(projectDir, 'docs/guide.md', '# main\n');
@@ -143,13 +149,13 @@ describe('GET /api/git/branch-info', () => {
     expect(res.status).toBe(200);
     const json = (await res.json()) as Record<string, unknown>;
     expect(json.currentBranch).toBe('main');
-    expect(json.shareFileExists).toBe(true);
+    expect(json.shareTargetExists).toBe(true);
     expect(json.branchIsLocal).toBe(true);
     expect(json.dirtyConflicts).toEqual({ conflicts: false, files: [] });
     expect(json.detached).toBe(false);
   });
 
-  test('branch mismatch + file missing on current branch reports shareFileExists=false', async () => {
+  test('branch mismatch + file missing on current branch reports shareTargetExists=false', async () => {
     rig = await bootRig((projectDir) => {
       initRepo(projectDir);
       write(projectDir, 'README.md', 'r\n');
@@ -164,7 +170,7 @@ describe('GET /api/git/branch-info', () => {
     expect(res.status).toBe(200);
     const json = (await res.json()) as Record<string, unknown>;
     expect(json.currentBranch).toBe('main');
-    expect(json.shareFileExists).toBe(false);
+    expect(json.shareTargetExists).toBe(false);
     expect(json.branchIsLocal).toBe(true);
   });
 
@@ -208,7 +214,7 @@ describe('GET /api/git/branch-info', () => {
     expect(json.detached).toBe(true);
     expect(typeof json.currentHeadSha).toBe('string');
     expect((json.currentHeadSha as string).length).toBe(7);
-    expect(json.shareFileExists).toBe(true);
+    expect(json.shareTargetExists).toBe(true);
   });
 
   test('branch absent locally reports branchIsLocal=false', async () => {
@@ -242,11 +248,11 @@ describe('GET /api/git/branch-info', () => {
     const json = (await res.json()) as Record<string, unknown>;
     expect(json.currentBranch).toBe('main');
     expect(json.branchIsLocal).toBe(true);
-    expect(json.shareFileExists).toBe(true);
+    expect(json.shareTargetExists).toBe(true);
     expect(json.dirtyConflicts).toEqual({ conflicts: false, files: [] });
   });
 
-  test('nested doc path resolves shareFileExists correctly', async () => {
+  test('nested doc path resolves shareTargetExists correctly', async () => {
     rig = await bootRig((projectDir) => {
       initRepo(projectDir);
       write(projectDir, 'a/b/c/deep.md', '# deep\n');
@@ -256,7 +262,7 @@ describe('GET /api/git/branch-info', () => {
     const res = await getBranchInfo(rig.port, 'main', 'a/b/c/deep.md');
     expect(res.status).toBe(200);
     const json = (await res.json()) as Record<string, unknown>;
-    expect(json.shareFileExists).toBe(true);
+    expect(json.shareTargetExists).toBe(true);
   });
 
   test('missing path query param returns 400', async () => {
@@ -345,5 +351,70 @@ describe('GET /api/git/branch-info', () => {
 
     const res = await fetch(buildUrl(rig.port, 'main', 'a.md'), { method: 'POST' });
     expect(res.status).toBe(405);
+  });
+
+  test('kind=folder on an extant folder reports shareTargetExists=true', async () => {
+    rig = await bootRig((projectDir) => {
+      initRepo(projectDir);
+      write(projectDir, 'docs/guides/intro.md', '# intro\n');
+      commitAll(projectDir, 'init');
+    });
+
+    const res = await getBranchInfo(rig.port, 'main', 'docs/guides', 'folder');
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as Record<string, unknown>;
+    expect(json.shareTargetExists).toBe(true);
+  });
+
+  test('kind=folder on a missing folder reports shareTargetExists=false', async () => {
+    rig = await bootRig((projectDir) => {
+      initRepo(projectDir);
+      write(projectDir, 'docs/guide.md', '# guide\n');
+      commitAll(projectDir, 'init');
+    });
+
+    const res = await getBranchInfo(rig.port, 'main', 'does/not/exist', 'folder');
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as Record<string, unknown>;
+    expect(json.shareTargetExists).toBe(false);
+  });
+
+  test('kind=folder with empty path (content root) reports shareTargetExists=true (probe skipped)', async () => {
+    rig = await bootRig((projectDir) => {
+      initRepo(projectDir);
+      write(projectDir, 'docs/guide.md', '# guide\n');
+      commitAll(projectDir, 'init');
+    });
+
+    const res = await fetch(
+      `http://localhost:${rig.port}/api/git/branch-info?branch=main&path=&kind=folder`,
+    );
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as Record<string, unknown>;
+    expect(json.shareTargetExists).toBe(true);
+  });
+
+  test('empty path with kind=doc (default) returns 400', async () => {
+    rig = await bootRig((projectDir) => {
+      initRepo(projectDir);
+      write(projectDir, 'a.md', 'a\n');
+      commitAll(projectDir, 'init');
+    });
+
+    const res = await fetch(`http://localhost:${rig.port}/api/git/branch-info?branch=main&path=`);
+    expect(res.status).toBe(400);
+  });
+
+  test('kind absent defaults to doc: behavior unchanged for a doc path', async () => {
+    rig = await bootRig((projectDir) => {
+      initRepo(projectDir);
+      write(projectDir, 'docs/guide.md', '# guide\n');
+      commitAll(projectDir, 'init');
+    });
+
+    const res = await getBranchInfo(rig.port, 'main', 'docs/guide.md');
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as Record<string, unknown>;
+    expect(json.shareTargetExists).toBe(true);
   });
 });

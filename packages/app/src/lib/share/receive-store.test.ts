@@ -38,8 +38,8 @@ const sharePayload: OkShareReceivedPayload = {
     owner: 'a',
     repo: 'b',
     branch: 'main',
-    path: 'README.md',
-    blobUrl: 'https://github.com/a/b/blob/main/README.md',
+    sharedUrl: 'https://github.com/a/b/blob/main/README.md',
+    target: { kind: 'doc', docPath: 'README.md' },
   },
 };
 

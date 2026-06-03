@@ -88,9 +88,10 @@ interface ProjectContext {
 
 interface CreateProjectWindowOpts {
   projectPath: string;
-  pendingDeepLinkDoc?: string;
+  pendingDeepLinkTarget?: { kind: 'doc' | 'folder'; path: string };
   pendingBranch?: string | null;
   pendingMultiCandidate?: boolean;
+  pendingTargetMissing?: boolean;
   pendingShareBranchSwitch?: ShareDeepLinkBranchSwitchPayload;
   didEnsureGit?: boolean;
   consentVersion?: number;
@@ -431,9 +432,10 @@ export class WindowManager {
           canonicalKey,
           projectName,
           lock: attached,
-          pendingDeepLinkDoc: opts.pendingDeepLinkDoc,
+          pendingDeepLinkTarget: opts.pendingDeepLinkTarget,
           pendingBranch: opts.pendingBranch,
           pendingMultiCandidate: opts.pendingMultiCandidate,
+          pendingTargetMissing: opts.pendingTargetMissing,
           pendingShareBranchSwitch: opts.pendingShareBranchSwitch,
           pendingServerRestartedToast: opts.pendingServerRestartedToast,
         });
@@ -507,9 +509,10 @@ export class WindowManager {
         canonicalKey,
         projectName,
         lock,
-        pendingDeepLinkDoc: opts.pendingDeepLinkDoc,
+        pendingDeepLinkTarget: opts.pendingDeepLinkTarget,
         pendingBranch: opts.pendingBranch,
         pendingMultiCandidate: opts.pendingMultiCandidate,
+        pendingTargetMissing: opts.pendingTargetMissing,
         pendingShareBranchSwitch: opts.pendingShareBranchSwitch,
         pendingServerRestartedToast: opts.pendingServerRestartedToast,
       });
@@ -624,11 +627,18 @@ export class WindowManager {
       title: formatEditorTitle(projectName),
     });
 
-    if (opts.pendingDeepLinkDoc) {
-      const doc = opts.pendingDeepLinkDoc;
+    if (opts.pendingDeepLinkTarget) {
+      const doc = opts.pendingDeepLinkTarget.path;
+      const kind = opts.pendingDeepLinkTarget.kind;
       const branch = opts.pendingBranch ?? null;
       const multiCandidate = opts.pendingMultiCandidate === true;
-      registerPendingDelivery(window.webContents, 'ok:deep-link', { doc, branch, multiCandidate });
+      registerPendingDelivery(window.webContents, 'ok:deep-link', {
+        doc,
+        kind,
+        branch,
+        multiCandidate,
+        ...(opts.pendingTargetMissing === true ? { targetMissing: true } : {}),
+      });
     }
 
     if (opts.pendingShareBranchSwitch) {
@@ -772,9 +782,10 @@ export class WindowManager {
     canonicalKey: string;
     projectName: string;
     lock: ServerLockMetadataLike;
-    pendingDeepLinkDoc?: string;
+    pendingDeepLinkTarget?: { kind: 'doc' | 'folder'; path: string };
     pendingBranch?: string | null;
     pendingMultiCandidate?: boolean;
+    pendingTargetMissing?: boolean;
     pendingShareBranchSwitch?: ShareDeepLinkBranchSwitchPayload;
     pendingServerRestartedToast?: boolean;
   }): Promise<ProjectContext> {
@@ -783,9 +794,10 @@ export class WindowManager {
       canonicalKey,
       projectName,
       lock,
-      pendingDeepLinkDoc,
+      pendingDeepLinkTarget,
       pendingBranch,
       pendingMultiCandidate,
+      pendingTargetMissing,
       pendingShareBranchSwitch,
       pendingServerRestartedToast,
     } = args;
@@ -809,11 +821,18 @@ export class WindowManager {
       title: formatEditorTitle(projectName),
     });
 
-    if (pendingDeepLinkDoc) {
-      const doc = pendingDeepLinkDoc;
+    if (pendingDeepLinkTarget) {
+      const doc = pendingDeepLinkTarget.path;
+      const kind = pendingDeepLinkTarget.kind;
       const branch = pendingBranch ?? null;
       const multiCandidate = pendingMultiCandidate === true;
-      registerPendingDelivery(window.webContents, 'ok:deep-link', { doc, branch, multiCandidate });
+      registerPendingDelivery(window.webContents, 'ok:deep-link', {
+        doc,
+        kind,
+        branch,
+        multiCandidate,
+        ...(pendingTargetMissing === true ? { targetMissing: true } : {}),
+      });
     }
 
     if (pendingShareBranchSwitch) {

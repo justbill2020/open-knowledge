@@ -82,7 +82,7 @@ describe('ShareReceiveDialog — launcher-consent surface', () => {
   test('seeds the consent flow from payload.candidatePath + payload.share', () => {
     expect(SRC).toContain('initialConsentFlowState');
     expect(SRC).toContain('candidatePath:');
-    expect(SRC).toContain('docPath:');
+    expect(SRC).toContain('targetPath:');
   });
 
   test('threads payload.parentProjectName so the "(a worktree of <name>)" caption renders', () => {
@@ -95,7 +95,7 @@ describe('ShareReceiveDialog — launcher-consent surface', () => {
     expect(SRC).toContain("disabled={initializing || consentState.phase === 'error'}");
   });
 
-  test('Initialize handler runs okInit then dispatches bridge.project.open with pendingDeepLinkDoc + pendingBranch', () => {
+  test('Initialize handler runs okInit then dispatches bridge.project.open with pendingDeepLinkTarget + pendingBranch', () => {
     expect(SRC).toMatch(/bridge\.project[\s\n.]+okInit\(/);
     expect(SRC).toMatch(/bridge\.project[\s\n.]+open\(/);
     const idx = SRC.indexOf('function handleConsentInitialize');
@@ -103,7 +103,7 @@ describe('ShareReceiveDialog — launcher-consent surface', () => {
     const endIdx = SRC.indexOf('function handleConsentCancel', idx);
     expect(endIdx).toBeGreaterThan(idx);
     const handlerBody = SRC.slice(idx, endIdx);
-    expect(handlerBody).toContain('pendingDeepLinkDoc');
+    expect(handlerBody).toContain('pendingDeepLinkTarget');
     expect(handlerBody).toContain('pendingBranch');
   });
 });

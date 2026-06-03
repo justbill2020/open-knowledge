@@ -67,7 +67,7 @@ function makeBridge(overrides: Partial<BridgeMock> = {}): {
           currentBranch: 'main',
           currentHeadSha: 'aaaaaaa',
           detached: false,
-          shareFileExists: true,
+          shareTargetExists: true,
           dirtyConflicts: { conflicts: false, files: [] },
         }),
       ),
@@ -97,8 +97,8 @@ function projectBranchSwitchPayload(): Extract<
       owner: 'inkeep',
       repo: 'open-knowledge',
       branch: 'feat/branch-x',
-      path: 'docs/notes.md',
-      blobUrl: 'https://github.com/inkeep/open-knowledge/blob/feat/branch-x/docs/notes.md',
+      sharedUrl: 'https://github.com/inkeep/open-knowledge/blob/feat/branch-x/docs/notes.md',
+      target: { kind: 'doc', docPath: 'docs/notes.md' },
     },
     projectPath: '/Users/alice/projects/open-knowledge',
     currentBranch: 'main',
@@ -129,8 +129,8 @@ describe('ShareBranchSwitchDialog — payload gating', () => {
             owner: 'inkeep',
             repo: 'open-knowledge',
             branch: 'main',
-            path: 'docs/x.md',
-            blobUrl: 'https://github.com/inkeep/open-knowledge/blob/main/docs/x.md',
+            sharedUrl: 'https://github.com/inkeep/open-knowledge/blob/main/docs/x.md',
+            target: { kind: 'doc', docPath: 'docs/x.md' },
           },
         });
         return () => {};
@@ -160,7 +160,8 @@ describe('ShareBranchSwitchDialog — payload gating', () => {
     expect(calls.fetchBranchInfo).toHaveBeenCalledWith({
       projectPath: payload.projectPath,
       branch: payload.share.branch,
-      docPath: payload.share.path,
+      kind: 'doc',
+      path: 'docs/notes.md',
     });
   });
 });
@@ -226,7 +227,7 @@ describe('ShareBranchSwitchDialog — Open-in-current dispatch', () => {
     const firstArg = calls.open.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(firstArg).toBeDefined();
     expect(firstArg.path).toBe(payload.projectPath);
-    expect(firstArg.pendingDeepLinkDoc).toBe(payload.share.path);
+    expect(firstArg.pendingDeepLinkTarget).toEqual({ kind: 'doc', path: 'docs/notes.md' });
     expect(firstArg.pendingBranch).toBeUndefined();
     expect(store.getSnapshot()).toBeNull();
   });
@@ -307,7 +308,7 @@ describe('ShareBranchSwitchDialog — Switch path (runCheckout + CC1 gate)', () 
     });
     const openArg = calls.open.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(openArg).toBeDefined();
-    expect(openArg.pendingDeepLinkDoc).toBe(payload.share.path);
+    expect(openArg.pendingDeepLinkTarget).toEqual({ kind: 'doc', path: 'docs/notes.md' });
     expect(openArg.pendingBranch).toBe(payload.share.branch);
   });
 
@@ -401,7 +402,7 @@ describe('ShareBranchSwitchDialog — Switch path (runCheckout + CC1 gate)', () 
     });
     await waitFor(() => {
       expect(toastError).toHaveBeenCalledWith(
-        'Branch switch timed out — try opening the doc manually.',
+        'Branch switch timed out — try opening the document manually.',
       );
     });
     expect(calls.open).not.toHaveBeenCalled();

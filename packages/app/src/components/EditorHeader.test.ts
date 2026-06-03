@@ -120,6 +120,31 @@ describe('EditorHeader — sparkle icon 3-scope dispatch (US-011 source-level)',
     expect(SRC).toMatch(/<OpenInAgentMenu[\s\S]*?input=\{menuHandoffInput\}/);
   });
 
+  test('builds a shareInput: ShareTargetInput | null via an IIFE mirroring handoffInput (US-012)', () => {
+    expect(SRC).toContain('buildDocShareInput');
+    expect(SRC).toContain('buildFolderShareInput');
+    expect(SRC).toMatch(/const\s+shareInput\s*:\s*ShareTargetInput\s*\|\s*null\s*=\s*\(\(\)\s*=>/);
+  });
+
+  test('folder-active routes shareInput to buildFolderShareInput with the folderPath', () => {
+    expect(SRC).toMatch(
+      /activeTarget\?\.kind\s*===\s*['"]folder['"][\s\S]{0,80}buildFolderShareInput\s*\(\s*activeTarget\.folderPath/,
+    );
+  });
+
+  test('active-doc (non-folder) routes shareInput to buildDocShareInput; otherwise null', () => {
+    expect(SRC).toMatch(
+      /if\s*\(\s*activeDocName\s*\)[\s\S]{0,60}buildDocShareInput\s*\(\s*activeDocName/,
+    );
+    expect(SRC).toMatch(/return\s+null;[\s\S]{0,40}\}\)\(\);/);
+  });
+
+  test('ShareButton receives the shareInput prop (always-render-but-disable-when-null contract)', () => {
+    expect(SRC).toMatch(
+      /<ShareButton\s+input=\{shareInput\}\s+onClickWhenNoRemote=\{[\s\S]*?\}\s*\/>/,
+    );
+  });
+
   test('Save-version control is NOT in the header (moved to the timeline pane)', () => {
     expect(SRC).not.toMatch(/Checkpoint version/);
     expect(SRC).not.toMatch(/onSaveVersion/);

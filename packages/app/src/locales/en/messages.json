@@ -140,6 +140,7 @@
     "3_6U6f": ["Connect to GitHub"],
     "3__SjS": ["breadcrumb"],
     "3a_Bd7": ["Open source doc: ", ["mirrorSrc"]],
+    "3aeN7X": ["All files"],
     "3h5zMp": ["Something went wrong loading the settings panel."],
     "3iyGWF": ["Open recent project"],
     "3jod3l": ["Connect GitHub"],
@@ -664,6 +665,7 @@
     "JmfgFc": ["(a worktree of ", ["0"], ")"],
     "Jqqevv": ["System error"],
     "JtD-Br": ["Page link"],
+    "Jw6EC4": ["Branch switch failed — try opening the ", ["targetNoun"], " manually."],
     "K-a33w": ["Start writing to create this page"],
     "K-h9cT": ["Couldn't save the resolution for ", ["filePath"], "."],
     "K0N7zS": ["Config sharing status read failed"],
@@ -700,6 +702,7 @@
     "L6Hhh6": ["(root)"],
     "L8fKuc": ["Run this in your terminal"],
     "L9Y9Om": ["Top linked pages"],
+    "LBwUR6": ["Branch switch timed out — try opening the ", ["targetNoun"], " manually."],
     "LCUy_N": ["Session ended"],
     "LDuM35": ["Replace current match from field"],
     "LE7t79": ["Clone to a new folder"],
@@ -892,6 +895,7 @@
     ],
     "RPo77p": ["Open the Ask AI menu for the current selection."],
     "RSqaSd": ["Project root"],
+    "RY6Bq1": ["Open shared ", ["targetNoun"]],
     "RaPMZv": ["Keyboard shortcuts available in the editor and workspace."],
     "Rah7yq": ["What should the AI do? (optional)"],
     "RfHNf8": ["Open activity panel for ", ["tooltipName"]],
@@ -1005,6 +1009,7 @@
       " selected items? Folders and all files inside them will be deleted. This action cannot be undone."
     ],
     "WPwDin": ["Open folder on disk"],
+    "WR0y2O": ["Share folder"],
     "WRNXKp": ["Searching"],
     "WZ-vBy": [
       "Permanently deletes <0>",
@@ -1029,6 +1034,7 @@
     "X8kjQX": ["Re-authenticate with GitHub"],
     "X9VpsP": ["Loading folder contents"],
     "XDzAnp": ["Opens in a new tab"],
+    "XH30C4": ["document"],
     "XPJ0sN": [["settingsDescriptorLabel"], " properties"],
     "XPqe3B": ["Create new tag #", ["tagValue"]],
     "XRuL0i": ["Create page"],
@@ -1043,6 +1049,13 @@
       "Chrome uses this to search from the page or focus the address bar. Open Knowledge overrides it while the app has focus."
     ],
     "XnlF3W": ["Add the next matching source selection."],
+    "XnoA1k": [
+      "This ",
+      ["targetNoun"],
+      " only exists on branch <0>",
+      ["shareBranch"],
+      "</0>. You have uncommitted changes that prevent switching. Commit or stash your changes, then open the share link again."
+    ],
     "XopE_I": ["Failed to parse backlinks error response (HTTP ", ["status"], ")"],
     "XpIZmv": ["Fenced code block with monospace text."],
     "XtRoxT": ["Page ", ["pageNumber"]],
@@ -1111,6 +1124,15 @@
     "_6IEmc": ["Open in Terminal, No workspace"],
     "_7UQ7y": ["Whole word"],
     "_8quCH": ["From template"],
+    "_902BE": [
+      "This ",
+      ["targetNoun"],
+      " was shared from branch <0>",
+      ["shareBranch"],
+      "</0>. You're currently on <1>",
+      ["currentLabel"],
+      "</1>."
+    ],
     "_BthEY": ["Open in ", ["shareBranch"]],
     "_GBioJ": [
       ["docName"],
@@ -1163,6 +1185,7 @@
     "b3Thhd": ["Upload failed"],
     "b4AQFK": ["Open activity panel for ", ["tooltipName"], ", editing ", ["realCurrentDoc"]],
     "b4itZn": ["Working"],
+    "b5aNbi": ["The ", ["targetNoun"], " could not be opened — try navigating to it manually."],
     "bBE5tC": ["Detected on this machine"],
     "bBcFK_": ["Open emoji picker for ", ["keyName"]],
     "bD8I7O": ["Complete"],
@@ -1282,6 +1305,11 @@
     ],
     "gJR87V": ["Could not create the project folder. Pick a different folder."],
     "gKi-a_": ["New project"],
+    "gQV-9w": [
+      "Branch switched but the ",
+      ["targetNoun"],
+      " could not be opened — try navigating to it manually."
+    ],
     "gUlRQj": ["Orphans"],
     "gYz2ep": ["Expires in ", ["timeLabel"]],
     "gcV0dI": ["The folders and templates are in place; there's nothing left to scaffold."],
@@ -1671,6 +1699,15 @@
     "sJK6pq": ["Permission denied"],
     "sJWhgo": ["Unknown component: ", ["unregisteredComponentName"]],
     "sOxZaS": ["Failed to load graph"],
+    "sZ2IOu": [
+      "This ",
+      ["targetNoun"],
+      " was shared from branch <0>",
+      ["shareBranch"],
+      "</0>. It doesn't exist on your current branch (<1>",
+      ["currentLabel"],
+      "</1>)."
+    ],
     "saIASg": ["Second item"],
     "saYiIO": ["Path cannot contain null bytes"],
     "shNd9t": ["Slash command menu"],
@@ -1719,6 +1756,7 @@
     "uWx2ZP": ["Last sync"],
     "uZAG7T": ["Auto-saved before a concurrent edit", ["sizeSuffix"]],
     "u_lS4C": ["Clone complete — opening project"],
+    "ugoTXs": ["folder"],
     "uhJEA2": [
       [
         "count",

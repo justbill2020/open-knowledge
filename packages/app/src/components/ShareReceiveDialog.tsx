@@ -16,10 +16,11 @@ import {
   Dialog as DialogRoot,
   DialogTitle,
 } from '@/components/ui/dialog';
-import type {
-  OkDesktopBridge,
-  OkLocalOpAuthStatusResponse,
-  OkShareReceivedPayload,
+import {
+  type OkDesktopBridge,
+  type OkLocalOpAuthStatusResponse,
+  type OkShareReceivedPayload,
+  shareTargetPath,
 } from '@/lib/desktop-bridge-types';
 import {
   applyOkInitOutcome,
@@ -141,7 +142,8 @@ function ShareReceiveDialogInner({
       initialConsentFlowState({
         candidatePath: payload.candidatePath,
         branch: payload.share.branch,
-        docPath: payload.share.path,
+        targetPath: shareTargetPath(payload.share.target),
+        targetKind: payload.share.target.kind,
         parentProjectName: payload.parentProjectName,
       }),
     );
@@ -172,6 +174,7 @@ function ShareReceiveDialogInner({
   const launcherConsent = isLauncherConsentPayload(payload) ? payload : null;
   const share = launcherMiss?.share ?? launcherConsent?.share ?? null;
   const expected = share ? { owner: share.owner, repo: share.repo } : null;
+  const targetNoun = share?.target.kind === 'folder' ? t`folder` : t`document`;
 
   async function handleCloneCtaClick(): Promise<void> {
     if (!launcherMiss || !expected) return;
@@ -206,7 +209,10 @@ function ShareReceiveDialogInner({
           path: result.dir,
           target: 'new-window',
           entryPoint: 'share-receive',
-          pendingDeepLinkDoc: launcherMiss.share.path,
+          pendingDeepLinkTarget: {
+            kind: launcherMiss.share.target.kind,
+            path: shareTargetPath(launcherMiss.share.target),
+          },
         });
       } catch {
         toast.error(t`Cloned successfully, but could not open the project.`);
@@ -250,7 +256,10 @@ function ShareReceiveDialogInner({
               path: folderPath,
               target: 'new-window',
               entryPoint: 'share-receive',
-              pendingDeepLinkDoc: launcherMiss.share.path,
+              pendingDeepLinkTarget: {
+                kind: launcherMiss.share.target.kind,
+                path: shareTargetPath(launcherMiss.share.target),
+              },
             });
             store.dismiss();
           } catch (err) {
@@ -294,7 +303,7 @@ function ShareReceiveDialogInner({
               path: outcome.projectPath,
               target: 'new-window',
               entryPoint: 'share-receive',
-              pendingDeepLinkDoc: seed.docPath,
+              pendingDeepLinkTarget: { kind: seed.targetKind, path: seed.targetPath },
               pendingBranch: seed.branch,
             });
             setConsentState((prev) =>
@@ -361,17 +370,19 @@ function ShareReceiveDialogInner({
         >
           <DialogHeader>
             <DialogTitle>
-              <Trans>Open shared document</Trans>
+              <Trans>Open shared {targetNoun}</Trans>
             </DialogTitle>
             <DialogDescription className="sr-only">
               <Trans>
-                {share.owner}/{share.repo} {share.path ? `— ${share.path}` : ''}
+                {share.owner}/{share.repo}{' '}
+                {shareTargetPath(share.target) ? `— ${shareTargetPath(share.target)}` : ''}
               </Trans>
             </DialogDescription>
             <ShareMetadataRows
               owner={share.owner}
               repo={share.repo}
-              path={share.path}
+              path={shareTargetPath(share.target)}
+              kind={share.target.kind}
               branch={share.branch}
               testId="share-receive-metadata"
               branchTestId="share-receive-metadata-branch"
@@ -464,16 +475,17 @@ function ShareReceiveDialogInner({
       <DialogContent className="sm:max-w-xl" data-testid="share-receive-dialog">
         <DialogHeader>
           <DialogTitle>
-            <Trans>Open shared document</Trans>
+            <Trans>Open shared {targetNoun}</Trans>
           </DialogTitle>
           <DialogDescription className="sr-only">
             {share.owner}/{share.repo}
-            {share.path ? ` — ${share.path}` : null}
+            {shareTargetPath(share.target) ? ` — ${shareTargetPath(share.target)}` : null}
           </DialogDescription>
           <ShareMetadataRows
             owner={share.owner}
             repo={share.repo}
-            path={share.path}
+            path={shareTargetPath(share.target)}
+            kind={share.target.kind}
             branch={share.branch}
             testId="share-receive-metadata"
             branchTestId="share-receive-metadata-branch"

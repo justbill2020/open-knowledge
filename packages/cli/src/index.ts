@@ -45,7 +45,11 @@ export {
 } from './github/folder-validator.ts';
 export {
   type ParsedGitHubBlobUrl,
+  type ParsedGitHubShareTarget,
+  type ParsedGitHubTreeUrl,
   parseGitHubBlobUrl,
+  parseGitHubShareUrl,
+  parseGitHubTreeUrl,
   parseGitUrl,
 } from './github/url.ts';
 export type { IntegrationWriteOutcome } from './integrations/project-integration-writers.ts';

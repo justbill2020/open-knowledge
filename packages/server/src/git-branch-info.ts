@@ -9,7 +9,7 @@ export type BranchInfo =
       detached: false;
       currentBranch: string | null;
       currentHeadSha: null;
-      shareFileExists: boolean;
+      shareTargetExists: boolean;
       dirtyConflicts: DirtyOverlapResult;
       branchIsLocal: boolean;
     }
@@ -17,19 +17,19 @@ export type BranchInfo =
       detached: true;
       currentBranch: null;
       currentHeadSha: string;
-      shareFileExists: boolean;
+      shareTargetExists: boolean;
       dirtyConflicts: DirtyOverlapResult;
       branchIsLocal: boolean;
     };
 
-export function isValidBranchInfoDocPath(docPath: unknown): docPath is string {
-  if (typeof docPath !== 'string') return false;
-  if (docPath.length === 0) return false;
-  if (docPath.startsWith('/')) return false;
-  if (docPath.includes('\\')) return false;
+export function isValidBranchInfoPath(path: unknown, kind: 'doc' | 'folder'): path is string {
+  if (typeof path !== 'string') return false;
+  if (path.length === 0) return kind === 'folder';
+  if (path.startsWith('/')) return false;
+  if (path.includes('\\')) return false;
   // biome-ignore lint/suspicious/noControlCharactersInRegex: control chars are exactly what we want to reject
-  if (/[\x00-\x1F\x7F]/.test(docPath)) return false;
-  for (const segment of docPath.split('/')) {
+  if (/[\x00-\x1F\x7F]/.test(path)) return false;
+  for (const segment of path.split('/')) {
     if (segment.length === 0) return false;
     if (segment === '..' || segment === '.git') return false;
   }
@@ -39,7 +39,8 @@ export function isValidBranchInfoDocPath(docPath: unknown): docPath is string {
 export async function computeBranchInfo(
   projectDir: string,
   targetBranch: string,
-  docPath: string,
+  path: string,
+  kind: 'doc' | 'folder',
 ): Promise<BranchInfo> {
   const { git } = createGitInstance(projectDir);
 
@@ -63,11 +64,12 @@ export async function computeBranchInfo(
     }
   })();
 
-  const shareFilePromise = headStatePromise.then(async (head) => {
+  const shareTargetPromise = headStatePromise.then(async (head) => {
+    if (kind === 'folder' && path === '') return true;
     const ref = head.detached ? 'HEAD' : head.currentBranch;
     if (!ref) return false;
     try {
-      await git.raw(['cat-file', '-e', `${ref}:${docPath}`]);
+      await git.raw(['cat-file', '-e', `${ref}:${path}`]);
       return true;
     } catch {
       return false;
@@ -91,9 +93,9 @@ export async function computeBranchInfo(
     },
   );
 
-  const [headState, shareFileExists, branchIsLocal, dirtyConflicts] = await Promise.all([
+  const [headState, shareTargetExists, branchIsLocal, dirtyConflicts] = await Promise.all([
     headStatePromise,
-    shareFilePromise,
+    shareTargetPromise,
     branchIsLocalPromise,
     dirtyPromise,
   ]);
@@ -103,7 +105,7 @@ export async function computeBranchInfo(
       detached: true,
       currentBranch: null,
       currentHeadSha: headState.currentHeadSha,
-      shareFileExists,
+      shareTargetExists,
       dirtyConflicts,
       branchIsLocal,
     };
@@ -112,7 +114,7 @@ export async function computeBranchInfo(
     detached: false,
     currentBranch: headState.currentBranch,
     currentHeadSha: null,
-    shareFileExists,
+    shareTargetExists,
     dirtyConflicts,
     branchIsLocal,
   };

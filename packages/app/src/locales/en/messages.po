@@ -109,14 +109,14 @@ msgstr "{0} templates available"
 
 #. placeholder {0}: share.owner
 #. placeholder {1}: share.repo
-#. placeholder {2}: share.path
+#. placeholder {2}: shareTargetPath(share.target)
 #: src/components/ShareBranchSwitchDialog.tsx
 msgid "{0}/{1} — {2}"
 msgstr "{0}/{1} — {2}"
 
 #. placeholder {0}: share.owner
 #. placeholder {1}: share.repo
-#. placeholder {2}: share.path ? `— ${share.path}` : ''
+#. placeholder {2}: shareTargetPath(share.target) ? `— ${shareTargetPath(share.target)}` : ''
 #: src/components/ShareReceiveDialog.tsx
 msgid "{0}/{1} {2}"
 msgstr "{0}/{1} {2}"
@@ -567,6 +567,10 @@ msgstr "Align left"
 msgid "Align right"
 msgstr "Align right"
 
+#: src/components/FolderOverview.tsx
+msgid "All files"
+msgstr "All files"
+
 #: src/components/DiffView.tsx
 msgid "All hunks resolved"
 msgstr "All hunks resolved"
@@ -787,16 +791,28 @@ msgid "Branch <0>{shareBranch}</0> is checked out in:"
 msgstr "Branch <0>{shareBranch}</0> is checked out in:"
 
 #: src/components/ShareBranchSwitchDialog.tsx
-msgid "Branch switch failed — try opening the doc manually."
-msgstr "Branch switch failed — try opening the doc manually."
+msgid "Branch switch failed — try opening the {targetNoun} manually."
+msgstr "Branch switch failed — try opening the {targetNoun} manually."
 
 #: src/components/ShareBranchSwitchDialog.tsx
-msgid "Branch switch timed out — try opening the doc manually."
-msgstr "Branch switch timed out — try opening the doc manually."
+#~ msgid "Branch switch failed — try opening the doc manually."
+#~ msgstr "Branch switch failed — try opening the doc manually."
 
 #: src/components/ShareBranchSwitchDialog.tsx
-msgid "Branch switched but the document could not be opened — try navigating to it manually."
-msgstr "Branch switched but the document could not be opened — try navigating to it manually."
+msgid "Branch switch timed out — try opening the {targetNoun} manually."
+msgstr "Branch switch timed out — try opening the {targetNoun} manually."
+
+#: src/components/ShareBranchSwitchDialog.tsx
+#~ msgid "Branch switch timed out — try opening the doc manually."
+#~ msgstr "Branch switch timed out — try opening the doc manually."
+
+#: src/components/ShareBranchSwitchDialog.tsx
+msgid "Branch switched but the {targetNoun} could not be opened — try navigating to it manually."
+msgstr "Branch switched but the {targetNoun} could not be opened — try navigating to it manually."
+
+#: src/components/ShareBranchSwitchDialog.tsx
+#~ msgid "Branch switched but the document could not be opened — try navigating to it manually."
+#~ msgstr "Branch switched but the document could not be opened — try navigating to it manually."
 
 #: src/components/ui/breadcrumb.tsx
 msgid "breadcrumb"
@@ -1807,6 +1823,11 @@ msgstr "Do you want to permanently delete instead?"
 msgid "Docs tagged #{tagDocsName}"
 msgstr "Docs tagged #{tagDocsName}"
 
+#: src/components/ShareBranchSwitchDialog.tsx
+#: src/components/ShareReceiveDialog.tsx
+msgid "document"
+msgstr "document"
+
 #: src/components/DocumentErrorBoundary.tsx
 msgid "Document not found"
 msgstr "Document not found"
@@ -2380,6 +2401,12 @@ msgstr "Fold or unfold source"
 msgid "Fold, unfold, fold all, or unfold all source ranges."
 msgstr "Fold, unfold, fold all, or unfold all source ranges."
 
+#: src/components/ShareBranchSwitchDialog.tsx
+#: src/components/ShareReceiveDialog.tsx
+msgid "folder"
+msgstr "folder"
+
+#: src/components/share-metadata-rows.tsx
 #: src/editor/extensions/InternalLinkPropPanel.tsx
 #: src/editor/extensions/WikiLinkPropPanel.tsx
 #: src/editor/link-path-suggestions.tsx
@@ -3842,8 +3869,13 @@ msgstr "Open recent project"
 
 #: src/components/ShareBranchSwitchDialog.tsx
 #: src/components/ShareReceiveDialog.tsx
-msgid "Open shared document"
-msgstr "Open shared document"
+msgid "Open shared {targetNoun}"
+msgstr "Open shared {targetNoun}"
+
+#: src/components/ShareBranchSwitchDialog.tsx
+#: src/components/ShareReceiveDialog.tsx
+#~ msgid "Open shared document"
+#~ msgstr "Open shared document"
 
 #: src/editor/extensions/JsxComponentView.tsx
 msgid "Open source doc: {mirrorSrc}"
@@ -4872,6 +4904,10 @@ msgstr "Share"
 msgid "Share doc"
 msgstr "Share doc"
 
+#: src/components/ShareButton.tsx
+msgid "Share folder"
+msgstr "Share folder"
+
 #: src/components/ConsentDialogBody.tsx
 #: src/components/CreateProjectDialog.tsx
 msgid "Share OK config with my team?"
@@ -5343,6 +5379,10 @@ msgstr "Text"
 msgid "That folder isn't an Open Knowledge project yet. Initialize it and open?"
 msgstr "That folder isn't an Open Knowledge project yet. Initialize it and open?"
 
+#: src/components/ShareBranchSwitchDialog.tsx
+msgid "The {targetNoun} could not be opened — try navigating to it manually."
+msgstr "The {targetNoun} could not be opened — try navigating to it manually."
+
 #: src/components/InstallInClaudeDesktopDialog.tsx
 msgid "The Claude Desktop App didn't open the file. Is it installed? ({msg})"
 msgstr "The Claude Desktop App didn't open the file. Is it installed? ({msg})"
@@ -5360,8 +5400,8 @@ msgid "The desktop app isn't responding. Refresh and try again."
 msgstr "The desktop app isn't responding. Refresh and try again."
 
 #: src/components/ShareBranchSwitchDialog.tsx
-msgid "The document could not be opened — try navigating to it manually."
-msgstr "The document could not be opened — try navigating to it manually."
+#~ msgid "The document could not be opened — try navigating to it manually."
+#~ msgstr "The document could not be opened — try navigating to it manually."
 
 #: src/components/FileTree.tsx
 msgid "The file is in your Trash; the file-watcher will reconcile."
@@ -5391,21 +5431,33 @@ msgstr "The properties block at the top of this doc has a formatting error. Swit
 msgid "Theme"
 msgstr "Theme"
 
+#: src/components/ShareBranchSwitchDialog.tsx
+msgid "This {targetNoun} only exists on branch <0>{shareBranch}</0>. You have uncommitted changes that prevent switching. Commit or stash your changes, then open the share link again."
+msgstr "This {targetNoun} only exists on branch <0>{shareBranch}</0>. You have uncommitted changes that prevent switching. Commit or stash your changes, then open the share link again."
+
+#: src/components/ShareBranchSwitchDialog.tsx
+msgid "This {targetNoun} was shared from branch <0>{shareBranch}</0>. It doesn't exist on your current branch (<1>{currentLabel}</1>)."
+msgstr "This {targetNoun} was shared from branch <0>{shareBranch}</0>. It doesn't exist on your current branch (<1>{currentLabel}</1>)."
+
+#: src/components/ShareBranchSwitchDialog.tsx
+msgid "This {targetNoun} was shared from branch <0>{shareBranch}</0>. You're currently on <1>{currentLabel}</1>."
+msgstr "This {targetNoun} was shared from branch <0>{shareBranch}</0>. You're currently on <1>{currentLabel}</1>."
+
 #: src/components/ShareReceiveDialog.tsx
 msgid "This branch is checked out in:"
 msgstr "This branch is checked out in:"
 
 #: src/components/ShareBranchSwitchDialog.tsx
-msgid "This doc only exists on branch <0>{shareBranch}</0>. You have uncommitted changes that prevent switching. Commit or stash your changes, then open the share link again."
-msgstr "This doc only exists on branch <0>{shareBranch}</0>. You have uncommitted changes that prevent switching. Commit or stash your changes, then open the share link again."
+#~ msgid "This doc only exists on branch <0>{shareBranch}</0>. You have uncommitted changes that prevent switching. Commit or stash your changes, then open the share link again."
+#~ msgstr "This doc only exists on branch <0>{shareBranch}</0>. You have uncommitted changes that prevent switching. Commit or stash your changes, then open the share link again."
 
 #: src/components/ShareBranchSwitchDialog.tsx
-msgid "This doc was shared from branch <0>{shareBranch}</0>. It doesn't exist on your current branch (<1>{currentLabel}</1>)."
-msgstr "This doc was shared from branch <0>{shareBranch}</0>. It doesn't exist on your current branch (<1>{currentLabel}</1>)."
+#~ msgid "This doc was shared from branch <0>{shareBranch}</0>. It doesn't exist on your current branch (<1>{currentLabel}</1>)."
+#~ msgstr "This doc was shared from branch <0>{shareBranch}</0>. It doesn't exist on your current branch (<1>{currentLabel}</1>)."
 
 #: src/components/ShareBranchSwitchDialog.tsx
-msgid "This doc was shared from branch <0>{shareBranch}</0>. You're currently on <1>{currentLabel}</1>."
-msgstr "This doc was shared from branch <0>{shareBranch}</0>. You're currently on <1>{currentLabel}</1>."
+#~ msgid "This doc was shared from branch <0>{shareBranch}</0>. You're currently on <1>{currentLabel}</1>."
+#~ msgstr "This doc was shared from branch <0>{shareBranch}</0>. You're currently on <1>{currentLabel}</1>."
 
 #: src/components/ShareReceiveDialog.tsx
 #~ msgid "This document doesn't exist on your local copy of branch <0>{currentBranchLabel}</0>. Your branch may be behind the remote — pull the latest changes from GitHub, then reopen this link."

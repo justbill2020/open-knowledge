@@ -1,4 +1,10 @@
-import { ArrowRightIcon, DownloadIcon, ExternalLinkIcon, GitBranchIcon } from 'lucide-react';
+import {
+  ArrowRightIcon,
+  DownloadIcon,
+  ExternalLinkIcon,
+  FolderIcon,
+  GitBranchIcon,
+} from 'lucide-react';
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -65,7 +71,9 @@ export default async function SplashPage({ params }: SplashPageProps) {
       <section className="px-6 pt-32 pb-16 md:pt-44 md:pb-20">
         <div className="mx-auto max-w-3xl">
           <p className="mb-6 text-sm font-medium italic text-[var(--slide-accent-strong)]">
-            Shared via Open Knowledge
+            {view.target === 'folder'
+              ? 'Folder shared via Open Knowledge'
+              : 'Shared via Open Knowledge'}
           </p>
 
           <h1
@@ -97,6 +105,16 @@ export default async function SplashPage({ params }: SplashPageProps) {
           >
             {view.repoPath}
           </p>
+
+          {view.target === 'folder' ? (
+            <p
+              className="mt-2 inline-flex items-center gap-2 text-sm text-[var(--slide-muted)]"
+              data-testid="splash-folder-indicator"
+            >
+              <FolderIcon className="size-4" aria-hidden="true" />
+              <span>Folder</span>
+            </p>
+          ) : null}
 
           {view.isDefaultBranch ? null : (
             <p

@@ -3,7 +3,7 @@ import {
   type ExpectedShareRepo,
 } from '@inkeep/open-knowledge-core';
 import type {
-  CheckDocExistsResult,
+  CheckTargetExistsResult,
   OkShareReceivedPayload,
   ShareFolderValidationResult,
 } from '@/lib/desktop-bridge-types';
@@ -69,7 +69,7 @@ export interface ReceiveLogFields {
   readonly folder_validate?: ShareFolderValidationResult['kind'];
   readonly branch_action?: BranchAction;
   readonly branch?: string;
-  readonly doc_check?: CheckDocExistsResult;
+  readonly doc_check?: CheckTargetExistsResult;
   readonly branch_dialog_action?: BranchDialogAction;
 }
 

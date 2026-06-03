@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import {
   isBranchResolutionError,
-  isValidBranchInfoDocPath,
+  isValidBranchInfoPath,
   isValidBranchName,
 } from './git-branch-info.ts';
 
@@ -53,53 +53,61 @@ describe('isValidBranchName', () => {
   });
 });
 
-describe('isValidBranchInfoDocPath', () => {
+describe('isValidBranchInfoPath', () => {
   test('accepts a single-segment doc path', () => {
-    expect(isValidBranchInfoDocPath('README.md')).toBe(true);
+    expect(isValidBranchInfoPath('README.md', 'doc')).toBe(true);
   });
 
   test('accepts a nested forward-slash doc path', () => {
-    expect(isValidBranchInfoDocPath('docs/sub/page.md')).toBe(true);
+    expect(isValidBranchInfoPath('docs/sub/page.md', 'doc')).toBe(true);
   });
 
   test('rejects a leading forward-slash (absolute path)', () => {
-    expect(isValidBranchInfoDocPath('/etc/passwd')).toBe(false);
+    expect(isValidBranchInfoPath('/etc/passwd', 'doc')).toBe(false);
+    expect(isValidBranchInfoPath('/etc/passwd', 'folder')).toBe(false);
   });
 
   test('rejects any backslash — wire contract is forward-slash only', () => {
-    expect(isValidBranchInfoDocPath('docs\\page.md')).toBe(false);
-    expect(isValidBranchInfoDocPath('\\etc\\passwd')).toBe(false);
-    expect(isValidBranchInfoDocPath('foo/bar\\baz.md')).toBe(false);
+    expect(isValidBranchInfoPath('docs\\page.md', 'doc')).toBe(false);
+    expect(isValidBranchInfoPath('\\etc\\passwd', 'doc')).toBe(false);
+    expect(isValidBranchInfoPath('foo/bar\\baz.md', 'folder')).toBe(false);
   });
 
   test('rejects `..` traversal segment', () => {
-    expect(isValidBranchInfoDocPath('docs/../etc/passwd')).toBe(false);
+    expect(isValidBranchInfoPath('docs/../etc/passwd', 'doc')).toBe(false);
+    expect(isValidBranchInfoPath('docs/../etc/passwd', 'folder')).toBe(false);
   });
 
   test('rejects `.git` segment (exact match, not `.gitignore`)', () => {
-    expect(isValidBranchInfoDocPath('.git/HEAD')).toBe(false);
-    expect(isValidBranchInfoDocPath('foo/.git/config')).toBe(false);
-    expect(isValidBranchInfoDocPath('.gitignore')).toBe(true);
-    expect(isValidBranchInfoDocPath('.github/foo.md')).toBe(true);
+    expect(isValidBranchInfoPath('.git/HEAD', 'doc')).toBe(false);
+    expect(isValidBranchInfoPath('foo/.git/config', 'doc')).toBe(false);
+    expect(isValidBranchInfoPath('.gitignore', 'doc')).toBe(true);
+    expect(isValidBranchInfoPath('.github/foo.md', 'doc')).toBe(true);
   });
 
   test('rejects consecutive slashes (empty segment)', () => {
-    expect(isValidBranchInfoDocPath('docs//page.md')).toBe(false);
+    expect(isValidBranchInfoPath('docs//page.md', 'doc')).toBe(false);
   });
 
   test('rejects control characters', () => {
-    expect(isValidBranchInfoDocPath('docs/\npage.md')).toBe(false);
-    expect(isValidBranchInfoDocPath('docs/\x00.md')).toBe(false);
+    expect(isValidBranchInfoPath('docs/\npage.md', 'doc')).toBe(false);
+    expect(isValidBranchInfoPath('docs/\x00.md', 'doc')).toBe(false);
   });
 
   test('rejects non-string inputs', () => {
-    expect(isValidBranchInfoDocPath(null)).toBe(false);
-    expect(isValidBranchInfoDocPath(undefined)).toBe(false);
-    expect(isValidBranchInfoDocPath(123)).toBe(false);
+    expect(isValidBranchInfoPath(null, 'doc')).toBe(false);
+    expect(isValidBranchInfoPath(undefined, 'doc')).toBe(false);
+    expect(isValidBranchInfoPath(123, 'doc')).toBe(false);
   });
 
-  test('rejects empty string', () => {
-    expect(isValidBranchInfoDocPath('')).toBe(false);
+  test('empty string is the folder-root sentinel: valid for folder, invalid for doc', () => {
+    expect(isValidBranchInfoPath('', 'folder')).toBe(true);
+    expect(isValidBranchInfoPath('', 'doc')).toBe(false);
+  });
+
+  test('non-empty folder path passes the same segment gate as doc', () => {
+    expect(isValidBranchInfoPath('docs/guides', 'folder')).toBe(true);
+    expect(isValidBranchInfoPath('docs', 'folder')).toBe(true);
   });
 });
 

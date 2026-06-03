@@ -1,12 +1,21 @@
 import { isAbsolute, resolve } from 'node:path';
-import { parseGitHubBlobUrl } from '@inkeep/open-knowledge';
+import { parseGitHubShareUrl } from '@inkeep/open-knowledge';
 import {
   type CandidateSelection,
   decodeShareUrl,
   InvalidShareUrlError,
   UnsupportedShareVersionError,
 } from '@inkeep/open-knowledge-core';
-import type { OkSharePayloadFields, OkShareReceivedPayload } from '../shared/bridge-contract.ts';
+import type {
+  OkSharePayloadFields,
+  OkShareReceivedPayload,
+  ShareTarget,
+} from '../shared/bridge-contract.ts';
+import type { CheckTargetExistsResult } from './check-target-exists.ts';
+
+function shareTargetPath(target: ShareTarget): string {
+  return target.kind === 'doc' ? target.docPath : target.folderPath;
+}
 
 interface ParsedOpenKnowledgeUrl {
   readonly host: 'open';
@@ -25,9 +34,9 @@ function readWebpageURL(source: unknown): string | null {
 }
 
 /** Successful share-URL parse — the routing payload the receive dialog renders
- *  against. Aliases the canonical `OkSharePayloadFields` (same fields) so the
- *  parse output and the IPC payload can't drift, matching the `ShareDeepLinkFields`
- *  alias. */
+ *  against. Aliases the canonical kind-aware `OkSharePayloadFields` (carries
+ *  `target: ShareTarget` + `sharedUrl`) so the parse output and the IPC payload
+ *  can't drift, matching the `ShareDeepLinkFields` alias. */
 export type ShareUrlPayload = OkSharePayloadFields;
 
 export type ShareUrlSource = 'universal-link' | 'custom-scheme';
@@ -93,7 +102,7 @@ function parseShareUniversalLink(url: URL): ShareParseResult {
   if (encoded === undefined || encoded.length === 0) {
     return { kind: 'invalid', source: 'universal-link' };
   }
-  let decoded: { blobUrl: string };
+  let decoded: { sharedUrl: string };
   try {
     decoded = decodeShareUrl(encoded);
   } catch (err) {
@@ -109,33 +118,37 @@ function parseShareUniversalLink(url: URL): ShareParseResult {
     }
     return { kind: 'invalid', source: 'universal-link' };
   }
-  return finalizeShareResult(decoded.blobUrl, 'universal-link');
+  return finalizeShareResult(decoded.sharedUrl, 'universal-link');
 }
 
 function parseShareCustomScheme(url: URL): ShareParseResult {
-  const rawBlobUrl = url.searchParams.get('url');
-  if (!rawBlobUrl) {
+  const rawSharedUrl = url.searchParams.get('url');
+  if (!rawSharedUrl) {
     return { kind: 'invalid', source: 'custom-scheme' };
   }
-  return finalizeShareResult(rawBlobUrl, 'custom-scheme');
+  return finalizeShareResult(rawSharedUrl, 'custom-scheme');
 }
 
-const MAX_BLOB_URL_LENGTH = 4096;
+const MAX_SHARED_URL_LENGTH = 4096;
 
-function finalizeShareResult(blobUrl: string, source: ShareUrlSource): ShareParseResult {
-  if (typeof blobUrl !== 'string' || blobUrl.length === 0) {
+function finalizeShareResult(sharedUrl: string, source: ShareUrlSource): ShareParseResult {
+  if (typeof sharedUrl !== 'string' || sharedUrl.length === 0) {
     return { kind: 'invalid', source };
   }
-  if (blobUrl.length > MAX_BLOB_URL_LENGTH) {
+  if (sharedUrl.length > MAX_SHARED_URL_LENGTH) {
     return { kind: 'invalid', source };
   }
-  if (blobUrl.includes('\x00')) {
+  if (sharedUrl.includes('\x00')) {
     return { kind: 'invalid', source };
   }
-  const parsed = parseGitHubBlobUrl(blobUrl);
+  const parsed = parseGitHubShareUrl(sharedUrl);
   if (parsed === null) {
     return { kind: 'invalid', source };
   }
+  const target: ShareTarget =
+    parsed.kind === 'doc'
+      ? { kind: 'doc', docPath: parsed.path }
+      : { kind: 'folder', folderPath: parsed.path };
   return {
     kind: 'ok',
     source,
@@ -143,8 +156,8 @@ function finalizeShareResult(blobUrl: string, source: ShareUrlSource): SharePars
       owner: parsed.owner,
       repo: parsed.repo,
       branch: parsed.branch,
-      path: parsed.path,
-      blobUrl,
+      sharedUrl,
+      target,
     },
   };
 }
@@ -255,18 +268,30 @@ interface ProtocolHandlerDeps {
   openProject(
     projectPath: string,
     opts?: {
-      pendingDeepLinkDoc?: string;
+      pendingDeepLinkTarget?: { kind: 'doc' | 'folder'; path: string };
       pendingBranch?: string | null;
       pendingMultiCandidate?: boolean;
+      pendingTargetMissing?: boolean;
       pendingShareBranchSwitch?: ShareDeepLinkBranchSwitchPayload;
     },
   ): Promise<BrowserWindowHandle | null>;
   sendDeepLink(
     win: BrowserWindowHandle,
-    payload: { doc: string; branch?: string | null; multiCandidate?: boolean },
+    payload: {
+      doc: string;
+      kind: 'doc' | 'folder';
+      branch?: string | null;
+      multiCandidate?: boolean;
+      targetMissing?: boolean;
+    },
   ): void;
   sendShareDeepLink?(win: BrowserWindowHandle, payload: ShareDeepLinkPayload): void;
   resolveShareTarget?(share: ShareUrlPayload): Promise<CandidateSelection>;
+  checkShareTargetExists?(
+    projectPath: string,
+    kind: 'doc' | 'folder',
+    path: string,
+  ): CheckTargetExistsResult;
   routeShareToNavigator?(payload: ShareNavigatorPayload): void;
   openScreen?(win: BrowserWindowHandle, screen: ScreenTarget): void;
   getFocusedWindow?(): BrowserWindowHandle | null;
@@ -354,20 +379,35 @@ export function registerProtocolHandler(deps: ProtocolHandlerDeps): void {
     };
     switch (selection.kind) {
       case 'branch-match-ok': {
+        const targetPath = shareTargetPath(share.target);
+        const isContentRoot = share.target.kind === 'folder' && targetPath === '';
+        const targetMissing =
+          !isContentRoot &&
+          deps.checkShareTargetExists?.(selection.candidate.path, share.target.kind, targetPath) ===
+            'missing';
+        if (targetMissing) {
+          deps.log?.warn(
+            { url, project: selection.candidate.path },
+            '[receive] target_check=missing — share target not on checked-out branch; dispatching with in-context toast',
+          );
+        }
         const existing = deps.focusWindowForProject(selection.candidate.path);
         if (existing) {
           deps.sendDeepLink(existing, {
-            doc: share.path,
+            doc: targetPath,
+            kind: share.target.kind,
             branch: share.branch,
             multiCandidate: selection.multiCandidate,
+            ...(targetMissing ? { targetMissing: true } : {}),
           });
           return;
         }
         void deps
           .openProject(selection.candidate.path, {
-            pendingDeepLinkDoc: share.path,
+            pendingDeepLinkTarget: { kind: share.target.kind, path: targetPath },
             pendingBranch: share.branch,
             pendingMultiCandidate: selection.multiCandidate,
+            ...(targetMissing ? { pendingTargetMissing: true } : {}),
           })
           .then((win) => {
             if (win === null) {
@@ -530,15 +570,17 @@ export function registerProtocolHandler(deps: ProtocolHandlerDeps): void {
     }
     const existing = deps.focusWindowForProject(parsed.project);
     if (existing) {
-      deps.sendDeepLink(existing, { doc: parsed.doc });
+      deps.sendDeepLink(existing, { doc: parsed.doc, kind: 'doc' });
       return;
     }
-    void deps.openProject(parsed.project, { pendingDeepLinkDoc: parsed.doc }).catch((err) => {
-      deps.log?.warn(
-        { err: (err as Error).message, project: parsed.project },
-        '[url-scheme] openProject failed',
-      );
-    });
+    void deps
+      .openProject(parsed.project, { pendingDeepLinkTarget: { kind: 'doc', path: parsed.doc } })
+      .catch((err) => {
+        deps.log?.warn(
+          { err: (err as Error).message, project: parsed.project },
+          '[url-scheme] openProject failed',
+        );
+      });
   };
 
   const enqueueOrRoute = (url: string): void => {

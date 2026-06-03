@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   type ShareConstructUrlErrorCode,
@@ -6,11 +6,10 @@ import {
 } from '@inkeep/open-knowledge-core';
 import { z } from 'zod';
 import { resolveWithinRoot } from './path-safety.ts';
-import { resolvePreviewUrlForTool } from './preview-url.ts';
+import { encodeDocName, resolvePreviewUrlForTool } from './preview-url.ts';
 import type { ConfigOrResolver, ServerInstance, ServerUrlOrResolver } from './shared.ts';
 import {
   HOCUSPOCUS_NOT_RUNNING_ERROR,
-  normalizeDocName,
   outputSchemaWithText,
   ROUTED_CWD_DESCRIPTION,
   resolveProjectServerContext,
@@ -18,15 +17,18 @@ import {
   textResult,
 } from './shared.ts';
 
+type ShareKind = 'doc' | 'folder';
+
 export const DESCRIPTION = [
-  "[Requires: Hocuspocus server] Build a shareable GitHub-substrate URL (`https://openknowledge.ai/d/...`) pinned to the project's current branch + the focused doc. Read-only against the working tree — no commits, no pushes, no `git fetch`.",
+  "[Requires: Hocuspocus server] Build a shareable GitHub-substrate URL (`https://openknowledge.ai/d/...`) pinned to the project's current branch + the focused target (a doc or a folder). Read-only against the working tree — no commits, no pushes, no `git fetch`.",
   '',
-  'Use this when the user asks for a share link / shareable link / URL to send to a teammate. Recipients open the link to receive the doc into their own Open Knowledge install.',
+  'Use this when the user asks for a share link / shareable link / URL to send to a teammate. Recipients open the link to receive the doc (or folder subtree) into their own Open Knowledge install.',
   '',
   '**Publishing is a user act.** Agents do NOT publish projects to GitHub from this tool. When the project has no GitHub remote, this tool returns an error pointing the user at the Share wizard (or `gh repo create` + `git push`) — it does not run those steps itself.',
   '',
   '**Parameters:**',
-  '- `docName` — Document name, extension-less. Trailing `.md`/`.mdx` is stripped; the on-disk file is probed automatically.',
+  '- `path` — Content-dir-relative target. For a doc, extension-less (trailing `.md`/`.mdx` is stripped; the on-disk file is probed automatically). For a folder, the directory path. The empty string `""` is the content-root sentinel (folder-only).',
+  "- `kind` (optional) — `'doc'` or `'folder'`. Omit to auto-probe disk (`.mdx` → `.md` → directory, first hit wins). REQUIRED when `path` is empty (`\"\"`), since auto-probe cannot disambiguate the root.",
   '- `cwd` (optional) — Project root (see `cwd` description below).',
   '',
   '**Preconditions:** project on a named branch (not detached HEAD); origin set to a `github.com` remote; the branch already pushed to origin.',
@@ -41,13 +43,20 @@ export interface ShareLinkDeps {
 interface ShareLinkSuccess {
   ok: true;
   shareUrl: string;
-  blobUrl: string;
+  sharedUrl: string;
   branch: string;
+  resolvedKind: ShareKind;
 }
+
+type ShareLinkErrorCode =
+  | ShareConstructUrlErrorCode
+  | 'target-not-found'
+  | 'kind-mismatch'
+  | 'unknown';
 
 interface ShareLinkError {
   ok: false;
-  error: ShareConstructUrlErrorCode | 'doc-not-found' | 'unknown';
+  error: ShareLinkErrorCode;
   message: string;
   branch?: string;
 }
@@ -68,7 +77,7 @@ function messageForShareError(error: ShareConstructUrlErrorCode, branch?: string
     case 'non-github-remote':
       return 'Origin is not a `github.com` remote. Share links are GitHub-only in v1.';
     case 'invalid-path':
-      return 'The resolved document path is not shareable (escapes the project root or names the `.git` subtree). Pass a normal docName under the content directory.';
+      return 'The resolved share path is not shareable (escapes the project root or names the `.git` subtree). Pass a normal target path under the content directory.';
     default: {
       const _exhaustive: never = error;
       return `Unknown share-construct-url error: ${String(_exhaustive)}`;
@@ -76,15 +85,17 @@ function messageForShareError(error: ShareConstructUrlErrorCode, branch?: string
   }
 }
 
-function resolveDocSharePath(
-  projectDir: string,
-  contentDir: string,
-  docName: string,
-): string | null {
-  const contained = resolveWithinRoot(contentDir, docName);
-  if (!contained.ok) return null;
+function isExistingDirectory(abs: string): boolean {
+  try {
+    return statSync(abs).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+function resolveExistingDocPath(projectDir: string, absBase: string): string | null {
   for (const ext of ['.mdx', '.md'] as const) {
-    const absWithExt = `${contained.abs}${ext}`;
+    const absWithExt = `${absBase}${ext}`;
     if (existsSync(absWithExt)) {
       const projectContained = resolveWithinRoot(projectDir, absWithExt);
       if (!projectContained.ok) return null;
@@ -94,11 +105,61 @@ function resolveDocSharePath(
   return null;
 }
 
+type ResolveShareTargetResult =
+  | { ok: true; kind: ShareKind; sharePath: string }
+  | { ok: false; code: 'target-not-found' | 'kind-mismatch' | 'invalid-path' };
+
+function resolveShareTarget(
+  projectDir: string,
+  contentDir: string,
+  path: string,
+  kind?: ShareKind,
+): ResolveShareTargetResult {
+  if (path === '') {
+    if (kind === 'folder') return { ok: true, kind: 'folder', sharePath: '' };
+    return { ok: false, code: 'invalid-path' };
+  }
+
+  const contained = resolveWithinRoot(contentDir, path);
+  if (!contained.ok) return { ok: false, code: 'target-not-found' };
+
+  const docBase = contained.abs.replace(/\.(mdx|md)$/i, '');
+  const docPath = resolveExistingDocPath(projectDir, docBase);
+  const dirExists = isExistingDirectory(contained.abs);
+
+  if (kind === 'doc') {
+    if (docPath !== null) return { ok: true, kind: 'doc', sharePath: docPath };
+    if (dirExists) return { ok: false, code: 'kind-mismatch' };
+    return { ok: false, code: 'target-not-found' };
+  }
+  if (kind === 'folder') {
+    if (dirExists) {
+      const folderContained = resolveWithinRoot(projectDir, contained.abs);
+      if (!folderContained.ok) return { ok: false, code: 'target-not-found' };
+      return { ok: true, kind: 'folder', sharePath: folderContained.rel };
+    }
+    if (docPath !== null) return { ok: false, code: 'kind-mismatch' };
+    return { ok: false, code: 'target-not-found' };
+  }
+
+  if (docPath !== null) return { ok: true, kind: 'doc', sharePath: docPath };
+  if (dirExists) {
+    const folderContained = resolveWithinRoot(projectDir, contained.abs);
+    if (!folderContained.ok) return { ok: false, code: 'target-not-found' };
+    return { ok: true, kind: 'folder', sharePath: folderContained.rel };
+  }
+  return { ok: false, code: 'target-not-found' };
+}
+
 const OutputSchema = outputSchemaWithText({
   ok: z.boolean().describe('Success discriminator.'),
   shareUrl: z.string().optional().describe('Marketing share URL (success only).'),
-  blobUrl: z.string().optional().describe('Unencoded GitHub blob URL (success only).'),
+  sharedUrl: z.string().optional().describe('Unencoded GitHub blob/tree URL (success only).'),
   branch: z.string().optional().describe('Branch the share URL pins to (success only).'),
+  resolvedKind: z
+    .enum(['doc', 'folder'])
+    .optional()
+    .describe('Kind the target resolved to (success only).'),
   error: z
     .enum([
       'no-remote',
@@ -106,7 +167,8 @@ const OutputSchema = outputSchemaWithText({
       'branch-not-on-origin',
       'non-github-remote',
       'invalid-path',
-      'doc-not-found',
+      'target-not-found',
+      'kind-mismatch',
       'unknown',
     ])
     .optional()
@@ -116,7 +178,9 @@ const OutputSchema = outputSchemaWithText({
     .string()
     .nullable()
     .optional()
-    .describe('Route-only preview URL `/#/<doc>` (no host:port). `null` when no UI is running.'),
+    .describe(
+      'Route-only preview URL (no host:port): `/#/<doc>` for a doc, `/#/<folder>/` for a folder, `/#/` for the content root. `null` when no UI is running.',
+    ),
   previewUrlSource: z.string().optional().describe('Internal: preview-URL provenance.'),
 });
 
@@ -126,9 +190,17 @@ export function register(server: ServerInstance, deps: ShareLinkDeps): void {
     {
       description: DESCRIPTION,
       inputSchema: {
-        docName: z
+        path: z
           .string()
-          .describe('Document to share, extension-less. Trailing `.md`/`.mdx` is stripped.'),
+          .describe(
+            'Content-dir-relative target. Doc paths are extension-less (`.md`/`.mdx` stripped). Folder paths name a directory. `""` is the content-root sentinel (folder-only).',
+          ),
+        kind: z
+          .enum(['doc', 'folder'])
+          .optional()
+          .describe(
+            'Target kind. Omit to auto-probe disk (`.mdx` → `.md` → directory). REQUIRED when `path` is empty.',
+          ),
         cwd: z.string().optional().describe(ROUTED_CWD_DESCRIPTION),
       },
       outputSchema: OutputSchema,
@@ -137,7 +209,7 @@ export function register(server: ServerInstance, deps: ShareLinkDeps): void {
         idempotentHint: true,
       },
     },
-    async (args: { docName: string; cwd?: string }) => {
+    async (args: { path: string; kind?: ShareKind; cwd?: string }) => {
       const context = await resolveProjectServerContext(
         deps.resolveCwd,
         deps.config,
@@ -148,26 +220,34 @@ export function register(server: ServerInstance, deps: ShareLinkDeps): void {
       const { cwd, config, url } = context;
       if (!url) return textResult(HOCUSPOCUS_NOT_RUNNING_ERROR, true);
 
-      const normalized = normalizeDocName(args.docName);
-      if (!normalized.ok) return textResult(normalized.error, true);
-
       const contentDir = join(cwd, config.content.dir);
-      const docPath = resolveDocSharePath(cwd, contentDir, normalized.docName);
-      if (docPath === null) {
-        const structured: ShareLinkError = {
-          ok: false,
-          error: 'doc-not-found',
-          message: `Document \`${normalized.docName}\` does not exist under the content directory (looked for \`.md\` and \`.mdx\`).`,
-        };
-        return textPlusStructured(`Error: ${structured.message}`, structured, true);
+      const resolved = resolveShareTarget(cwd, contentDir, args.path, args.kind);
+      if (!resolved.ok) {
+        let message: string;
+        if (resolved.code === 'kind-mismatch') {
+          const requestedKind: ShareKind = args.kind === 'folder' ? 'folder' : 'doc';
+          message = `\`${args.path}\` exists, but not as a ${requestedKind}. Pass \`kind: '${requestedKind === 'doc' ? 'folder' : 'doc'}'\` to share it as the other kind.`;
+        } else if (resolved.code === 'invalid-path') {
+          message =
+            'Cannot share the content root from an empty path without `kind: "folder"`. Pass a non-empty path, or `kind: "folder"` to share the root.';
+        } else {
+          message = `Target \`${args.path}\` does not exist under the content directory (looked for \`.md\`, \`.mdx\`, and a directory).`;
+        }
+        const structured: ShareLinkError = { ok: false, error: resolved.code, message };
+        return textPlusStructured(`Error: ${message}`, structured, true);
       }
+
+      const requestBody =
+        resolved.kind === 'doc'
+          ? { kind: 'doc' as const, docPath: resolved.sharePath }
+          : { kind: 'folder' as const, folderPath: resolved.sharePath };
 
       let res: Response;
       try {
         res = await fetch(`${url}/api/share/construct-url`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ docPath }),
+          body: JSON.stringify(requestBody),
           signal: AbortSignal.timeout(30_000),
         });
       } catch (err) {
@@ -237,15 +317,28 @@ export function register(server: ServerInstance, deps: ShareLinkDeps): void {
         return textPlusStructured(`Error: ${message}`, structured, true);
       }
 
-      const { shareUrl, blobUrl, branch } = body;
-      const structured: ShareLinkSuccess = { ok: true, shareUrl, blobUrl, branch };
-      const preview = await resolvePreviewUrlForTool(
-        normalized.docName,
-        { config: deps.config, resolveCwd: deps.resolveCwd },
+      const { shareUrl, sharedUrl, branch } = body;
+      const structured: ShareLinkSuccess = {
+        ok: true,
+        shareUrl,
+        sharedUrl,
+        branch,
+        resolvedKind: resolved.kind,
+      };
+      const previewDeps = { config: deps.config, resolveCwd: deps.resolveCwd };
+      let preview = await resolvePreviewUrlForTool(
+        resolved.sharePath.replace(/\.(mdx|md)$/i, ''),
+        previewDeps,
         cwd,
       );
+      if (preview && resolved.kind === 'folder') {
+        const normalized = resolved.sharePath.replace(/^\/+|\/+$/g, '');
+        const folderRoute = normalized === '' ? '/#/' : `/#/${encodeDocName(normalized)}/`;
+        preview = { ...preview, url: folderRoute };
+      }
+      const displayPath = args.path === '' ? '(content root)' : args.path;
       return textPlusStructured(
-        `Share link for \`${normalized.docName}\` on branch \`${branch}\`:\n${shareUrl}`,
+        `Share link for ${resolved.kind} \`${displayPath}\` on branch \`${branch}\`:\n${shareUrl}`,
         {
           ...structured,
           previewUrl: preview?.url ?? null,

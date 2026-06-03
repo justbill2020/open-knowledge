@@ -18,7 +18,7 @@ const cleanInfo = (overrides: Partial<BranchInfoResponse> = {}): BranchInfoRespo
     currentBranch: 'main',
     currentHeadSha: null,
     detached: false,
-    shareFileExists: true,
+    shareTargetExists: true,
     dirtyConflicts: { conflicts: false, files: [] },
     branchIsLocal: true,
     ...overrides,
@@ -29,7 +29,7 @@ const detachedInfo = (overrides: Partial<BranchInfoResponse> = {}): BranchInfoRe
     currentBranch: null,
     currentHeadSha: 'deadbee',
     detached: true,
-    shareFileExists: true,
+    shareTargetExists: true,
     dirtyConflicts: { conflicts: false, files: [] },
     branchIsLocal: true,
     ...overrides,
@@ -47,7 +47,7 @@ describe('selectBranchSwitchVariant', () => {
   });
 
   test('variant B — file missing on current branch, clean tree', () => {
-    const variant = selectBranchSwitchVariant(cleanInfo({ shareFileExists: false }));
+    const variant = selectBranchSwitchVariant(cleanInfo({ shareTargetExists: false }));
     expect(variant).toEqual({
       kind: 'B',
       openCurrentEnabled: false,
@@ -73,7 +73,7 @@ describe('selectBranchSwitchVariant', () => {
   test('variant D — file missing on current, dirty conflict — only Cancel viable', () => {
     const variant = selectBranchSwitchVariant(
       cleanInfo({
-        shareFileExists: false,
+        shareTargetExists: false,
         dirtyConflicts: { conflicts: true, files: ['x.md'] },
       }),
     );
@@ -110,7 +110,7 @@ describe('BranchInfoResponseSchema (discriminated union)', () => {
       detached: false,
       currentBranch: 'main',
       currentHeadSha: null,
-      shareFileExists: true,
+      shareTargetExists: true,
       dirtyConflicts: { conflicts: false, files: [] },
       branchIsLocal: true,
     };
@@ -123,7 +123,7 @@ describe('BranchInfoResponseSchema (discriminated union)', () => {
       detached: true,
       currentBranch: null,
       currentHeadSha: 'deadbee',
-      shareFileExists: true,
+      shareTargetExists: true,
       dirtyConflicts: { conflicts: false, files: [] },
       branchIsLocal: true,
     };
@@ -136,7 +136,7 @@ describe('BranchInfoResponseSchema (discriminated union)', () => {
       detached: true,
       currentBranch: 'main',
       currentHeadSha: 'deadbee',
-      shareFileExists: true,
+      shareTargetExists: true,
       dirtyConflicts: { conflicts: false, files: [] },
       branchIsLocal: true,
     };
@@ -149,7 +149,7 @@ describe('BranchInfoResponseSchema (discriminated union)', () => {
       detached: false,
       currentBranch: 'main',
       currentHeadSha: 'deadbee',
-      shareFileExists: true,
+      shareTargetExists: true,
       dirtyConflicts: { conflicts: false, files: [] },
       branchIsLocal: true,
     };

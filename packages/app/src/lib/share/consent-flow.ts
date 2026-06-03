@@ -1,7 +1,8 @@
 export interface ConsentFlowSeed {
   readonly candidatePath: string;
   readonly branch: string;
-  readonly docPath: string;
+  readonly targetPath: string;
+  readonly targetKind: 'doc' | 'folder';
   readonly parentProjectName: string | null;
 }
 

@@ -1,7 +1,7 @@
 import { statSync } from 'node:fs';
 import { isAbsolute, join, resolve, sep } from 'node:path';
 
-export type CheckDocExistsResult = 'exists' | 'missing' | 'unreadable';
+export type CheckTargetExistsResult = 'exists' | 'missing' | 'unreadable';
 
 function isSafeProjectPath(projectPath: string): boolean {
   if (typeof projectPath !== 'string') return false;
@@ -12,18 +12,20 @@ function isSafeProjectPath(projectPath: string): boolean {
   return true;
 }
 
-function isSafeDocPath(docPath: string): boolean {
-  if (typeof docPath !== 'string') return false;
-  if (docPath.length === 0) return false;
-  if (docPath.includes('\0')) return false;
-  if (isAbsolute(docPath)) return false;
-  const segments = docPath.split(/[/\\]+/);
-  if (segments.some((s) => s === '..')) return false;
+function isSafeTargetPath(path: string): boolean {
+  if (typeof path !== 'string') return false;
+  if (path.length === 0) return false;
+  if (isAbsolute(path)) return false;
+  if (path.includes('\\')) return false;
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: control chars are exactly what we want to reject
+  if (/[\x00-\x1F\x7F]/.test(path)) return false;
+  const segments = path.split('/');
+  if (segments.some((s) => s === '' || s === '..' || s === '.git')) return false;
   return true;
 }
 
-function joinContained(projectPath: string, docPath: string): string | null {
-  const joined = resolve(join(projectPath, docPath));
+function joinContained(projectPath: string, path: string): string | null {
+  const joined = resolve(join(projectPath, path));
   const projectResolved = resolve(projectPath);
   const projectWithSep = projectResolved.endsWith(sep) ? projectResolved : projectResolved + sep;
   if (joined === projectResolved) return joined;
@@ -31,10 +33,14 @@ function joinContained(projectPath: string, docPath: string): string | null {
   return joined;
 }
 
-export function checkDocExists(projectPath: string, docPath: string): CheckDocExistsResult {
+export function checkTargetExists(
+  projectPath: string,
+  kind: 'doc' | 'folder',
+  path: string,
+): CheckTargetExistsResult {
   if (!isSafeProjectPath(projectPath)) return 'unreadable';
-  if (!isSafeDocPath(docPath)) return 'unreadable';
-  const fullPath = joinContained(projectPath, docPath);
+  if (!isSafeTargetPath(path)) return 'unreadable';
+  const fullPath = joinContained(projectPath, path);
   if (fullPath === null) return 'unreadable';
   let stat: ReturnType<typeof statSync>;
   try {
@@ -50,6 +56,7 @@ export function checkDocExists(projectPath: string, docPath: string): CheckDocEx
     }
     return 'unreadable';
   }
-  if (!stat.isFile()) return 'missing';
+  const matches = kind === 'folder' ? stat.isDirectory() : stat.isFile();
+  if (!matches) return 'missing';
   return 'exists';
 }

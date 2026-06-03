@@ -18,7 +18,13 @@ export interface EventChannels {
   'ok:update:whats-new': { payload: { version: string; releaseUrl: string } };
   'ok:update:stuck-hint': { payload: { downloadUrl: string } };
   'ok:deep-link': {
-    payload: { doc: string; branch?: string | null; multiCandidate?: boolean };
+    payload: {
+      doc: string;
+      kind: 'doc' | 'folder';
+      branch?: string | null;
+      multiCandidate?: boolean;
+      targetMissing?: boolean;
+    };
   };
   'ok:share:received': { payload: OkShareReceivedPayload };
   'ok:mcp-wiring:show': {

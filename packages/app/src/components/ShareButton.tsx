@@ -5,18 +5,17 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
-import { useDocumentContext } from '@/editor/DocumentContext';
 import { useGitSyncStatusDetailed } from '@/hooks/use-git-sync-status';
 import { scheduleClipboardWrite } from '@/lib/share/clipboard-adapter';
-import { runShareAction } from '@/lib/share/run-share-action';
+import { runShareAction, type ShareTargetInput } from '@/lib/share/run-share-action';
 
 export interface ShareButtonProps {
+  input: ShareTargetInput | null;
   onClickWhenNoRemote: () => void;
 }
 
-export function ShareButton({ onClickWhenNoRemote }: ShareButtonProps) {
+export function ShareButton({ input, onClickWhenNoRemote }: ShareButtonProps) {
   const { t } = useLingui();
-  const { activeDocName } = useDocumentContext();
   const { status } = useGitSyncStatusDetailed();
   const [busy, setBusy] = useState(false);
   const [clipboardFailedUrl, setClipboardFailedUrl] = useState<string | null>(null);
@@ -28,19 +27,18 @@ export function ShareButton({ onClickWhenNoRemote }: ShareButtonProps) {
     fallbackInputRef.current.select();
   }, [clipboardFailedUrl]);
 
-  if (!activeDocName) return null;
-
   const hasRemote = status?.hasRemote === true;
+  const triggerDisabled = input === null;
 
   async function handleClick() {
     if (busy) return;
-    if (!activeDocName) return;
+    if (input === null) return;
     setBusy(true);
     setClipboardFailedUrl(null);
     try {
       const result = await runShareAction(
         {
-          docName: activeDocName,
+          ...input,
           hasRemote,
           onClickWhenNoRemote,
         },
@@ -78,9 +76,9 @@ export function ShareButton({ onClickWhenNoRemote }: ShareButtonProps) {
         <Button
           variant="ghost"
           size="sm"
-          aria-label={t`Share doc`}
+          aria-label={input?.kind === 'folder' ? t`Share folder` : t`Share doc`}
           onClick={handleClick}
-          disabled={busy}
+          disabled={busy || triggerDisabled}
           className="gap-1.5 text-muted-foreground px-1.5"
           data-testid="share-button"
         >

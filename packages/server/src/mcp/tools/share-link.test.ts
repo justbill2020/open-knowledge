@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { hostname, tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { type Config, ConfigSchema } from '../../config/schema.ts';
 import { register, type ShareLinkDeps } from './share-link.ts';
@@ -18,14 +18,24 @@ interface ToolResult {
 interface RegisteredTool {
   name: string;
   description: string;
-  handler: (args: { docName: string; cwd?: string }) => Promise<ToolResult>;
+  inputSchema?: Record<string, unknown>;
+  handler: (args: { path: string; kind?: 'doc' | 'folder'; cwd?: string }) => Promise<ToolResult>;
 }
 
 function createFakeServer() {
   let registered: RegisteredTool | undefined;
   const server = {
-    registerTool(name: string, cfg: { description?: string }, handler: RegisteredTool['handler']) {
-      registered = { name, description: cfg.description ?? '', handler };
+    registerTool(
+      name: string,
+      cfg: { description?: string; inputSchema?: Record<string, unknown> },
+      handler: RegisteredTool['handler'],
+    ) {
+      registered = {
+        name,
+        description: cfg.description ?? '',
+        inputSchema: cfg.inputSchema,
+        handler,
+      };
     },
   } as unknown as ServerInstance;
   return {
@@ -34,6 +44,15 @@ function createFakeServer() {
       if (!registered) throw new Error('share_link was not registered');
       return registered;
     },
+  };
+}
+
+function successBody() {
+  return {
+    ok: true,
+    shareUrl: 'https://openknowledge.ai/d/encoded',
+    sharedUrl: 'https://github.com/o/r/blob/main/notes.md',
+    branch: 'main',
   };
 }
 
@@ -91,6 +110,23 @@ function makeDeps(serverUrl: string | undefined): ShareLinkDeps {
   };
 }
 
+async function writeUiLock(): Promise<void> {
+  const lockDir = resolve(tmpDir, '.ok', 'local');
+  await mkdir(lockDir, { recursive: true });
+  await writeFile(
+    resolve(lockDir, 'ui.lock'),
+    JSON.stringify({
+      pid: process.pid,
+      hostname: hostname(),
+      port: 5173,
+      startedAt: new Date().toISOString(),
+      worktreeRoot: tmpDir,
+      protocolVersion: 1,
+      runtimeVersion: '0.0.0-test',
+    }),
+  );
+}
+
 describe('share_link — registration + preconditions', () => {
   test('registers a single tool named `share_link`', () => {
     const { server, getTool } = createFakeServer();
@@ -104,116 +140,317 @@ describe('share_link — registration + preconditions', () => {
     expect(getTool().description).toContain('Publishing is a user act');
   });
 
+  test('description documents path/kind/cwd and that kind is required for empty path', () => {
+    const { server, getTool } = createFakeServer();
+    register(server, makeDeps(baseUrl));
+    const desc = getTool().description;
+    expect(desc).toContain('`path`');
+    expect(desc).toContain('`kind`');
+    expect(desc).toContain('`cwd`');
+    expect(desc).toContain('auto-probe');
+    expect(desc).toContain('REQUIRED when `path` is empty');
+  });
+
+  test('input schema is exactly {path, kind?, cwd?}', () => {
+    const { server, getTool } = createFakeServer();
+    register(server, makeDeps(baseUrl));
+    const schema = getTool().inputSchema;
+    expect(schema).toBeDefined();
+    expect(Object.keys(schema as Record<string, unknown>).sort()).toEqual(['cwd', 'kind', 'path']);
+  });
+
   test('errors when Hocuspocus URL is unset', async () => {
     const { server, getTool } = createFakeServer();
     register(server, makeDeps(undefined));
     await writeFile(resolve(tmpDir, 'notes.md'), '# notes');
-    const result = await getTool().handler({ docName: 'notes' });
+    const result = await getTool().handler({ path: 'notes' });
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toBe(HOCUSPOCUS_NOT_RUNNING_ERROR);
   });
 });
 
-describe('share_link — doc resolution', () => {
-  test('returns doc-not-found when neither `.md` nor `.mdx` exists', async () => {
+describe('share_link — target resolution (FR9 matrix)', () => {
+  test('(a) {path:notes} with notes.mdx on disk → success, resolvedKind doc', async () => {
+    await writeFile(resolve(tmpDir, 'notes.mdx'), '# notes');
+    mockResponse = { status: 200, body: successBody() };
     const { server, getTool } = createFakeServer();
     register(server, makeDeps(baseUrl));
-    const result = await getTool().handler({ docName: 'missing' });
+    const result = await getTool().handler({ path: 'notes' });
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent).toMatchObject({ ok: true, resolvedKind: 'doc' });
+    expect(seenRequests[0]?.body).toEqual({ kind: 'doc', docPath: 'notes.mdx' });
+  });
+
+  test('(b) {path:guides} with guides/ directory → success, resolvedKind folder', async () => {
+    await mkdir(resolve(tmpDir, 'guides'), { recursive: true });
+    mockResponse = { status: 200, body: successBody() };
+    const { server, getTool } = createFakeServer();
+    register(server, makeDeps(baseUrl));
+    const result = await getTool().handler({ path: 'guides' });
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent).toMatchObject({ ok: true, resolvedKind: 'folder' });
+    expect(seenRequests[0]?.body).toEqual({ kind: 'folder', folderPath: 'guides' });
+  });
+
+  test('(c) {path:guides, kind:doc} where guides is a directory → kind-mismatch', async () => {
+    await mkdir(resolve(tmpDir, 'guides'), { recursive: true });
+    const { server, getTool } = createFakeServer();
+    register(server, makeDeps(baseUrl));
+    const result = await getTool().handler({ path: 'guides', kind: 'doc' });
     expect(result.isError).toBe(true);
-    expect(result.structuredContent).toMatchObject({ ok: false, error: 'doc-not-found' });
+    expect(result.structuredContent).toMatchObject({ ok: false, error: 'kind-mismatch' });
+    expect(seenRequests).toHaveLength(0);
+  });
+
+  test('(d) {path:"", kind:folder} → root share success, folderPath ""', async () => {
+    mockResponse = {
+      status: 200,
+      body: {
+        ok: true,
+        shareUrl: 'https://openknowledge.ai/d/root',
+        sharedUrl: 'https://github.com/o/r/tree/main',
+        branch: 'main',
+      },
+    };
+    const { server, getTool } = createFakeServer();
+    register(server, makeDeps(baseUrl));
+    const result = await getTool().handler({ path: '', kind: 'folder' });
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent).toMatchObject({ ok: true, resolvedKind: 'folder' });
+    expect(seenRequests[0]?.body).toEqual({ kind: 'folder', folderPath: '' });
+  });
+
+  test('(e1) {path:""} with no kind → invalid-path', async () => {
+    const { server, getTool } = createFakeServer();
+    register(server, makeDeps(baseUrl));
+    const result = await getTool().handler({ path: '' });
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent).toMatchObject({ ok: false, error: 'invalid-path' });
+    expect(seenRequests).toHaveLength(0);
+  });
+
+  test('(e2) {path:"", kind:doc} → invalid-path', async () => {
+    const { server, getTool } = createFakeServer();
+    register(server, makeDeps(baseUrl));
+    const result = await getTool().handler({ path: '', kind: 'doc' });
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent).toMatchObject({ ok: false, error: 'invalid-path' });
+    expect(seenRequests).toHaveLength(0);
+  });
+
+  test('(f) {path:nope} nonexistent → target-not-found', async () => {
+    const { server, getTool } = createFakeServer();
+    register(server, makeDeps(baseUrl));
+    const result = await getTool().handler({ path: 'nope' });
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent).toMatchObject({ ok: false, error: 'target-not-found' });
     expect(result.content[0]?.text).toContain('does not exist');
     expect(seenRequests).toHaveLength(0);
   });
 
-  test('strips trailing `.md` from docName before probing', async () => {
+  test('symmetric: {path:notes, kind:folder} where notes.mdx is a file → kind-mismatch', async () => {
+    await writeFile(resolve(tmpDir, 'notes.mdx'), '# notes');
+    const { server, getTool } = createFakeServer();
+    register(server, makeDeps(baseUrl));
+    const result = await getTool().handler({ path: 'notes', kind: 'folder' });
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent).toMatchObject({ ok: false, error: 'kind-mismatch' });
+    expect(seenRequests).toHaveLength(0);
+  });
+
+  test('strips trailing `.md` from a doc path before probing', async () => {
     await writeFile(resolve(tmpDir, 'notes.md'), '# notes');
-    mockResponse = {
-      status: 200,
-      body: {
-        ok: true,
-        shareUrl: 'https://openknowledge.ai/d/abc',
-        blobUrl: 'https://github.com/o/r/blob/main/notes.md',
-        branch: 'main',
-      },
-    };
+    mockResponse = { status: 200, body: successBody() };
     const { server, getTool } = createFakeServer();
     register(server, makeDeps(baseUrl));
-    const result = await getTool().handler({ docName: 'notes.md' });
+    const result = await getTool().handler({ path: 'notes.md' });
     expect(result.isError).toBeUndefined();
-    expect(seenRequests[0]?.body).toEqual({ docPath: 'notes.md' });
+    expect(seenRequests[0]?.body).toEqual({ kind: 'doc', docPath: 'notes.md' });
   });
 
-  test('probes `.mdx` when `.md` is absent', async () => {
-    await writeFile(resolve(tmpDir, 'guide.mdx'), '# guide');
-    mockResponse = {
-      status: 200,
-      body: {
-        ok: true,
-        shareUrl: 'https://openknowledge.ai/d/xyz',
-        blobUrl: 'https://github.com/o/r/blob/main/guide.mdx',
-        branch: 'main',
-      },
-    };
-    const { server, getTool } = createFakeServer();
-    register(server, makeDeps(baseUrl));
-    const result = await getTool().handler({ docName: 'guide' });
-    expect(result.isError).toBeUndefined();
-    expect(seenRequests[0]?.body).toEqual({ docPath: 'guide.mdx' });
-  });
-
-  test('`.mdx` wins over `.md` when both exist (matches SUPPORTED_DOC_EXTENSIONS precedence)', async () => {
+  test('auto-probe: `.mdx` wins over `.md` when both exist', async () => {
     await writeFile(resolve(tmpDir, 'collide.md'), '# md');
     await writeFile(resolve(tmpDir, 'collide.mdx'), '# mdx');
-    mockResponse = {
-      status: 200,
-      body: {
-        ok: true,
-        shareUrl: 'https://openknowledge.ai/d/collide',
-        blobUrl: 'https://github.com/o/r/blob/main/collide.mdx',
-        branch: 'main',
-      },
-    };
+    mockResponse = { status: 200, body: successBody() };
     const { server, getTool } = createFakeServer();
     register(server, makeDeps(baseUrl));
-    const result = await getTool().handler({ docName: 'collide' });
+    const result = await getTool().handler({ path: 'collide' });
     expect(result.isError).toBeUndefined();
-    expect(seenRequests[0]?.body).toEqual({ docPath: 'collide.mdx' });
+    expect(seenRequests[0]?.body).toEqual({ kind: 'doc', docPath: 'collide.mdx' });
   });
 
-  test('rejects paths escaping the content root', async () => {
+  test('kind:doc resolves a `.md` doc when `.mdx` absent', async () => {
+    await writeFile(resolve(tmpDir, 'guide.md'), '# guide');
+    mockResponse = { status: 200, body: successBody() };
     const { server, getTool } = createFakeServer();
     register(server, makeDeps(baseUrl));
-    const result = await getTool().handler({ docName: '../escaped' });
+    const result = await getTool().handler({ path: 'guide', kind: 'doc' });
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent).toMatchObject({ ok: true, resolvedKind: 'doc' });
+    expect(seenRequests[0]?.body).toEqual({ kind: 'doc', docPath: 'guide.md' });
+  });
+
+  test('rejects paths escaping the content root as target-not-found', async () => {
+    const { server, getTool } = createFakeServer();
+    register(server, makeDeps(baseUrl));
+    const result = await getTool().handler({ path: '../escaped' });
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('invalid');
+    expect(result.structuredContent).toMatchObject({ ok: false, error: 'target-not-found' });
     expect(seenRequests).toHaveLength(0);
   });
 });
 
 describe('share_link — happy path', () => {
-  test('returns shareUrl + branch + blobUrl on success', async () => {
+  test('returns shareUrl + branch + sharedUrl + resolvedKind on doc success', async () => {
     await writeFile(resolve(tmpDir, 'meeting.md'), '# meeting');
     mockResponse = {
       status: 200,
       body: {
         ok: true,
         shareUrl: 'https://openknowledge.ai/d/encoded',
-        blobUrl: 'https://github.com/inkeep/wiki/blob/main/meeting.md',
+        sharedUrl: 'https://github.com/inkeep/wiki/blob/main/meeting.md',
         branch: 'main',
       },
     };
     const { server, getTool } = createFakeServer();
     register(server, makeDeps(baseUrl));
-    const result = await getTool().handler({ docName: 'meeting' });
+    const result = await getTool().handler({ path: 'meeting' });
     expect(result.isError).toBeUndefined();
     expect(result.structuredContent).toMatchObject({
       ok: true,
       shareUrl: 'https://openknowledge.ai/d/encoded',
-      blobUrl: 'https://github.com/inkeep/wiki/blob/main/meeting.md',
+      sharedUrl: 'https://github.com/inkeep/wiki/blob/main/meeting.md',
       branch: 'main',
+      resolvedKind: 'doc',
     });
     expect(result.content[0]?.text).toContain('https://openknowledge.ai/d/encoded');
     expect(result.content[0]?.text).toContain('main');
+    expect(result.content[0]?.text).toContain('doc');
+    expect(result.content[0]?.text).toContain('meeting');
+  });
+
+  test('folder success text names the resolved folder + branch', async () => {
+    await mkdir(resolve(tmpDir, 'guides'), { recursive: true });
+    mockResponse = {
+      status: 200,
+      body: {
+        ok: true,
+        shareUrl: 'https://openknowledge.ai/d/folder',
+        sharedUrl: 'https://github.com/o/r/tree/main/guides',
+        branch: 'main',
+      },
+    };
+    const { server, getTool } = createFakeServer();
+    register(server, makeDeps(baseUrl));
+    const result = await getTool().handler({ path: 'guides', kind: 'folder' });
+    expect(result.isError).toBeUndefined();
+    expect(result.content[0]?.text).toContain('folder');
+    expect(result.content[0]?.text).toContain('guides');
+  });
+
+  test('doc success previewUrl is the doc route `/#/<doc>` when a UI is running', async () => {
+    await writeFile(resolve(tmpDir, 'meeting.md'), '# meeting');
+    await writeUiLock();
+    mockResponse = { status: 200, body: successBody() };
+    const { server, getTool } = createFakeServer();
+    register(server, makeDeps(baseUrl));
+    const result = await getTool().handler({ path: 'meeting' });
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent).toMatchObject({
+      ok: true,
+      resolvedKind: 'doc',
+      previewUrl: '/#/meeting',
+    });
+  });
+
+  test('folder success previewUrl is the trailing-slash folder route when a UI is running', async () => {
+    await mkdir(resolve(tmpDir, 'guides'), { recursive: true });
+    await writeUiLock();
+    mockResponse = {
+      status: 200,
+      body: {
+        ok: true,
+        shareUrl: 'https://openknowledge.ai/d/folder',
+        sharedUrl: 'https://github.com/o/r/tree/main/guides',
+        branch: 'main',
+      },
+    };
+    const { server, getTool } = createFakeServer();
+    register(server, makeDeps(baseUrl));
+    const result = await getTool().handler({ path: 'guides', kind: 'folder' });
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent).toMatchObject({
+      ok: true,
+      resolvedKind: 'folder',
+      previewUrl: '/#/guides/',
+    });
+  });
+
+  test('content-root folder success previewUrl is the root route `/#/`', async () => {
+    await writeUiLock();
+    mockResponse = {
+      status: 200,
+      body: {
+        ok: true,
+        shareUrl: 'https://openknowledge.ai/d/root',
+        sharedUrl: 'https://github.com/o/r/tree/main',
+        branch: 'main',
+      },
+    };
+    const { server, getTool } = createFakeServer();
+    register(server, makeDeps(baseUrl));
+    const result = await getTool().handler({ path: '', kind: 'folder' });
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent).toMatchObject({
+      ok: true,
+      resolvedKind: 'folder',
+      previewUrl: '/#/',
+    });
+  });
+
+  test('nested folder previewUrl encodes per segment with trailing slash', async () => {
+    await mkdir(resolve(tmpDir, 'docs', 'api guide'), { recursive: true });
+    await writeUiLock();
+    mockResponse = {
+      status: 200,
+      body: {
+        ok: true,
+        shareUrl: 'https://openknowledge.ai/d/nested',
+        sharedUrl: 'https://github.com/o/r/tree/main/docs/api%20guide',
+        branch: 'main',
+      },
+    };
+    const { server, getTool } = createFakeServer();
+    register(server, makeDeps(baseUrl));
+    const result = await getTool().handler({ path: 'docs/api guide', kind: 'folder' });
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent).toMatchObject({
+      ok: true,
+      resolvedKind: 'folder',
+      previewUrl: '/#/docs/api%20guide/',
+    });
+  });
+
+  test('folder previewUrl is null when no UI is running', async () => {
+    await mkdir(resolve(tmpDir, 'guides'), { recursive: true });
+    mockResponse = {
+      status: 200,
+      body: {
+        ok: true,
+        shareUrl: 'https://openknowledge.ai/d/folder',
+        sharedUrl: 'https://github.com/o/r/tree/main/guides',
+        branch: 'main',
+      },
+    };
+    const { server, getTool } = createFakeServer();
+    register(server, makeDeps(baseUrl));
+    const result = await getTool().handler({ path: 'guides', kind: 'folder' });
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent).toMatchObject({
+      ok: true,
+      resolvedKind: 'folder',
+      previewUrl: null,
+    });
   });
 });
 
@@ -223,7 +460,7 @@ describe('share_link — business-logic errors', () => {
     mockResponse = { status: 200, body: { ok: false, error: 'no-remote' } };
     const { server, getTool } = createFakeServer();
     register(server, makeDeps(baseUrl));
-    const result = await getTool().handler({ docName: 'page' });
+    const result = await getTool().handler({ path: 'page' });
     expect(result.isError).toBe(true);
     expect(result.structuredContent).toMatchObject({ ok: false, error: 'no-remote' });
     const message = (result.structuredContent as { message: string }).message;
@@ -237,7 +474,7 @@ describe('share_link — business-logic errors', () => {
     mockResponse = { status: 200, body: { ok: false, error: 'detached-head' } };
     const { server, getTool } = createFakeServer();
     register(server, makeDeps(baseUrl));
-    const result = await getTool().handler({ docName: 'page' });
+    const result = await getTool().handler({ path: 'page' });
     expect(result.isError).toBe(true);
     expect(result.structuredContent).toMatchObject({ ok: false, error: 'detached-head' });
     expect((result.structuredContent as { message: string }).message).toContain('detached');
@@ -251,7 +488,7 @@ describe('share_link — business-logic errors', () => {
     };
     const { server, getTool } = createFakeServer();
     register(server, makeDeps(baseUrl));
-    const result = await getTool().handler({ docName: 'page' });
+    const result = await getTool().handler({ path: 'page' });
     expect(result.isError).toBe(true);
     expect(result.structuredContent).toMatchObject({
       ok: false,
@@ -268,21 +505,25 @@ describe('share_link — business-logic errors', () => {
     mockResponse = { status: 200, body: { ok: false, error: 'non-github-remote' } };
     const { server, getTool } = createFakeServer();
     register(server, makeDeps(baseUrl));
-    const result = await getTool().handler({ docName: 'page' });
+    const result = await getTool().handler({ path: 'page' });
     expect(result.isError).toBe(true);
     expect(result.structuredContent).toMatchObject({ ok: false, error: 'non-github-remote' });
     expect((result.structuredContent as { message: string }).message).toContain('GitHub');
   });
 
-  test('invalid-path: closed-enum coverage for the remaining business-error variant', async () => {
+  test('invalid-path (server): reworded substrate-neutral (no "document")', async () => {
     await writeFile(resolve(tmpDir, 'page.md'), '# page');
     mockResponse = { status: 200, body: { ok: false, error: 'invalid-path' } };
     const { server, getTool } = createFakeServer();
     register(server, makeDeps(baseUrl));
-    const result = await getTool().handler({ docName: 'page' });
+    const result = await getTool().handler({ path: 'page' });
     expect(result.isError).toBe(true);
     expect(result.structuredContent).toMatchObject({ ok: false, error: 'invalid-path' });
-    expect((result.structuredContent as { message: string }).message).toContain('not shareable');
+    const message = (result.structuredContent as { message: string }).message;
+    expect(message).toContain('not shareable');
+    expect(message).toContain('resolved share path');
+    expect(message).not.toContain('document');
+    expect(message).not.toContain('Document');
   });
 
   test('branch-not-on-origin: message carries the stale-fetch recovery hint', async () => {
@@ -293,7 +534,7 @@ describe('share_link — business-logic errors', () => {
     };
     const { server, getTool } = createFakeServer();
     register(server, makeDeps(baseUrl));
-    const result = await getTool().handler({ docName: 'page' });
+    const result = await getTool().handler({ path: 'page' });
     expect(result.isError).toBe(true);
     const message = (result.structuredContent as { message: string }).message;
     expect(message).toContain('git fetch origin');
@@ -303,9 +544,57 @@ describe('share_link — business-logic errors', () => {
     await writeFile(resolve(tmpDir, 'page.md'), '# page');
     const { server, getTool } = createFakeServer();
     register(server, makeDeps('http://127.0.0.1:1')); // unreachable
-    const result = await getTool().handler({ docName: 'page' });
+    const result = await getTool().handler({ path: 'page' });
     expect(result.isError).toBe(true);
     expect((result.structuredContent as { ok: boolean }).ok).toBe(false);
+  });
+});
+
+describe('share_link — message coverage', () => {
+  const SERVER_CODES = [
+    'no-remote',
+    'detached-head',
+    'branch-not-on-origin',
+    'non-github-remote',
+    'invalid-path',
+  ] as const;
+
+  for (const code of SERVER_CODES) {
+    test(`server code ${code} → non-empty message`, async () => {
+      await writeFile(resolve(tmpDir, 'page.md'), '# page');
+      mockResponse = { status: 200, body: { ok: false, error: code } };
+      const { server, getTool } = createFakeServer();
+      register(server, makeDeps(baseUrl));
+      const result = await getTool().handler({ path: 'page' });
+      const message = (result.structuredContent as { message: string }).message;
+      expect(typeof message).toBe('string');
+      expect(message.length).toBeGreaterThan(0);
+    });
+  }
+
+  test('target-not-found → non-empty message', async () => {
+    const { server, getTool } = createFakeServer();
+    register(server, makeDeps(baseUrl));
+    const result = await getTool().handler({ path: 'nope' });
+    const message = (result.structuredContent as { message: string }).message;
+    expect(message.length).toBeGreaterThan(0);
+  });
+
+  test('kind-mismatch → non-empty message', async () => {
+    await mkdir(resolve(tmpDir, 'guides'), { recursive: true });
+    const { server, getTool } = createFakeServer();
+    register(server, makeDeps(baseUrl));
+    const result = await getTool().handler({ path: 'guides', kind: 'doc' });
+    const message = (result.structuredContent as { message: string }).message;
+    expect(message.length).toBeGreaterThan(0);
+  });
+
+  test('invalid-path (tool-local empty path) → non-empty message', async () => {
+    const { server, getTool } = createFakeServer();
+    register(server, makeDeps(baseUrl));
+    const result = await getTool().handler({ path: '' });
+    const message = (result.structuredContent as { message: string }).message;
+    expect(message.length).toBeGreaterThan(0);
   });
 });
 
@@ -318,7 +607,7 @@ describe('share_link — transport / protocol error paths', () => {
     });
     const { server, getTool } = createFakeServer();
     register(server, makeDeps(baseUrl));
-    const result = await getTool().handler({ docName: 'page' });
+    const result = await getTool().handler({ path: 'page' });
     expect(result.isError).toBe(true);
     expect(result.structuredContent).toMatchObject({ ok: false, error: 'unknown' });
     expect(result.content[0]?.text).toMatch(/non-JSON/i);
@@ -337,7 +626,7 @@ describe('share_link — transport / protocol error paths', () => {
     );
     const { server, getTool } = createFakeServer();
     register(server, makeDeps(baseUrl));
-    const result = await getTool().handler({ docName: 'page' });
+    const result = await getTool().handler({ path: 'page' });
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain('Internal server error');
     expect(result.content[0]?.text).toContain('ENETUNREACH');
@@ -355,7 +644,7 @@ describe('share_link — transport / protocol error paths', () => {
     );
     const { server, getTool } = createFakeServer();
     register(server, makeDeps(baseUrl));
-    const result = await getTool().handler({ docName: 'page' });
+    const result = await getTool().handler({ path: 'page' });
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain('Internal server error');
     expect(result.content[0]?.text).not.toContain('Internal server error:');
@@ -374,7 +663,7 @@ describe('share_link — transport / protocol error paths', () => {
     );
     const { server, getTool } = createFakeServer();
     register(server, makeDeps(baseUrl));
-    const result = await getTool().handler({ docName: 'page' });
+    const result = await getTool().handler({ path: 'page' });
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain('ENETUNREACH');
     expect(result.content[0]?.text).not.toContain('HTTP 500');
@@ -388,7 +677,7 @@ describe('share_link — transport / protocol error paths', () => {
     });
     const { server, getTool } = createFakeServer();
     register(server, makeDeps(baseUrl));
-    const result = await getTool().handler({ docName: 'page' });
+    const result = await getTool().handler({ path: 'page' });
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain('HTTP 503');
   });
@@ -398,7 +687,7 @@ describe('share_link — transport / protocol error paths', () => {
     mockResponse = { status: 200, body: { unexpected: 'shape', no_ok_field: true } };
     const { server, getTool } = createFakeServer();
     register(server, makeDeps(baseUrl));
-    const result = await getTool().handler({ docName: 'page' });
+    const result = await getTool().handler({ path: 'page' });
     expect(result.isError).toBe(true);
     expect(result.structuredContent).toMatchObject({ ok: false, error: 'unknown' });
     expect(result.content[0]?.text).toContain('unexpected share-construct-url response shape');

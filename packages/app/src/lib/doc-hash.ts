@@ -51,6 +51,24 @@ export function hashFromFolderPath(folderPath: string, anchor?: string | null): 
   return anchor ? `${base}#${encodeURIComponent(anchor)}` : base;
 }
 
+export function encodeShareTargetForHash(
+  kind: 'doc' | 'folder',
+  path: string,
+  branch?: string | null,
+): string {
+  if (kind === 'folder') return hashFromFolderPath(path);
+  const base = `#/${encodeURIComponent(path)}`;
+  if (branch === undefined || branch === null || branch === '') return base;
+  return `${base}?branch=${encodeURIComponent(branch)}`;
+}
+
+export function isContentRootHash(hash: string): boolean {
+  if (hash === '#/') return true;
+  if (!hash.startsWith('#/')) return false;
+  const rest = hash.slice(2);
+  return rest.length > 0 && rest[0] === '?';
+}
+
 const ASSET_HASH_PREFIX = '#/__asset__/';
 
 function firstRouteDelimiterIndex(rest: string): number {

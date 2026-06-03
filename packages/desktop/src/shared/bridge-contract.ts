@@ -136,7 +136,7 @@ export type ResolvedGitDirKind =
   | 'malformed-pointer'
   | 'inaccessible';
 
-export type CheckDocExistsResult = 'exists' | 'missing' | 'unreadable';
+export type CheckTargetExistsResult = 'exists' | 'missing' | 'unreadable';
 
 export interface OkUpdateDownloadedInfo {
   readonly version: string;
@@ -320,8 +320,8 @@ export interface OkSharePayloadFields {
   readonly owner: string;
   readonly repo: string;
   readonly branch: string;
-  readonly path: string;
-  readonly blobUrl: string;
+  readonly sharedUrl: string;
+  readonly target: ShareTarget;
 }
 
 export type OkShareReceivedPayload =
@@ -343,6 +343,10 @@ export type OkShareReceivedPayload =
       readonly kind: 'launcher-miss';
       readonly share: OkSharePayloadFields;
     };
+
+export type ShareTarget =
+  | { readonly kind: 'doc'; readonly docPath: string }
+  | { readonly kind: 'folder'; readonly folderPath: string };
 
 export type ShareFolderValidationResult =
   | { readonly kind: 'ok'; readonly gitRemoteUrl: string }
@@ -395,7 +399,13 @@ export interface OkDesktopBridge {
   onWhatsNew(cb: (info: OkWhatsNewInfo) => void): OkUnsubscribe;
   onUpdateStuckHint(cb: (info: OkUpdateStuckHintInfo) => void): OkUnsubscribe;
   onDeepLink(
-    cb: (evt: { doc: string; branch?: string | null; multiCandidate?: boolean }) => void,
+    cb: (evt: {
+      doc: string;
+      kind: 'doc' | 'folder';
+      branch?: string | null;
+      multiCandidate?: boolean;
+      targetMissing?: boolean;
+    }) => void,
   ): OkUnsubscribe;
   onShareReceived(cb: (payload: OkShareReceivedPayload) => void): OkUnsubscribe;
 
@@ -481,7 +491,7 @@ export interface OkDesktopBridge {
       path: string;
       target: 'new-window';
       entryPoint: EntryPoint;
-      pendingDeepLinkDoc?: string;
+      pendingDeepLinkTarget?: { kind: 'doc' | 'folder'; path: string };
       pendingBranch?: string | null;
     }): Promise<void>;
     createNew(args: {
@@ -491,15 +501,17 @@ export interface OkDesktopBridge {
       sharing?: 'shared' | 'local-only';
     }): Promise<void>;
     recordCreateNewBannerShown(banner: CreateNewBannerKind): Promise<void>;
-    checkDocExists(request: {
+    checkTargetExists(request: {
       projectPath: string;
-      docPath: string;
-    }): Promise<CheckDocExistsResult>;
+      kind: 'doc' | 'folder';
+      path: string;
+    }): Promise<CheckTargetExistsResult>;
     readHeadBranch(projectPath: string): Promise<HeadBranchInfo>;
     fetchBranchInfo(request: {
       projectPath: string;
       branch: string;
-      docPath: string;
+      kind: 'doc' | 'folder';
+      path: string;
     }): Promise<BranchInfoResponse | null>;
     runCheckout(request: { projectPath: string; branch: string }): Promise<CheckoutResponse | null>;
     awaitBranchSwitched(request: {

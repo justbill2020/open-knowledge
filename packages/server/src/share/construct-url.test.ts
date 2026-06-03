@@ -5,7 +5,13 @@ import type { Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { decodeShareUrl } from '@inkeep/open-knowledge-core';
-import { buildGitHubBlobUrl } from './construct-url.ts';
+import { loggerFactory, PinoLogger } from '../logger.ts';
+import {
+  buildGitHubBlobUrl,
+  buildGitHubTreeUrl,
+  emitShareConstructUrlLog,
+  isValidSharePath,
+} from './construct-url.ts';
 
 interface TestRig {
   port: number;
@@ -14,10 +20,17 @@ interface TestRig {
   cleanup: () => Promise<void>;
 }
 
-async function bootRig(initProject?: (projectDir: string) => void): Promise<TestRig> {
+async function bootRig(
+  initProject?: (projectDir: string) => void,
+  opts?: { contentDirIsRoot?: boolean; contentDirEscapes?: boolean },
+): Promise<TestRig> {
   const tmpRoot = await mkdtemp(join(tmpdir(), 'share-construct-url-'));
   const projectDir = join(tmpRoot, 'project');
-  const contentDir = join(projectDir, 'content');
+  const contentDir = opts?.contentDirEscapes
+    ? join(tmpRoot, 'escaped-content')
+    : opts?.contentDirIsRoot
+      ? projectDir
+      : join(projectDir, 'content');
   mkdirSync(contentDir, { recursive: true });
   initProject?.(projectDir);
 
@@ -110,18 +123,18 @@ describe('POST /api/share/construct-url', () => {
         branchesOnOrigin: ['main'],
       });
     });
-    const res = await postConstructUrl(rig.port, { docPath: 'docs/guide.md' });
+    const res = await postConstructUrl(rig.port, { kind: 'doc', docPath: 'docs/guide.md' });
     expect(res.status).toBe(200);
     const json = (await res.json()) as Record<string, unknown>;
     expect(json.ok).toBe(true);
     expect(json.branch).toBe('main');
-    expect(json.blobUrl).toBe('https://github.com/inkeep/open-knowledge/blob/main/docs/guide.md');
+    expect(json.sharedUrl).toBe('https://github.com/inkeep/open-knowledge/blob/main/docs/guide.md');
     expect(typeof json.shareUrl).toBe('string');
     expect(json.shareUrl).toMatch(/^https:\/\/openknowledge\.ai\/d\/[A-Za-z0-9_-]+$/);
     const encoded = (json.shareUrl as string).replace('https://openknowledge.ai/d/', '');
     const decoded = decodeShareUrl(encoded);
     expect(decoded.version).toBe(1);
-    expect(decoded.blobUrl).toBe(
+    expect(decoded.sharedUrl).toBe(
       'https://github.com/inkeep/open-knowledge/blob/main/docs/guide.md',
     );
   });
@@ -133,7 +146,7 @@ describe('POST /api/share/construct-url', () => {
       writeFileSync(join(gitDir, 'HEAD'), 'ref: refs/heads/main\n');
       writeFileSync(join(gitDir, 'config'), '[core]\n\trepositoryformatversion = 0\n');
     });
-    const res = await postConstructUrl(rig.port, { docPath: 'a.md' });
+    const res = await postConstructUrl(rig.port, { kind: 'doc', docPath: 'a.md' });
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json).toEqual({ ok: false, error: 'no-remote' });
@@ -147,7 +160,7 @@ describe('POST /api/share/construct-url', () => {
         branchesOnOrigin: ['main'],
       });
     });
-    const res = await postConstructUrl(rig.port, { docPath: 'a.md' });
+    const res = await postConstructUrl(rig.port, { kind: 'doc', docPath: 'a.md' });
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json).toEqual({ ok: false, error: 'detached-head' });
@@ -161,7 +174,7 @@ describe('POST /api/share/construct-url', () => {
         branchesOnOrigin: ['main'],
       });
     });
-    const res = await postConstructUrl(rig.port, { docPath: 'a.md' });
+    const res = await postConstructUrl(rig.port, { kind: 'doc', docPath: 'a.md' });
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json).toEqual({
@@ -179,7 +192,7 @@ describe('POST /api/share/construct-url', () => {
         branchesOnOrigin: ['main'],
       });
     });
-    const res = await postConstructUrl(rig.port, { docPath: 'a.md' });
+    const res = await postConstructUrl(rig.port, { kind: 'doc', docPath: 'a.md' });
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json).toEqual({ ok: false, error: 'non-github-remote' });
@@ -193,7 +206,7 @@ describe('POST /api/share/construct-url', () => {
         branchesOnOrigin: ['main'],
       });
     });
-    const res = await postConstructUrl(rig.port, { docPath: 'docs/../etc/passwd' });
+    const res = await postConstructUrl(rig.port, { kind: 'doc', docPath: 'docs/../etc/passwd' });
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json).toEqual({ ok: false, error: 'invalid-path' });
@@ -207,7 +220,7 @@ describe('POST /api/share/construct-url', () => {
         branchesOnOrigin: ['main'],
       });
     });
-    const res = await postConstructUrl(rig.port, { docPath: '.git/HEAD' });
+    const res = await postConstructUrl(rig.port, { kind: 'doc', docPath: '.git/HEAD' });
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json).toEqual({ ok: false, error: 'invalid-path' });
@@ -221,7 +234,7 @@ describe('POST /api/share/construct-url', () => {
         branchesOnOrigin: ['main'],
       });
     });
-    const res = await postConstructUrl(rig.port, { docPath: '/etc/passwd' });
+    const res = await postConstructUrl(rig.port, { kind: 'doc', docPath: '/etc/passwd' });
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json).toEqual({ ok: false, error: 'invalid-path' });
@@ -236,16 +249,16 @@ describe('POST /api/share/construct-url', () => {
       });
     });
     const docPath = 'docs/Q4 OKRs — Marketing.md';
-    const res = await postConstructUrl(rig.port, { docPath });
+    const res = await postConstructUrl(rig.port, { kind: 'doc', docPath });
     expect(res.status).toBe(200);
     const json = (await res.json()) as Record<string, unknown>;
     expect(json.ok).toBe(true);
-    expect(json.blobUrl).toBe(
+    expect(json.sharedUrl).toBe(
       `https://github.com/inkeep/open-knowledge/blob/main/${encodeURIComponent('Q4 OKRs — Marketing.md').replace(/^/, 'docs/')}`,
     );
     const encoded = (json.shareUrl as string).replace('https://openknowledge.ai/d/', '');
     const decoded = decodeShareUrl(encoded);
-    const decodedUrl = new URL(decoded.blobUrl);
+    const decodedUrl = new URL(decoded.sharedUrl);
     const segments = decodedUrl.pathname.split('/');
     expect(segments.slice(0, 5)).toEqual(['', 'inkeep', 'open-knowledge', 'blob', 'main']);
     const decodedDocPath = segments
@@ -263,16 +276,16 @@ describe('POST /api/share/construct-url', () => {
         branchesOnOrigin: ['feat/sharing-virality-flow'],
       });
     });
-    const res = await postConstructUrl(rig.port, { docPath: 'docs/guide.md' });
+    const res = await postConstructUrl(rig.port, { kind: 'doc', docPath: 'docs/guide.md' });
     expect(res.status).toBe(200);
     const json = (await res.json()) as Record<string, unknown>;
     expect(json.ok).toBe(true);
     expect(json.branch).toBe('feat/sharing-virality-flow');
-    expect(json.blobUrl).toBe(
+    expect(json.sharedUrl).toBe(
       'https://github.com/inkeep/open-knowledge/blob/feat%2Fsharing-virality-flow/docs/guide.md',
     );
-    const blobUrl = new URL(json.blobUrl as string);
-    const segments = blobUrl.pathname.split('/').filter(Boolean);
+    const sharedUrl = new URL(json.sharedUrl as string);
+    const segments = sharedUrl.pathname.split('/').filter(Boolean);
     expect(segments[2]).toBe('blob');
     expect(decodeURIComponent(segments[3])).toBe('feat/sharing-virality-flow');
   });
@@ -289,7 +302,7 @@ describe('POST /api/share/construct-url', () => {
     expect(res.status).toBe(405);
   });
 
-  test('rejects body without docPath with 400', async () => {
+  test('rejects body without kind with 400 (discriminated union)', async () => {
     rig = await bootRig((projectDir) => {
       seedRemoteAndHead(projectDir, {
         head: 'ref: refs/heads/main\n',
@@ -299,6 +312,99 @@ describe('POST /api/share/construct-url', () => {
     });
     const res = await postConstructUrl(rig.port, {});
     expect(res.status).toBe(400);
+  });
+
+  test('rejects bare {docPath} (no kind discriminator) with 400', async () => {
+    rig = await bootRig((projectDir) => {
+      seedRemoteAndHead(projectDir, {
+        head: 'ref: refs/heads/main\n',
+        originUrl: 'https://github.com/inkeep/open-knowledge.git',
+        branchesOnOrigin: ['main'],
+      });
+    });
+    const res = await postConstructUrl(rig.port, { docPath: 'a.md' });
+    expect(res.status).toBe(400);
+  });
+
+  test('rejects kind-incompatible shape (doc without docPath) with 400', async () => {
+    rig = await bootRig((projectDir) => {
+      seedRemoteAndHead(projectDir, {
+        head: 'ref: refs/heads/main\n',
+        originUrl: 'https://github.com/inkeep/open-knowledge.git',
+        branchesOnOrigin: ['main'],
+      });
+    });
+    const res = await postConstructUrl(rig.port, { kind: 'doc', folderPath: 'docs' });
+    expect(res.status).toBe(400);
+  });
+
+  test('folder kind with a path: returns encoded tree URL', async () => {
+    rig = await bootRig((projectDir) => {
+      seedRemoteAndHead(projectDir, {
+        head: 'ref: refs/heads/main\n',
+        originUrl: 'https://github.com/inkeep/open-knowledge.git',
+        branchesOnOrigin: ['main'],
+      });
+    });
+    const res = await postConstructUrl(rig.port, { kind: 'folder', folderPath: 'docs/guides' });
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as Record<string, unknown>;
+    expect(json.ok).toBe(true);
+    expect(json.branch).toBe('main');
+    expect(json.sharedUrl).toBe('https://github.com/inkeep/open-knowledge/tree/main/docs/guides');
+    const encoded = (json.shareUrl as string).replace('https://openknowledge.ai/d/', '');
+    const decoded = decodeShareUrl(encoded);
+    expect(decoded.sharedUrl).toBe(
+      'https://github.com/inkeep/open-knowledge/tree/main/docs/guides',
+    );
+  });
+
+  test('folder ROOT (folderPath: "") with content.dir === "." degenerates to tree/<branch>', async () => {
+    rig = await bootRig(
+      (projectDir) => {
+        seedRemoteAndHead(projectDir, {
+          head: 'ref: refs/heads/main\n',
+          originUrl: 'https://github.com/inkeep/open-knowledge.git',
+          branchesOnOrigin: ['main'],
+        });
+      },
+      { contentDirIsRoot: true },
+    );
+    const res = await postConstructUrl(rig.port, { kind: 'folder', folderPath: '' });
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as Record<string, unknown>;
+    expect(json.ok).toBe(true);
+    expect(json.sharedUrl).toBe('https://github.com/inkeep/open-knowledge/tree/main');
+  });
+
+  test('folder ROOT (folderPath: "") with content.dir subdir maps to tree/<branch>/<content.dir>', async () => {
+    rig = await bootRig((projectDir) => {
+      seedRemoteAndHead(projectDir, {
+        head: 'ref: refs/heads/main\n',
+        originUrl: 'https://github.com/inkeep/open-knowledge.git',
+        branchesOnOrigin: ['main'],
+      });
+    });
+    const res = await postConstructUrl(rig.port, { kind: 'folder', folderPath: '' });
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as Record<string, unknown>;
+    expect(json.ok).toBe(true);
+    expect(json.sharedUrl).toBe('https://github.com/inkeep/open-knowledge/tree/main/content');
+  });
+
+  test('folder ROOT (folderPath: "") with contentDir escaping projectDir fails loud (500), not a repo-root link', async () => {
+    rig = await bootRig(
+      (projectDir) => {
+        seedRemoteAndHead(projectDir, {
+          head: 'ref: refs/heads/main\n',
+          originUrl: 'https://github.com/inkeep/open-knowledge.git',
+          branchesOnOrigin: ['main'],
+        });
+      },
+      { contentDirEscapes: true },
+    );
+    const res = await postConstructUrl(rig.port, { kind: 'folder', folderPath: '' });
+    expect(res.status).toBe(500);
   });
 });
 
@@ -355,5 +461,131 @@ describe('buildGitHubBlobUrl branch encoding', () => {
     expect(pathSegments.map((s) => decodeURIComponent(s)).join('/')).toBe(
       'docs/Q4 OKRs — Marketing.md',
     );
+  });
+});
+
+describe('buildGitHubTreeUrl', () => {
+  function extractBranchSegment(url: string): string {
+    const segments = new URL(url).pathname.split('/').filter(Boolean);
+    return segments[3];
+  }
+
+  test('folder path: segments encoded individually, no trailing slash', () => {
+    const url = buildGitHubTreeUrl('owner', 'repo', 'main', 'docs/sub folder');
+    expect(url).toBe('https://github.com/owner/repo/tree/main/docs/sub%20folder');
+    expect(url.endsWith('/')).toBe(false);
+  });
+
+  test('slashed branch encodes slash as %2F (single URL segment)', () => {
+    const url = buildGitHubTreeUrl('owner', 'repo', 'feat/foo', 'docs');
+    expect(url).toBe('https://github.com/owner/repo/tree/feat%2Ffoo/docs');
+    expect(extractBranchSegment(url)).toBe('feat%2Ffoo');
+    expect(decodeURIComponent(extractBranchSegment(url))).toBe('feat/foo');
+  });
+
+  test('empty folderPath (root) -> tree/<branch> with no trailing slash', () => {
+    const url = buildGitHubTreeUrl('owner', 'repo', 'main', '');
+    expect(url).toBe('https://github.com/owner/repo/tree/main');
+    expect(url.endsWith('/')).toBe(false);
+  });
+
+  test('empty folderPath with slashed branch encodes branch, no trailing slash', () => {
+    const url = buildGitHubTreeUrl('owner', 'repo', 'feat/foo', '');
+    expect(url).toBe('https://github.com/owner/repo/tree/feat%2Ffoo');
+  });
+});
+
+describe('isValidSharePath (kind-aware)', () => {
+  test('empty path: valid for folder (root), invalid for doc', () => {
+    expect(isValidSharePath('', 'folder')).toBe(true);
+    expect(isValidSharePath('', 'doc')).toBe(false);
+  });
+
+  test('nested path: valid for both kinds', () => {
+    expect(isValidSharePath('a/b', 'folder')).toBe(true);
+    expect(isValidSharePath('a/b', 'doc')).toBe(true);
+  });
+
+  test('leading slash rejected for both kinds', () => {
+    expect(isValidSharePath('/a/b', 'doc')).toBe(false);
+    expect(isValidSharePath('/a/b', 'folder')).toBe(false);
+  });
+
+  test('leading backslash rejected', () => {
+    expect(isValidSharePath('\\a', 'doc')).toBe(false);
+  });
+
+  test('.. segment rejected', () => {
+    expect(isValidSharePath('docs/../etc', 'doc')).toBe(false);
+    expect(isValidSharePath('docs/../etc', 'folder')).toBe(false);
+  });
+
+  test('.git segment rejected', () => {
+    expect(isValidSharePath('.git/HEAD', 'doc')).toBe(false);
+    expect(isValidSharePath('a/.git/b', 'folder')).toBe(false);
+  });
+
+  test('.ok and .github dot-folders allowed (gate is .git-only per D21)', () => {
+    expect(isValidSharePath('.ok/config.yml', 'doc')).toBe(true);
+    expect(isValidSharePath('.github/workflows', 'folder')).toBe(true);
+    expect(isValidSharePath('.ok', 'folder')).toBe(true);
+  });
+
+  test('empty intermediate segment (a//b) rejected', () => {
+    expect(isValidSharePath('a//b', 'doc')).toBe(false);
+    expect(isValidSharePath('a//b', 'folder')).toBe(false);
+  });
+
+  test('control chars rejected for both kinds (symmetry with isValidBranchInfoPath)', () => {
+    expect(isValidSharePath('a\x00b', 'doc')).toBe(false);
+    expect(isValidSharePath('a\x00b', 'folder')).toBe(false);
+    expect(isValidSharePath('a\tb', 'doc')).toBe(false);
+    expect(isValidSharePath('a\tb', 'folder')).toBe(false);
+    expect(isValidSharePath('a\x7Fb', 'doc')).toBe(false);
+  });
+});
+
+describe('emitShareConstructUrlLog telemetry', () => {
+  function captureLog(emit: () => void): Array<Record<string, unknown>> {
+    const records: Array<Record<string, unknown>> = [];
+    loggerFactory.configure({
+      loggerFactory: (name: string) => {
+        const logger = new PinoLogger(name, { options: { level: 'silent' } });
+        logger.info = (data: unknown) => {
+          records.push(data as Record<string, unknown>);
+        };
+        return logger;
+      },
+    });
+    try {
+      emit();
+    } finally {
+      loggerFactory.reset();
+    }
+    return records;
+  }
+
+  test('carries bounded kind attribute on success', () => {
+    const records = captureLog(() =>
+      emitShareConstructUrlLog('ok', { branchExists: true, kind: 'folder' }),
+    );
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({
+      action: 'construct-url',
+      result: 'ok',
+      branchExists: true,
+      kind: 'folder',
+    });
+  });
+
+  test('carries kind on a business-logic failure', () => {
+    const records = captureLog(() => emitShareConstructUrlLog('invalid-path', { kind: 'doc' }));
+    expect(records[0]).toMatchObject({ result: 'invalid-path', kind: 'doc' });
+  });
+
+  test('omits kind + branchExists when opts absent', () => {
+    const records = captureLog(() => emitShareConstructUrlLog('no-remote'));
+    expect(records[0]).not.toHaveProperty('kind');
+    expect(records[0]).not.toHaveProperty('branchExists');
   });
 });

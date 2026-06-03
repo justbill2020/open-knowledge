@@ -8,6 +8,7 @@ export interface ShareMetadataRowsProps {
   repo: string;
   path: string;
   branch: string;
+  kind?: 'doc' | 'folder';
   testId: string;
   branchTestId: string;
 }
@@ -17,6 +18,7 @@ export function ShareMetadataRows({
   repo,
   path,
   branch,
+  kind = 'doc',
   testId,
   branchTestId,
 }: ShareMetadataRowsProps) {
@@ -29,8 +31,10 @@ export function ShareMetadataRows({
         </span>
       </ShareMetadataRow>
       {path ? (
-        <ShareMetadataRow label={<Trans>File</Trans>}>
-          <span className="font-mono">{path}</span>
+        <ShareMetadataRow label={kind === 'folder' ? <Trans>Folder</Trans> : <Trans>File</Trans>}>
+          <span className="font-mono" data-testid={`${testId}-target`}>
+            {path}
+          </span>
         </ShareMetadataRow>
       ) : null}
       {showBranch ? (

@@ -3,9 +3,11 @@ import {
   anchorFromHash,
   assetPathFromHash,
   docNameFromHash,
+  encodeShareTargetForHash,
   hashFromAssetPath,
   hashFromDocName,
   hashFromFolderPath,
+  isContentRootHash,
 } from './doc-hash';
 
 describe('docNameFromHash', () => {
@@ -132,6 +134,70 @@ describe('hashFromFolderPath', () => {
 
   test('encodes anchor with special characters', () => {
     expect(hashFromFolderPath('docs/guide', 'hello world')).toBe('#/docs/guide/#hello%20world');
+  });
+});
+
+describe('encodeShareTargetForHash', () => {
+  test('doc target → #/<doc> with no branch', () => {
+    expect(encodeShareTargetForHash('doc', 'intro.md')).toBe('#/intro.md');
+  });
+
+  test('doc target → #/<doc>?branch=<branch> when branch present', () => {
+    expect(encodeShareTargetForHash('doc', 'intro.md', 'main')).toBe('#/intro.md?branch=main');
+  });
+
+  test('doc target URL-encodes nested doc names (slash → %2F)', () => {
+    expect(encodeShareTargetForHash('doc', 'notes/meeting')).toBe('#/notes%2Fmeeting');
+  });
+
+  test('doc target encodes slashed branch names', () => {
+    expect(encodeShareTargetForHash('doc', 'docs/page.md', 'feat/foo')).toBe(
+      '#/docs%2Fpage.md?branch=feat%2Ffoo',
+    );
+  });
+
+  test('doc target treats null / empty branch as absent (back-compat)', () => {
+    expect(encodeShareTargetForHash('doc', 'intro.md', null)).toBe('#/intro.md');
+    expect(encodeShareTargetForHash('doc', 'intro.md', '')).toBe('#/intro.md');
+  });
+
+  test('folder target → trailing-slash folder hash', () => {
+    expect(encodeShareTargetForHash('folder', 'docs/sub')).toBe('#/docs/sub/');
+  });
+
+  test('content-root folder target (empty path) → root hash #/', () => {
+    expect(encodeShareTargetForHash('folder', '')).toBe('#/');
+  });
+
+  test('folder target ignores branch (no ?branch= appended)', () => {
+    expect(encodeShareTargetForHash('folder', 'docs/sub', 'main')).toBe('#/docs/sub/');
+    expect(encodeShareTargetForHash('folder', '', 'main')).toBe('#/');
+  });
+});
+
+describe('isContentRootHash', () => {
+  test('true for the bare root sentinel #/', () => {
+    expect(isContentRootHash('#/')).toBe(true);
+  });
+
+  test('true for #/ with a trailing query', () => {
+    expect(isContentRootHash('#/?anchor=x')).toBe(true);
+  });
+
+  test('false for an empty hash (clear, not root)', () => {
+    expect(isContentRootHash('')).toBe(false);
+  });
+
+  test('false for a folder hash with a path segment', () => {
+    expect(isContentRootHash('#/docs/sub/')).toBe(false);
+  });
+
+  test('false for a doc hash', () => {
+    expect(isContentRootHash('#/intro.md')).toBe(false);
+  });
+
+  test('round-trips with hashFromFolderpath of the root', () => {
+    expect(isContentRootHash(hashFromFolderPath(''))).toBe(true);
   });
 });
 

@@ -14,7 +14,11 @@ import {
   Dialog as DialogRoot,
   DialogTitle,
 } from '@/components/ui/dialog';
-import type { OkDesktopBridge, OkShareReceivedPayload } from '@/lib/desktop-bridge-types';
+import {
+  type OkDesktopBridge,
+  type OkShareReceivedPayload,
+  shareTargetPath,
+} from '@/lib/desktop-bridge-types';
 import {
   applyBranchInfo,
   applyCheckoutOutcome,
@@ -56,6 +60,7 @@ export function ShareBranchSwitchDialog({
   const awaitBranchSwitchedStartedRef = useRef(false);
 
   const active = isBranchSwitchPayload(payload) ? payload : null;
+  const targetNoun = active?.share.target.kind === 'folder' ? t`folder` : t`document`;
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: payload is the reset trigger; effect body only resets state.
   useEffect(() => {
@@ -73,7 +78,8 @@ export function ShareBranchSwitchDialog({
       .fetchBranchInfo({
         projectPath: active.projectPath,
         branch: active.share.branch,
-        docPath: active.share.path,
+        kind: active.share.target.kind,
+        path: shareTargetPath(active.share.target),
       })
       .then((info) => {
         setBranchSwitchState((prev) => applyBranchInfo(prev, info));
@@ -119,7 +125,10 @@ export function ShareBranchSwitchDialog({
               path: active.projectPath,
               target: 'new-window',
               entryPoint: 'share-receive',
-              pendingDeepLinkDoc: active.share.path,
+              pendingDeepLinkTarget: {
+                kind: active.share.target.kind,
+                path: shareTargetPath(active.share.target),
+              },
               pendingBranch: shareBranch,
             })
             .catch((err) => {
@@ -128,7 +137,7 @@ export function ShareBranchSwitchDialog({
                 err instanceof Error ? err.message : err,
               );
               toast.error(
-                t`Branch switched but the document could not be opened — try navigating to it manually.`,
+                t`Branch switched but the ${targetNoun} could not be opened — try navigating to it manually.`,
               );
             });
           store.dismiss();
@@ -140,7 +149,7 @@ export function ShareBranchSwitchDialog({
             branch: shareBranch,
           }),
         );
-        toast.error(t`Branch switch timed out — try opening the doc manually.`);
+        toast.error(t`Branch switch timed out — try opening the ${targetNoun} manually.`);
         store.dismiss();
       })
       .catch((err) => {
@@ -149,7 +158,7 @@ export function ShareBranchSwitchDialog({
           '[receive] awaitBranchSwitched rejected',
           err instanceof Error ? err.message : err,
         );
-        toast.error(t`Branch switch failed — try opening the doc manually.`);
+        toast.error(t`Branch switch failed — try opening the ${targetNoun} manually.`);
         store.dismiss();
       });
     return () => {
@@ -173,7 +182,7 @@ export function ShareBranchSwitchDialog({
         branch: shareBranch,
       }),
     );
-    setBranchSwitchState((prev) => markSwitching(prev, share.path));
+    setBranchSwitchState((prev) => markSwitching(prev, shareTargetPath(share.target)));
     void bridge.project
       .runCheckout({ projectPath, branch: shareBranch })
       .then((response) => {
@@ -218,14 +227,14 @@ export function ShareBranchSwitchDialog({
         path: projectPath,
         target: 'new-window',
         entryPoint: 'share-receive',
-        pendingDeepLinkDoc: share.path,
+        pendingDeepLinkTarget: { kind: share.target.kind, path: shareTargetPath(share.target) },
       })
       .catch((err) => {
         console.warn(
           '[receive] warm-focus-dispatch-failed branch_action=open-current',
           err instanceof Error ? err.message : err,
         );
-        toast.error(t`The document could not be opened — try navigating to it manually.`);
+        toast.error(t`The ${targetNoun} could not be opened — try navigating to it manually.`);
       });
     store.dismiss();
   }
@@ -244,7 +253,7 @@ export function ShareBranchSwitchDialog({
         path: target,
         target: 'new-window',
         entryPoint: 'share-receive',
-        pendingDeepLinkDoc: share.path,
+        pendingDeepLinkTarget: { kind: share.target.kind, path: shareTargetPath(share.target) },
         pendingBranch: shareBranch,
       })
       .catch((err) => {
@@ -296,17 +305,18 @@ export function ShareBranchSwitchDialog({
       >
         <DialogHeader>
           <DialogTitle>
-            <Trans>Open shared document</Trans>
+            <Trans>Open shared {targetNoun}</Trans>
           </DialogTitle>
           <DialogDescription className="sr-only">
             <Trans>
-              {share.owner}/{share.repo} — {share.path}
+              {share.owner}/{share.repo} — {shareTargetPath(share.target)}
             </Trans>
           </DialogDescription>
           <ShareMetadataRows
             owner={share.owner}
             repo={share.repo}
-            path={share.path}
+            path={shareTargetPath(share.target)}
+            kind={share.target.kind}
             branch={share.branch}
             testId="share-branch-switch-metadata"
             branchTestId="share-branch-switch-metadata-branch"
@@ -354,7 +364,7 @@ export function ShareBranchSwitchDialog({
           ) : variant?.kind === 'D' ? (
             <p className="text-sm text-muted-foreground">
               <Trans>
-                This doc only exists on branch{' '}
+                This {targetNoun} only exists on branch{' '}
                 <code className="rounded bg-muted px-1 py-0.5 text-foreground/80">
                   {shareBranch}
                 </code>
@@ -365,7 +375,7 @@ export function ShareBranchSwitchDialog({
           ) : variant?.kind === 'B' ? (
             <p className="text-sm text-muted-foreground">
               <Trans>
-                This doc was shared from branch{' '}
+                This {targetNoun} was shared from branch{' '}
                 <code className="rounded bg-muted px-1 py-0.5 text-foreground/80">
                   {shareBranch}
                 </code>
@@ -379,7 +389,7 @@ export function ShareBranchSwitchDialog({
           ) : (
             <p className="text-sm text-muted-foreground">
               <Trans>
-                This doc was shared from branch{' '}
+                This {targetNoun} was shared from branch{' '}
                 <code className="rounded bg-muted px-1 py-0.5 text-foreground/80">
                   {shareBranch}
                 </code>

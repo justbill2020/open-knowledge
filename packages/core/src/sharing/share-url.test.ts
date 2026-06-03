@@ -24,21 +24,21 @@ describe('encodeShareUrl', () => {
 
 describe('decodeShareUrl', () => {
   test('round-trips a simple blob URL through encode/decode', () => {
-    const blobUrl = 'https://github.com/a/b/blob/main/c.md';
-    const result = decodeShareUrl(encodeShareUrl(blobUrl));
-    expect(result).toEqual({ version: 1, blobUrl });
+    const sharedUrl = 'https://github.com/a/b/blob/main/c.md';
+    const result = decodeShareUrl(encodeShareUrl(sharedUrl));
+    expect(result).toEqual({ version: 1, sharedUrl });
   });
 
   test('round-trips a long real-world GitHub blob URL with deep path', () => {
-    const blobUrl =
+    const sharedUrl =
       'https://github.com/inkeep/open-knowledge/blob/feat%2Fsharing-virality-flow/packages/core/src/sharing/share-url.ts';
-    expect(decodeShareUrl(encodeShareUrl(blobUrl))).toEqual({ version: 1, blobUrl });
+    expect(decodeShareUrl(encodeShareUrl(sharedUrl))).toEqual({ version: 1, sharedUrl });
   });
 
   test('round-trips a URL with unicode and spaces in the path', () => {
-    const blobUrl =
+    const sharedUrl =
       'https://github.com/inkeep/playbooks/blob/main/docs/Q4%20OKRs%20%E2%80%94%20Marketing.md';
-    expect(decodeShareUrl(encodeShareUrl(blobUrl))).toEqual({ version: 1, blobUrl });
+    expect(decodeShareUrl(encodeShareUrl(sharedUrl))).toEqual({ version: 1, sharedUrl });
   });
 
   test('throws UnsupportedShareVersionError when the version byte is not 0x01', () => {
@@ -79,24 +79,24 @@ describe('decodeShareUrl', () => {
   });
 
   test('ignores arbitrary query parameters appended to the encoded payload (Axis 1)', () => {
-    const blobUrl = 'https://github.com/a/b/blob/main/c.md';
-    const encoded = encodeShareUrl(blobUrl);
+    const sharedUrl = 'https://github.com/a/b/blob/main/c.md';
+    const encoded = encodeShareUrl(sharedUrl);
     expect(decodeShareUrl(`${encoded}?utm_source=slack&ref=campaign`)).toEqual({
       version: 1,
-      blobUrl,
+      sharedUrl,
     });
   });
 
   test('ignores an arbitrary fragment appended to the encoded payload (Axis 2)', () => {
-    const blobUrl = 'https://github.com/a/b/blob/main/c.md';
-    const encoded = encodeShareUrl(blobUrl);
-    expect(decodeShareUrl(`${encoded}#section-2`)).toEqual({ version: 1, blobUrl });
+    const sharedUrl = 'https://github.com/a/b/blob/main/c.md';
+    const encoded = encodeShareUrl(sharedUrl);
+    expect(decodeShareUrl(`${encoded}#section-2`)).toEqual({ version: 1, sharedUrl });
   });
 
   test('ignores both query parameters and a fragment appended together', () => {
-    const blobUrl = 'https://github.com/a/b/blob/main/c.md';
-    const encoded = encodeShareUrl(blobUrl);
-    expect(decodeShareUrl(`${encoded}?utm=x#frag`)).toEqual({ version: 1, blobUrl });
+    const sharedUrl = 'https://github.com/a/b/blob/main/c.md';
+    const encoded = encodeShareUrl(sharedUrl);
+    expect(decodeShareUrl(`${encoded}?utm=x#frag`)).toEqual({ version: 1, sharedUrl });
   });
 });
 

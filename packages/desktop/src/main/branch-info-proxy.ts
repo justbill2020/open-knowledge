@@ -63,14 +63,18 @@ function composeFetchSignal(timeoutMs: number, signal?: AbortSignal): AbortSigna
 }
 
 export async function proxyFetchBranchInfo(
-  request: { projectPath: string; branch: string; docPath: string },
+  request: { projectPath: string; branch: string; kind: 'doc' | 'folder'; path: string },
   deps: BranchInfoProxyDeps,
   signal?: AbortSignal,
 ): Promise<BranchInfoResponse | null> {
   const origin = await resolveProjectServerOrigin(request.projectPath, deps, signal);
   if (origin === null) return null;
   if (signal?.aborted) return null;
-  const params = new URLSearchParams({ branch: request.branch, path: request.docPath });
+  const params = new URLSearchParams({
+    branch: request.branch,
+    kind: request.kind,
+    path: request.path,
+  });
   const url = `${origin}/api/git/branch-info?${params.toString()}`;
   const timeoutMs = deps.requestTimeoutMs ?? 5_000;
   let raw: unknown;

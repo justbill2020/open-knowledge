@@ -27,16 +27,16 @@ export type BranchSwitchVariant =
     };
 
 export function selectBranchSwitchVariant(info: BranchInfoResponse): BranchSwitchVariant {
-  const fileExists = info.shareFileExists;
+  const targetExists = info.shareTargetExists;
   const dirty = info.dirtyConflicts.conflicts;
   const files = info.dirtyConflicts.files;
-  if (fileExists && !dirty) {
+  if (targetExists && !dirty) {
     return { kind: 'A', openCurrentEnabled: true, switchEnabled: true, conflictingFiles: files };
   }
-  if (!fileExists && !dirty) {
+  if (!targetExists && !dirty) {
     return { kind: 'B', openCurrentEnabled: false, switchEnabled: true, conflictingFiles: files };
   }
-  if (fileExists && dirty) {
+  if (targetExists && dirty) {
     return { kind: 'C', openCurrentEnabled: true, switchEnabled: false, conflictingFiles: files };
   }
   return { kind: 'D', openCurrentEnabled: false, switchEnabled: false, conflictingFiles: files };

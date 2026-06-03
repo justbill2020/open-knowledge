@@ -1,11 +1,20 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { z } from 'zod';
 
-export const ShareConstructUrlRequestSchema = z
-  .object({
-    docPath: z.string().min(1),
-  })
-  .loose() satisfies StandardSchemaV1;
+export const ShareConstructUrlRequestSchema = z.discriminatedUnion('kind', [
+  z
+    .object({
+      kind: z.literal('doc'),
+      docPath: z.string().min(1),
+    })
+    .loose(),
+  z
+    .object({
+      kind: z.literal('folder'),
+      folderPath: z.string(),
+    })
+    .loose(),
+]) satisfies StandardSchemaV1;
 export type ShareConstructUrlRequest = z.infer<typeof ShareConstructUrlRequestSchema>;
 
 export const ShareConstructUrlErrorCodeSchema = z.enum([
@@ -22,7 +31,7 @@ export const ShareConstructUrlResponseSchema = z.discriminatedUnion('ok', [
     .object({
       ok: z.literal(true),
       shareUrl: z.string().min(1),
-      blobUrl: z.string().min(1),
+      sharedUrl: z.string().min(1),
       branch: z.string().min(1),
     })
     .loose(),
@@ -154,7 +163,7 @@ export function isBranchNotFoundGitError(error: unknown): boolean {
 }
 
 const BranchInfoSharedFields = {
-  shareFileExists: z.boolean(),
+  shareTargetExists: z.boolean(),
   dirtyConflicts: z
     .object({
       conflicts: z.boolean(),

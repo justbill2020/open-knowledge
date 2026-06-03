@@ -15,7 +15,7 @@ import type { BuildAndOpenResult } from '../main/ipc/install-skill.ts';
 import type { SeedApplyResult, SeedListPacksResult, SeedPlanResult } from '../main/ipc/seed.ts';
 import type { KeyringSmokeResult } from '../utility/keyring-smoke.ts';
 import type {
-  CheckDocExistsResult,
+  CheckTargetExistsResult,
   HeadBranchInfo,
   OkDesktopConfig,
   OkLocalOpAuthReposResponse,
@@ -65,7 +65,7 @@ interface ProjectOpenRequest {
   path: string;
   target: 'new-window';
   entryPoint: EntryPoint;
-  pendingDeepLinkDoc?: string;
+  pendingDeepLinkTarget?: { kind: 'doc' | 'folder'; path: string };
   pendingBranch?: string | null;
   pendingMultiCandidate?: boolean;
 }
@@ -306,16 +306,16 @@ export interface RequestChannels {
   'ok:project:get-session-state': { args: []; result: ProjectSessionState };
   'ok:project:set-session-state': { args: [state: ProjectSessionState]; result: undefined };
   'ok:project:open': { args: [request: ProjectOpenRequest]; result: undefined };
-  'ok:project:check-doc-exists': {
-    args: [request: { projectPath: string; docPath: string }];
-    result: CheckDocExistsResult;
+  'ok:project:check-target-exists': {
+    args: [request: { projectPath: string; kind: 'doc' | 'folder'; path: string }];
+    result: CheckTargetExistsResult;
   };
   'ok:project:read-head-branch': {
     args: [projectPath: string];
     result: HeadBranchInfo;
   };
   'ok:project:fetch-branch-info': {
-    args: [request: { projectPath: string; branch: string; docPath: string }];
+    args: [request: { projectPath: string; branch: string; kind: 'doc' | 'folder'; path: string }];
     result: BranchInfoResponse | null;
   };
   'ok:project:run-checkout': {

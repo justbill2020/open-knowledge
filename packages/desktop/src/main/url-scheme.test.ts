@@ -211,8 +211,8 @@ describe('parseShareUrl — universal-link happy path', () => {
         owner: 'inkeep',
         repo: 'playbooks',
         branch: 'main',
-        path: 'marketing.md',
-        blobUrl: 'https://github.com/inkeep/playbooks/blob/main/marketing.md',
+        sharedUrl: 'https://github.com/inkeep/playbooks/blob/main/marketing.md',
+        target: { kind: 'doc', docPath: 'marketing.md' },
       },
     });
   });
@@ -229,18 +229,18 @@ describe('parseShareUrl — universal-link happy path', () => {
     const result = parseShareUrl(`https://openknowledge.ai/d/${encoded}`);
     expect(result).toMatchObject({
       kind: 'ok',
-      payload: { branch: 'feat/foo', path: 'docs/sub/page.md' },
+      payload: { branch: 'feat/foo', target: { kind: 'doc', docPath: 'docs/sub/page.md' } },
     });
   });
 
   test('parses universal-link with unicode + spaces in path (per-segment encoded)', () => {
-    const blobUrl =
+    const sharedUrl =
       'https://github.com/inkeep/playbooks/blob/main/docs/Q4%20OKRs%20%E2%80%94%20Marketing.md';
-    const encoded = encodeShareUrl(blobUrl);
+    const encoded = encodeShareUrl(sharedUrl);
     const result = parseShareUrl(`https://openknowledge.ai/d/${encoded}`);
     expect(result).toMatchObject({
       kind: 'ok',
-      payload: { path: 'docs/Q4 OKRs — Marketing.md' },
+      payload: { target: { kind: 'doc', docPath: 'docs/Q4 OKRs — Marketing.md' } },
     });
   });
 });
@@ -302,10 +302,19 @@ describe('parseShareUrl — universal-link error states', () => {
     expect(result).toEqual({ kind: 'invalid', source: 'universal-link' });
   });
 
-  test('reports invalid for github URL that is not a /blob/ URL', () => {
+  test('parses a github /tree/ URL as a folder target', () => {
     const encoded = encodeShareUrl('https://github.com/inkeep/playbooks/tree/main/docs');
     const result = parseShareUrl(`https://openknowledge.ai/d/${encoded}`);
-    expect(result).toEqual({ kind: 'invalid', source: 'universal-link' });
+    expect(result).toMatchObject({
+      kind: 'ok',
+      source: 'universal-link',
+      payload: {
+        owner: 'inkeep',
+        repo: 'playbooks',
+        branch: 'main',
+        target: { kind: 'folder', folderPath: 'docs' },
+      },
+    });
   });
 
   test('reports invalid for extra path segments after /d/<encoded>', () => {
@@ -317,8 +326,8 @@ describe('parseShareUrl — universal-link error states', () => {
 
 describe('parseShareUrl — custom-scheme happy path', () => {
   test('parses openknowledge://share?url=<blob-url>', () => {
-    const blobUrl = 'https://github.com/inkeep/playbooks/blob/main/marketing.md';
-    const result = parseShareUrl(`openknowledge://share?url=${encodeURIComponent(blobUrl)}`);
+    const sharedUrl = 'https://github.com/inkeep/playbooks/blob/main/marketing.md';
+    const result = parseShareUrl(`openknowledge://share?url=${encodeURIComponent(sharedUrl)}`);
     expect(result).toEqual({
       kind: 'ok',
       source: 'custom-scheme',
@@ -326,26 +335,26 @@ describe('parseShareUrl — custom-scheme happy path', () => {
         owner: 'inkeep',
         repo: 'playbooks',
         branch: 'main',
-        path: 'marketing.md',
-        blobUrl,
+        sharedUrl,
+        target: { kind: 'doc', docPath: 'marketing.md' },
       },
     });
   });
 
   test('parses custom-scheme with percent-encoded slash in branch', () => {
-    const blobUrl = 'https://github.com/o/r/blob/feat%2Ffoo/docs/page.md';
-    const result = parseShareUrl(`openknowledge://share?url=${encodeURIComponent(blobUrl)}`);
+    const sharedUrl = 'https://github.com/o/r/blob/feat%2Ffoo/docs/page.md';
+    const result = parseShareUrl(`openknowledge://share?url=${encodeURIComponent(sharedUrl)}`);
     expect(result).toMatchObject({
       kind: 'ok',
       source: 'custom-scheme',
-      payload: { branch: 'feat/foo', path: 'docs/page.md' },
+      payload: { branch: 'feat/foo', target: { kind: 'doc', docPath: 'docs/page.md' } },
     });
   });
 
   test('tolerates additional query params on custom-scheme path', () => {
-    const blobUrl = 'https://github.com/o/r/blob/main/x.md';
+    const sharedUrl = 'https://github.com/o/r/blob/main/x.md';
     const result = parseShareUrl(
-      `openknowledge://share?url=${encodeURIComponent(blobUrl)}&ref=campaign`,
+      `openknowledge://share?url=${encodeURIComponent(sharedUrl)}&ref=campaign`,
     );
     expect(result?.kind).toBe('ok');
     expect(result?.source).toBe('custom-scheme');
@@ -364,15 +373,45 @@ describe('parseShareUrl — custom-scheme error states', () => {
   });
 
   test('reports invalid for non-github URL', () => {
-    const blobUrl = 'https://gitlab.com/o/r/-/blob/main/x.md';
-    const result = parseShareUrl(`openknowledge://share?url=${encodeURIComponent(blobUrl)}`);
+    const sharedUrl = 'https://gitlab.com/o/r/-/blob/main/x.md';
+    const result = parseShareUrl(`openknowledge://share?url=${encodeURIComponent(sharedUrl)}`);
     expect(result).toEqual({ kind: 'invalid', source: 'custom-scheme' });
   });
 
-  test('reports invalid for github non-/blob/ URL', () => {
-    const blobUrl = 'https://github.com/o/r/tree/main/docs';
-    const result = parseShareUrl(`openknowledge://share?url=${encodeURIComponent(blobUrl)}`);
+  test('reports invalid for github URL that is neither a blob nor a tree URL', () => {
+    const sharedUrl = 'https://github.com/o/r/pull/123';
+    const result = parseShareUrl(`openknowledge://share?url=${encodeURIComponent(sharedUrl)}`);
     expect(result).toEqual({ kind: 'invalid', source: 'custom-scheme' });
+  });
+
+  test('parses a github /tree/ URL as a folder target (custom-scheme)', () => {
+    const sharedUrl = 'https://github.com/o/r/tree/main/docs';
+    const result = parseShareUrl(`openknowledge://share?url=${encodeURIComponent(sharedUrl)}`);
+    expect(result).toMatchObject({
+      kind: 'ok',
+      source: 'custom-scheme',
+      payload: {
+        owner: 'o',
+        repo: 'r',
+        branch: 'main',
+        target: { kind: 'folder', folderPath: 'docs' },
+      },
+    });
+  });
+
+  test('parses a github /tree/ root URL as a folder target with empty folderPath', () => {
+    const sharedUrl = 'https://github.com/o/r/tree/main';
+    const result = parseShareUrl(`openknowledge://share?url=${encodeURIComponent(sharedUrl)}`);
+    expect(result).toMatchObject({
+      kind: 'ok',
+      source: 'custom-scheme',
+      payload: {
+        owner: 'o',
+        repo: 'r',
+        branch: 'main',
+        target: { kind: 'folder', folderPath: '' },
+      },
+    });
   });
 });
 

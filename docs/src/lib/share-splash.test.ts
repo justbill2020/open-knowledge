@@ -2,8 +2,8 @@ import { describe, expect, test } from 'bun:test';
 import { encodeShareUrl } from '@inkeep/open-knowledge-core';
 import { buildCustomSchemeUrl, buildSplashViewModel, SPLASH_DOWNLOAD_URL } from './share-splash.ts';
 
-function encodeV1(blobUrl: string): string {
-  return encodeShareUrl(blobUrl);
+function encodeV1(sharedUrl: string): string {
+  return encodeShareUrl(sharedUrl);
 }
 
 function uint8ArrayToBase64Url(bytes: Uint8Array): string {
@@ -23,16 +23,72 @@ describe('buildSplashViewModel', () => {
 
     expect(view).toEqual({
       kind: 'ok',
+      target: 'doc',
       filename: 'marketing-playbook.md',
       owner: 'inkeep',
       repo: 'playbooks',
       repoPath: 'inkeep/playbooks',
       branch: 'main',
       isDefaultBranch: true,
-      blobUrl,
+      sharedUrl: blobUrl,
       customSchemeUrl: `openknowledge://share?url=${encodeURIComponent(blobUrl)}`,
       githubUrl: blobUrl,
     });
+  });
+
+  test('decodes a folder (tree) share URL into a valid ok view with target=folder', () => {
+    const treeUrl = 'https://github.com/inkeep/playbooks/tree/main/marketing/campaigns';
+    const encoded = encodeV1(treeUrl);
+
+    const view = buildSplashViewModel(encoded);
+
+    expect(view).toEqual({
+      kind: 'ok',
+      target: 'folder',
+      filename: 'campaigns',
+      owner: 'inkeep',
+      repo: 'playbooks',
+      repoPath: 'inkeep/playbooks',
+      branch: 'main',
+      isDefaultBranch: true,
+      sharedUrl: treeUrl,
+      customSchemeUrl: `openknowledge://share?url=${encodeURIComponent(treeUrl)}`,
+      githubUrl: treeUrl,
+    });
+  });
+
+  test('decodes a repo/branch-root folder (empty tree path) and falls back to the repo name', () => {
+    const treeUrl = 'https://github.com/inkeep/playbooks/tree/main';
+    const view = buildSplashViewModel(encodeV1(treeUrl));
+    expect(view.kind).toBe('ok');
+    if (view.kind === 'ok') {
+      expect(view.target).toBe('folder');
+      expect(view.filename).toBe('playbooks');
+      expect(view.repoPath).toBe('inkeep/playbooks');
+      expect(view.sharedUrl).toBe(treeUrl);
+    }
+  });
+
+  test('tolerates a trailing slash on a root-folder tree URL', () => {
+    const treeUrl = 'https://github.com/inkeep/playbooks/tree/main/';
+    const view = buildSplashViewModel(encodeV1(treeUrl));
+    expect(view.kind).toBe('ok');
+    if (view.kind === 'ok') {
+      expect(view.target).toBe('folder');
+      expect(view.filename).toBe('playbooks');
+    }
+  });
+
+  test('decodes a folder share on a percent-encoded slash-bearing branch', () => {
+    const treeUrl = 'https://github.com/inkeep/playbooks/tree/feat%2Fshare/docs/sub';
+    const view = buildSplashViewModel(encodeV1(treeUrl));
+    expect(view.kind).toBe('ok');
+    if (view.kind === 'ok') {
+      expect(view.target).toBe('folder');
+      expect(view.branch).toBe('feat/share');
+      expect(view.filename).toBe('sub');
+      expect(view.isDefaultBranch).toBe(false);
+    }
   });
 
   test('preserves the filename VERBATIM — no title-case, no extension stripping (D29)', () => {
@@ -131,9 +187,9 @@ describe('buildSplashViewModel', () => {
     expect(view).toEqual({ kind: 'invalid' });
   });
 
-  test('returns `invalid` when the decoded URL is not a /blob/ URL', () => {
+  test('returns `invalid` when the decoded URL is neither a /blob/ nor /tree/ URL', () => {
     const view = buildSplashViewModel(
-      encodeV1('https://github.com/owner/repo/tree/main/README.md'),
+      encodeV1('https://github.com/owner/repo/commits/main/README.md'),
     );
     expect(view).toEqual({ kind: 'invalid' });
   });
@@ -156,7 +212,7 @@ describe('buildSplashViewModel', () => {
     const view = buildSplashViewModel(encoded);
     expect(view.kind).toBe('ok');
     if (view.kind === 'ok') {
-      expect(view.blobUrl).toBe(blobUrl);
+      expect(view.sharedUrl).toBe(blobUrl);
     }
   });
 
@@ -166,7 +222,7 @@ describe('buildSplashViewModel', () => {
     const view = buildSplashViewModel(encoded);
     expect(view.kind).toBe('ok');
     if (view.kind === 'ok') {
-      expect(view.blobUrl).toBe(blobUrl);
+      expect(view.sharedUrl).toBe(blobUrl);
     }
   });
 });
