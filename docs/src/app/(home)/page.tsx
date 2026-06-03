@@ -8,12 +8,40 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import type { SoftwareApplication, WithContext } from 'schema-dts';
+import { JsonLd } from '@/components/seo/json-ld';
+import { SPLASH_DOWNLOAD_URL } from '@/lib/share-splash';
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from '@/lib/site';
 import { EditorDemo } from './editor-demo';
 import { StickyShowcase } from './sticky-showcase';
+
+const softwareAppLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: SITE_NAME,
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'macOS',
+  url: SITE_URL,
+  downloadUrl: SPLASH_DOWNLOAD_URL,
+  description: SITE_DESCRIPTION,
+  isAccessibleForFree: true,
+  offers: {
+    '@type': 'Offer',
+    price: '0',
+    priceCurrency: 'USD',
+  },
+  author: {
+    '@type': 'Organization',
+    name: 'Inkeep',
+    url: 'https://inkeep.com',
+  },
+  sameAs: 'https://github.com/inkeep/open-knowledge',
+} satisfies WithContext<SoftwareApplication>;
 
 export default function HomePage() {
   return (
     <main className="font-[family-name:var(--font-dm-sans)] selection:bg-[var(--slide-accent)]/20">
+      <JsonLd json={softwareAppLd} />
       <Hero />
       <EditorDemo />
       <StickyShowcase />

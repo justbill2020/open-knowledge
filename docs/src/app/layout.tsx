@@ -1,5 +1,8 @@
 import type { Metadata } from 'next';
 import { DM_Sans } from 'next/font/google';
+import type { Organization, WebSite, WithContext } from 'schema-dts';
+import { JsonLd } from '@/components/seo/json-ld';
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from '@/lib/site';
 import './global.css';
 import { Provider } from './provider';
 
@@ -9,12 +12,60 @@ const dmSans = DM_Sans({
   display: 'swap',
 });
 
+const orgLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'Inkeep',
+  url: 'https://inkeep.com',
+  logo: 'https://inkeep.com/images/logos/logo-with-text-black.svg',
+  description:
+    'Ship Agent-powered assistants and automations that boost customer experience and 10x your teams.',
+  foundingDate: '2023',
+  sameAs: [
+    'https://x.com/inkeep',
+    'https://linkedin.com/company/inkeep',
+    'https://github.com/inkeep',
+    'https://crunchbase.com/organization/inkeep',
+    'https://youtube.com/@inkeep-ai',
+  ],
+} satisfies WithContext<Organization>;
+
+const siteLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: SITE_NAME,
+  alternateName: 'Open Knowledge Docs',
+  url: SITE_URL,
+  description: SITE_DESCRIPTION,
+} satisfies WithContext<WebSite>;
+
 export const metadata: Metadata = {
-  title: 'Open Knowledge',
-  description: 'An agent-native knowledge platform where humans and AI co-create.',
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: 'Open Knowledge — Your knowledge, co-authored by AI',
+    template: '%s · Open Knowledge',
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
   icons: {
     icon: '/ok-logo.png',
     apple: '/ok-logo.png',
+  },
+  openGraph: {
+    type: 'website',
+    siteName: SITE_NAME,
+    title: 'Open Knowledge — Your knowledge, co-authored by AI',
+    description: SITE_DESCRIPTION,
+    url: SITE_URL,
+    locale: 'en_US',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Open Knowledge — Your knowledge, co-authored by AI',
+    description: SITE_DESCRIPTION,
+  },
+  verification: {
+    google: 'ZeS2oQLq-M3Hut-WpCMBqfn6XhXPMQmRCx8ntea36RI',
   },
 };
 
@@ -22,6 +73,7 @@ export default function Layout({ children }: LayoutProps<'/'>) {
   return (
     <html lang="en" suppressHydrationWarning className={dmSans.variable}>
       <body>
+        <JsonLd json={[orgLd, siteLd]} />
         <Provider>{children}</Provider>
       </body>
     </html>

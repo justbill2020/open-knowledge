@@ -1,3 +1,4 @@
+import { SITE_URL } from '@/lib/site';
 import { source } from '@/lib/source';
 
 export const revalidate = false;
@@ -8,7 +9,7 @@ export async function GET() {
     [
       '# Open Knowledge',
       '## Docs',
-      ...pages.map((page) => `- [${page.data.title}](https://openknowledge.ai${page.url})`),
+      ...pages.map((page) => `- [${page.data.title}](${SITE_URL}${page.url})`),
     ].join('\n\n'),
   );
 }

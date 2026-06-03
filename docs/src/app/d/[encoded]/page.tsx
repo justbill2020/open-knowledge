@@ -9,6 +9,7 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { buildSplashViewModel, SPLASH_DOWNLOAD_URL } from '@/lib/share-splash';
+import { SITE_URL } from '@/lib/site';
 import { SplashCtaCluster } from './splash-cta-cluster';
 
 export const dynamic = 'force-static';
@@ -23,18 +24,20 @@ export async function generateMetadata({ params }: SplashPageProps): Promise<Met
 
   if (view.kind !== 'ok') {
     return {
-      title: 'Open Knowledge',
+      title: { absolute: 'Open Knowledge' },
       description: 'Open in Open Knowledge.',
+      robots: { index: false, follow: true },
     };
   }
 
   return {
-    title: `${view.filename} · Open Knowledge`,
+    title: view.filename,
     description: 'Open in Open Knowledge.',
+    robots: { index: false, follow: true },
     openGraph: {
       title: view.filename,
       description: 'Open in Open Knowledge.',
-      url: `https://openknowledge.ai/d/${encoded}`,
+      url: `${SITE_URL}/d/${encoded}`,
       type: 'article',
     },
     twitter: {
