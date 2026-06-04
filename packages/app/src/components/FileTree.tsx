@@ -212,6 +212,9 @@ async function copyToClipboard(text: string, kind: 'full' | 'relative'): Promise
 const AGENT_FILE_NAMES = new Set(['agents', 'agent', 'claude', 'skill']);
 const LINK_DECORATION_ICON_ID = 'ok-file-tree-link-decoration';
 const AGENT_DECORATION_ICON_ID = 'ok-file-tree-agent-decoration';
+const MARKDOWN_FILE_ICON_ID = 'ok-file-tree-markdown';
+const MARKDOWN_FILE_ICON_VIEWBOX = '0 0 48 48';
+const MARKDOWN_FILE_ICON_SYMBOL = `<symbol id="${MARKDOWN_FILE_ICON_ID}" viewBox="${MARKDOWN_FILE_ICON_VIEWBOX}" fill="none" stroke="currentColor" stroke-width="4.62651" stroke-linecap="round" stroke-linejoin="round"><path d="M3.18066 33.4398V13.5603L12.4337 22.8133L21.6867 13.5603V33.4398"/><path d="M38 13.5L38 33"/><path d="M44.8195 26.5L37.8797 33.4398L30.9399 26.5"/></symbol>`;
 
 type IconNode = [string, Record<string, string>][];
 
@@ -234,6 +237,7 @@ function createLucideSpriteSymbol(id: string, iconNode: IconNode): string {
 const FILE_TREE_DECORATION_SPRITE_SHEET = `<svg data-icon-sprite aria-hidden="true" width="0" height="0">
   ${createLucideSpriteSymbol(LINK_DECORATION_ICON_ID, link2Icon)}
   ${createLucideSpriteSymbol(AGENT_DECORATION_ICON_ID, botIcon)}
+  ${MARKDOWN_FILE_ICON_SYMBOL}
 </svg>`;
 
 const FILE_TREE_UNSAFE_CSS = `${FILE_TREE_EXT_BADGE_CSS}\n${FILE_TREE_RENAME_CHIP_CSS}`;
@@ -1130,6 +1134,10 @@ export function FileTree({ ref }: { ref?: Ref<FileTreeHandle | null> }) {
     icons: {
       set: 'complete',
       spriteSheet: FILE_TREE_DECORATION_SPRITE_SHEET,
+      byFileExtension: {
+        md: { name: MARKDOWN_FILE_ICON_ID, viewBox: MARKDOWN_FILE_ICON_VIEWBOX },
+        mdx: { name: MARKDOWN_FILE_ICON_ID, viewBox: MARKDOWN_FILE_ICON_VIEWBOX },
+      },
     },
     unsafeCSS: FILE_TREE_UNSAFE_CSS,
     composition: {

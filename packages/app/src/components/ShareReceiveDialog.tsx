@@ -568,7 +568,7 @@ function ShareReceiveDialogInner({
           <p className="mt-3 text-1sm text-muted-foreground">
             <Trans>
               Looking for{' '}
-              <code className="rounded bg-muted px-1 py-0.5 text-foreground/80">
+              <code className="rounded-sm bg-muted px-1 py-0.5 text-foreground/80">
                 {lookingForUrl}
               </code>
               .

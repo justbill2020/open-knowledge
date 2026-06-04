@@ -175,8 +175,8 @@ describe('ShareReceiveDialog — ShareMetadataRows (shared module)', () => {
     expect(METADATA_SRC).toContain('!DEFAULT_BRANCH_NAMES.has(branch)');
   });
 
-  test('shared module label classes mirror the SyncStatusBadge popover (w-20 shrink-0 font-mono uppercase tracking-wide text-2xs)', () => {
-    expect(METADATA_SRC).toContain('w-20 shrink-0 font-mono uppercase tracking-wide text-2xs');
+  test('shared module labels use w-20 shrink-0 font-mono uppercase tracking-wide text-xs', () => {
+    expect(METADATA_SRC).toContain('w-20 shrink-0 font-mono uppercase tracking-wide text-xs');
   });
 
   test('shared module branch row guards a caller-supplied testid for downstream selection', () => {

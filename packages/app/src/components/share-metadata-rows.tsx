@@ -24,7 +24,7 @@ export function ShareMetadataRows({
 }: ShareMetadataRowsProps) {
   const showBranch = branch !== '' && !DEFAULT_BRANCH_NAMES.has(branch);
   return (
-    <dl className="space-y-2 text-xs text-muted-foreground" data-testid={testId}>
+    <dl className="space-y-2 text-1sm text-muted-foreground" data-testid={testId}>
       <ShareMetadataRow label={<Trans>Repository</Trans>}>
         <span>
           {owner}/{repo}
@@ -56,7 +56,7 @@ interface ShareMetadataRowProps {
 function ShareMetadataRow({ label, children }: ShareMetadataRowProps) {
   return (
     <div className="flex items-baseline gap-2">
-      <dt className="w-20 shrink-0 font-mono uppercase tracking-wide text-2xs">{label}</dt>
+      <dt className="w-20 shrink-0 font-mono uppercase tracking-wide text-xs">{label}</dt>
       <dd className="min-w-0 flex-1 break-all text-foreground">{children}</dd>
     </div>
   );
