@@ -1,4 +1,4 @@
-import { ContentDivergenceWarningSchema } from '@inkeep/open-knowledge-core';
+import { WriteWarningSchema } from '@inkeep/open-knowledge-core';
 import { z } from 'zod';
 import type { AgentIdentity } from '../agent-identity.ts';
 import { resolvePreviewUrlForTool } from './preview-url.ts';
@@ -161,10 +161,8 @@ async function handleRollback(args: VersionArgs, url: string, cwd: string, deps:
       : undefined;
   const summaryHint = typeof summaryResult?.hint === 'string' ? summaryResult.hint : undefined;
 
-  const contentDivergenceParse = ContentDivergenceWarningSchema.safeParse(result.warning);
-  const contentDivergence = contentDivergenceParse.success
-    ? contentDivergenceParse.data
-    : undefined;
+  const writeWarningParse = WriteWarningSchema.safeParse(result.warning);
+  const writeWarning = writeWarningParse.success ? writeWarningParse.data : undefined;
 
   const author = typeof versionResult.author === 'string' ? versionResult.author : undefined;
   const timestamp =
@@ -174,9 +172,11 @@ async function handleRollback(args: VersionArgs, url: string, cwd: string, deps:
     `Restored "${docName}" to version ${args.commitSha.slice(0, 8)}${provenance}. The change has been applied to all connected editors.`,
   ];
   if (summaryHint) textLines.push(summaryHint);
-  if (contentDivergence) {
+  if (writeWarning) {
     textLines.push(
-      `⚠ Content divergence: ${contentDivergence.actualBytes} actual bytes vs ${contentDivergence.intendedBytes} intended (byteDelta=${contentDivergence.byteDelta}). ${contentDivergence.hint ?? 'currentState carries the converged content (re-read only if it is truncated).'}`,
+      writeWarning.kind === 'content-divergence'
+        ? `⚠ Content divergence: ${writeWarning.actualBytes} actual bytes vs ${writeWarning.intendedBytes} intended (byteDelta=${writeWarning.byteDelta}). ${writeWarning.hint ?? 'currentState carries the converged content (re-read only if it is truncated).'}`
+        : `⚠ ${writeWarning.hint ?? 'An out-of-band edit was reconciled into this document before your change landed on top — re-read for the combined result.'}`,
     );
   }
 
@@ -192,6 +192,6 @@ async function handleRollback(args: VersionArgs, url: string, cwd: string, deps:
     previewUrl: preview?.url ?? null,
     ...(preview ? { previewUrlSource: preview.source } : {}),
     ...(summaryResult ? { summary: summaryResult } : {}),
-    ...(contentDivergence ? { contentDivergence } : {}),
+    ...(writeWarning ? { contentDivergence: writeWarning } : {}),
   });
 }

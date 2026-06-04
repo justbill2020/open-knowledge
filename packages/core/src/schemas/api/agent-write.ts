@@ -89,10 +89,28 @@ export const OrphanHintSchema = z
   .loose() satisfies StandardSchemaV1;
 export type OrphanHint = z.infer<typeof OrphanHintSchema>;
 
+export const DiskEditReconciledWarningSchema = z
+  .object({
+    kind: z.literal('disk-edit-reconciled'),
+    intendedBytes: z.number().int().nonnegative(),
+    actualBytes: z.number().int().nonnegative(),
+    byteDelta: z.number().int(),
+    hint: z.string().optional(),
+  })
+  .loose() satisfies StandardSchemaV1;
+export type DiskEditReconciledWarning = z.infer<typeof DiskEditReconciledWarningSchema>;
+
+export const WriteWarningSchema = z.discriminatedUnion('kind', [
+  ContentDivergenceWarningSchema,
+  DiskEditReconciledWarningSchema,
+]);
+export type WriteWarning = z.infer<typeof WriteWarningSchema>;
+
 export const AgentWriteSuccessSchema = z
   .object({
     timestamp: z.string().min(1),
     summary: SummaryResponseFieldSchema.optional(),
+    warning: WriteWarningSchema.optional(),
   })
   .loose() satisfies StandardSchemaV1;
 export type AgentWriteSuccess = z.infer<typeof AgentWriteSuccessSchema>;
@@ -104,7 +122,7 @@ export const AgentWriteMdSuccessSchema = z
     systemSubscriberCount: z.number().int().nonnegative(),
     hints: z.array(OrphanHintSchema).optional(),
     summary: SummaryResponseFieldSchema.optional(),
-    warning: ContentDivergenceWarningSchema.optional(),
+    warning: WriteWarningSchema.optional(),
   })
   .loose() satisfies StandardSchemaV1;
 export type AgentWriteMdSuccess = z.infer<typeof AgentWriteMdSuccessSchema>;
@@ -115,7 +133,7 @@ export const AgentPatchSuccessSchema = z
     subscriberCount: z.number().int().nonnegative(),
     systemSubscriberCount: z.number().int().nonnegative(),
     summary: SummaryResponseFieldSchema.optional(),
-    warning: ContentDivergenceWarningSchema.optional(),
+    warning: WriteWarningSchema.optional(),
   })
   .loose() satisfies StandardSchemaV1;
 export type AgentPatchSuccess = z.infer<typeof AgentPatchSuccessSchema>;
@@ -147,6 +165,7 @@ export const FrontmatterPatchSuccessSchema = z
     systemSubscriberCount: z.number().int().nonnegative(),
     appliedKeys: z.array(z.string()),
     summary: SummaryResponseFieldSchema.optional(),
+    warning: WriteWarningSchema.optional(),
   })
   .loose() satisfies StandardSchemaV1;
 export type FrontmatterPatchSuccess = z.infer<typeof FrontmatterPatchSuccessSchema>;

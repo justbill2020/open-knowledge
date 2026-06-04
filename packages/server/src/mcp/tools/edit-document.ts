@@ -1,4 +1,4 @@
-import { ContentDivergenceWarningSchema, renderInventoryFooter } from '@inkeep/open-knowledge-core';
+import { renderInventoryFooter, WriteWarningSchema } from '@inkeep/open-knowledge-core';
 import { z } from 'zod';
 import { resolveLockDir } from '../../config/paths.ts';
 import type { AgentIdentity } from '../agent-identity.ts';
@@ -120,17 +120,17 @@ export function register(server: ServerInstance, deps: EditDocumentDeps): void {
           : undefined;
       const summaryHint = typeof summaryResult?.hint === 'string' ? summaryResult.hint : undefined;
 
-      const contentDivergenceParse = ContentDivergenceWarningSchema.safeParse(result.warning);
-      const contentDivergence = contentDivergenceParse.success
-        ? contentDivergenceParse.data
-        : undefined;
+      const writeWarningParse = WriteWarningSchema.safeParse(result.warning);
+      const writeWarning = writeWarningParse.success ? writeWarningParse.data : undefined;
 
       const lines: string[] = ['Edit applied successfully.'];
       if (noPreviewAnywhere && !preview) lines.push(START_UI_TEXT_HINT);
       if (summaryHint) lines.push(summaryHint);
-      if (contentDivergence) {
+      if (writeWarning) {
         lines.push(
-          `⚠ Content divergence: ${contentDivergence.actualBytes} actual bytes vs ${contentDivergence.intendedBytes} intended (byteDelta=${contentDivergence.byteDelta}). ${contentDivergence.hint ?? 'currentState carries the converged content (re-read only if it is truncated).'}`,
+          writeWarning.kind === 'content-divergence'
+            ? `⚠ Content divergence: ${writeWarning.actualBytes} actual bytes vs ${writeWarning.intendedBytes} intended (byteDelta=${writeWarning.byteDelta}). ${writeWarning.hint ?? 'currentState carries the converged content (re-read only if it is truncated).'}`
+            : `⚠ ${writeWarning.hint ?? 'An out-of-band edit was reconciled into this document before your edit landed on top — re-read for the combined result.'}`,
         );
       }
       const text = lines.join('\n');
@@ -140,12 +140,15 @@ export function register(server: ServerInstance, deps: EditDocumentDeps): void {
         !noPreviewAnywhere &&
         !noPreviewOnThisDoc &&
         !summaryResult &&
-        !contentDivergence
+        !writeWarning
       ) {
         return textResult(text);
       }
 
       const structured: Record<string, unknown> = {};
+      if (writeWarning) {
+        structured.contentDivergence = writeWarning;
+      }
       if (preview) {
         structured.previewUrl = preview.url;
         structured.previewUrlSource = preview.source;
@@ -155,9 +158,6 @@ export function register(server: ServerInstance, deps: EditDocumentDeps): void {
       }
       if (summaryResult) {
         structured.summary = summaryResult;
-      }
-      if (contentDivergence) {
-        structured.contentDivergence = contentDivergence;
       }
       return textPlusStructured(text, structured);
     },

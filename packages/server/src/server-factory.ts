@@ -599,6 +599,8 @@ export function createServer(options: ServerOptions): ServerInstance {
       flushGitCommit: () => persistence.flushPendingGitCommit(),
       flushContributors: () => persistence.flushContributors(),
       takeStoreFailure: (docName: string) => persistence.takeStoreFailure(docName),
+      takeStoreDivergence: (docName: string) => persistence.takeStoreDivergence(docName),
+      markAgentWriteStore: (docName: string) => persistence.markAgentWriteStore(docName),
       getCurrentBranch: () => headWatcher?.getLastKnownBranch() ?? null,
       getDiskAckSVs: () => cc1Broadcaster?.getLatestDiskAckSVsAsBase64() ?? {},
       contentRoot,

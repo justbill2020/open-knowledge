@@ -294,6 +294,8 @@ export interface PersistenceHandle {
   flushDeferredStores: (mode?: 'within-branch' | 'discard-stale') => Promise<void>;
   flushPendingGitCommit: () => Promise<void>;
   takeStoreFailure: (documentName: string) => StoreFailure | null;
+  takeStoreDivergence: (documentName: string) => boolean;
+  markAgentWriteStore: (documentName: string) => void;
   flushContributors: () => Promise<void>;
   waitForPendingCommits: () => Promise<void>;
   readonly configPersistenceCtx: ConfigPersistenceCtx;
@@ -333,6 +335,10 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
   const persistenceDeferCounts = new Map<string, number>();
 
   const storeFailures = new Map<string, StoreFailure>();
+
+  const storeDivergences = new Set<string>();
+
+  const agentWriteStores = new Set<string>();
 
   const gitEnabled = options?.gitEnabled ?? true;
   const commitDebounceMs = options?.commitDebounceMs ?? 15_000;
@@ -681,6 +687,8 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
       'persistence.onStoreDocument',
       { attributes: { 'doc.name': documentName } },
       async () => {
+        const agentTriggeredStore = agentWriteStores.delete(documentName);
+
         const lifecycleStatus = document.getMap('lifecycle').get('status');
         if (
           lifecycleStatus === 'deleted-upstream' ||
@@ -906,6 +914,52 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
             contentDir,
           });
           throw new Error(msg);
+        }
+
+        if (
+          process.env.NODE_ENV === 'test' &&
+          process.env.OK_TEST_STORE_DIVERGENCE === documentName
+        ) {
+          await tracedWriteFile(canonicalPath, '# NATIVE\n\nnative-divergence-injected\n', 'utf-8');
+        }
+
+        if (agentTriggeredStore && currentBase !== undefined) {
+          let diskNow: string | null = null;
+          try {
+            if (existsSync(canonicalPath)) diskNow = readFileSync(canonicalPath, 'utf-8');
+          } catch (err) {
+            diskNow = null;
+            log.warn(
+              { err, documentName },
+              '[persistence] L3 disk-read failed; divergence check skipped for this store',
+            );
+          }
+          if (diskNow !== null && normalizeBridge(diskNow) !== normalizeBridge(currentBase)) {
+            const diskContent = diskNow; // const so the closure keeps the non-null narrowing
+            console.warn(
+              JSON.stringify({
+                event: 'agent-write-content-divergence',
+                'doc.name': documentName,
+                outcome: 'reverted',
+                diskBytes: diskContent.length,
+                baseBytes: currentBase.length,
+                candidateBytes: markdown.length,
+              }),
+            );
+            try {
+              document.transact(() => {
+                applyDiskContent(document, diskContent);
+              }, FILE_WATCHER_ORIGIN);
+            } catch (err) {
+              storeFailures.set(documentName, toStoreFailure(err));
+              persistenceDeferCounts.delete(documentName);
+              throw err;
+            }
+            setReconciledBase(documentName, diskContent);
+            storeDivergences.add(documentName);
+            persistenceDeferCounts.delete(documentName);
+            return;
+          }
         }
 
         const tmpPath = `${canonicalPath}.tmp.${crypto.randomUUID()}`;
@@ -1203,6 +1257,16 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
     return failure ?? null;
   }
 
+  function takeStoreDivergence(documentName: string): boolean {
+    if (!storeDivergences.has(documentName)) return false;
+    storeDivergences.delete(documentName);
+    return true;
+  }
+
+  function markAgentWriteStore(documentName: string): void {
+    agentWriteStores.add(documentName);
+  }
+
   return {
     extension,
     flushDeferredStores,
@@ -1210,6 +1274,8 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
     flushContributors,
     waitForPendingCommits,
     takeStoreFailure,
+    takeStoreDivergence,
+    markAgentWriteStore,
     configPersistenceCtx,
   };
 }

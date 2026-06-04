@@ -61,6 +61,7 @@ import {
   DeletePathRequestSchema,
   DeletePathSuccessSchema,
   DiffSuccessSchema,
+  type DiskEditReconciledWarning,
   type DocumentListEntry,
   DocumentListSuccessSchema,
   DocumentReadSuccessSchema,
@@ -321,6 +322,10 @@ import {
   SUPPORTED_DOC_EXTENSIONS,
   stripDocExtension,
 } from './doc-extensions.ts';
+import {
+  type ReconcileBeforeWriteResult,
+  reconcileDiskBeforeAgentWrite,
+} from './external-change.ts';
 import { extractActorIdentity } from './extract-actor-identity.ts';
 import {
   contentHash,
@@ -1522,6 +1527,8 @@ export interface ApiExtensionOptions {
   flushGitCommit?: () => Promise<void>;
   flushContributors?: () => Promise<void>;
   takeStoreFailure?: (docName: string) => StoreFailure | null;
+  takeStoreDivergence?: (docName: string) => boolean;
+  markAgentWriteStore?: (docName: string) => void;
   getCurrentBranch?: () => string | null;
   getDiskAckSVs?: () => Record<string, string>;
   contentRoot?: string;
@@ -1601,6 +1608,8 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
     flushGitCommit,
     flushContributors,
     takeStoreFailure,
+    takeStoreDivergence,
+    markAgentWriteStore,
     getCurrentBranch,
     getDiskAckSVs,
     contentRoot,
@@ -1834,12 +1843,18 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
     });
   }
 
-  async function flushDiskAndDetectFailure(docName: string): Promise<StoreFailure | null> {
+  type FlushOutcome = { kind: 'failure'; failure: StoreFailure } | { kind: 'divergence' } | null;
+
+  async function flushDiskAndDetectOutcome(docName: string): Promise<FlushOutcome> {
     const debounceId = `onStoreDocument-${docName}`;
     if (hocuspocus.debouncer.isDebounced(debounceId)) {
+      markAgentWriteStore?.(docName);
       await hocuspocus.debouncer.executeNow(debounceId);
     }
-    return takeStoreFailure?.(docName) ?? null;
+    const failure = takeStoreFailure?.(docName) ?? null;
+    if (failure) return { kind: 'failure', failure };
+    if (takeStoreDivergence?.(docName)) return { kind: 'divergence' };
+    return null;
   }
 
   function respondPersistenceFailure(
@@ -1855,6 +1870,29 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
       `Write applied in memory but failed to persist to disk (${failure.code ?? 'unknown error'}): ${failure.message}. The content was NOT saved and will be lost if the server restarts.`,
       { handler },
     );
+  }
+
+  function respondDiskDivergence(res: ServerResponse, handler: string): void {
+    errorResponse(
+      res,
+      409,
+      'urn:ok:error:disk-divergence',
+      'The document changed on disk after your edit was prepared; your edit was NOT applied, to avoid overwriting the newer on-disk content. Re-read the document and retry.',
+      { handler },
+    );
+  }
+
+  function buildReconcileWarning(
+    reconcile: ReconcileBeforeWriteResult,
+  ): DiskEditReconciledWarning | undefined {
+    if (!reconcile.reconciled) return undefined;
+    return {
+      kind: 'disk-edit-reconciled',
+      intendedBytes: reconcile.baseBytes,
+      actualBytes: reconcile.diskBytes,
+      byteDelta: reconcile.diskBytes - reconcile.baseBytes,
+      hint: 'An out-of-band edit was reconciled into this document before your edit was applied on top; the document now reflects that edit plus yours. Re-read it (e.g. `exec("cat <path>")`) to see the combined result before continuing.',
+    };
   }
 
   function collectAdmittedDocNames(): Set<string> {
@@ -2542,6 +2580,7 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
               }
             }
 
+            reconcileDiskBeforeAgentWrite(hocuspocus, docName, contentDir);
             const content = readCurrentDocumentContent(docName);
             if (typeof content === 'string') {
               snapshotContents.set(docName, content);
@@ -2972,6 +3011,14 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
           colorSeed,
           clientName,
         });
+
+        const agentWriteReconcile = reconcileDiskBeforeAgentWrite(
+          hocuspocus,
+          docName,
+          contentDir,
+          options.resolveEmbed,
+        );
+
         const timestamp = new Date().toISOString();
         const content =
           typeof body.content === 'string' ? body.content : `Hello from the agent! ${timestamp}`;
@@ -3023,9 +3070,19 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
           agentPresenceBroadcaster?.touchMode(agentId, 'idle');
         }
 
+        const flushOutcome = await flushDiskAndDetectOutcome(docName);
+        if (flushOutcome?.kind === 'failure') {
+          respondPersistenceFailure(res, flushOutcome.failure, 'agent-write');
+          return;
+        }
+        if (flushOutcome?.kind === 'divergence') {
+          respondDiskDivergence(res, 'agent-write');
+          return;
+        }
         flushDocToGit(docName, 'agent-write');
         onAgentWrite?.();
 
+        const agentWriteWarning = buildReconcileWarning(agentWriteReconcile);
         successResponse(
           res,
           200,
@@ -3033,6 +3090,7 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
           {
             timestamp,
             ...(summaryResponse ? { summary: summaryResponse } : {}),
+            ...(agentWriteWarning ? { warning: agentWriteWarning } : {}),
           },
           { handler: 'agent-write' },
         );
@@ -3103,6 +3161,14 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
           colorSeed,
           clientName,
         });
+
+        const writeMdReconcile = reconcileDiskBeforeAgentWrite(
+          hocuspocus,
+          resolvedDocName,
+          contentDir,
+          options.resolveEmbed,
+        );
+
         const timestamp = new Date().toISOString();
 
         let writeDivergence: AgentWriteContentDivergence | undefined;
@@ -3167,9 +3233,13 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
           agentPresenceBroadcaster?.touchMode(agentId, 'idle');
         }
 
-        const storeFailure = await flushDiskAndDetectFailure(resolvedDocName);
-        if (storeFailure) {
-          respondPersistenceFailure(res, storeFailure, 'agent-write-md');
+        const flushOutcome = await flushDiskAndDetectOutcome(resolvedDocName);
+        if (flushOutcome?.kind === 'failure') {
+          respondPersistenceFailure(res, flushOutcome.failure, 'agent-write-md');
+          return;
+        }
+        if (flushOutcome?.kind === 'divergence') {
+          respondDiskDivergence(res, 'agent-write-md');
           return;
         }
 
@@ -3195,6 +3265,7 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
           });
         }
 
+        const writeMdWarning = buildReconcileWarning(writeMdReconcile);
         successResponse(
           res,
           200,
@@ -3207,7 +3278,9 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
             ...(summaryResponse ? { summary: summaryResponse } : {}),
             ...(writeDivergence !== undefined
               ? { warning: toContentDivergenceWarning(writeDivergence) }
-              : {}),
+              : writeMdWarning
+                ? { warning: writeMdWarning }
+                : {}),
           },
           { handler: 'agent-write-md' },
         );
@@ -3273,6 +3346,14 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
           colorSeed,
           clientName,
         });
+
+        const fmReconcile = reconcileDiskBeforeAgentWrite(
+          hocuspocus,
+          resolvedDocName,
+          contentDir,
+          options.resolveEmbed,
+        );
+
         const timestamp = new Date().toISOString();
 
         let editError: import('@inkeep/open-knowledge-core').FmEditError | undefined;
@@ -3391,9 +3472,13 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
           incrementAgentWriteCalls();
           countNormalizedSummary(normalizedSummary);
           if (bodyMutated) {
-            const storeFailure = await flushDiskAndDetectFailure(resolvedDocName);
-            if (storeFailure) {
-              respondPersistenceFailure(res, storeFailure, 'frontmatter-patch');
+            const flushOutcome = await flushDiskAndDetectOutcome(resolvedDocName);
+            if (flushOutcome?.kind === 'failure') {
+              respondPersistenceFailure(res, flushOutcome.failure, 'frontmatter-patch');
+              return;
+            }
+            if (flushOutcome?.kind === 'divergence') {
+              respondDiskDivergence(res, 'frontmatter-patch');
               return;
             }
           }
@@ -3418,6 +3503,7 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
           });
         }
 
+        const fmWarning = buildReconcileWarning(fmReconcile);
         successResponse(
           res,
           200,
@@ -3428,6 +3514,7 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
             systemSubscriberCount,
             appliedKeys,
             ...(summaryResponse ? { summary: summaryResponse } : {}),
+            ...(fmWarning ? { warning: fmWarning } : {}),
           },
           { handler: 'frontmatter-patch' },
         );
@@ -4293,6 +4380,14 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
           colorSeed,
           clientName,
         });
+
+        const patchReconcile = reconcileDiskBeforeAgentWrite(
+          hocuspocus,
+          docName,
+          contentDir,
+          options.resolveEmbed,
+        );
+
         const timestamp = new Date().toISOString();
 
         let notFound = false;
@@ -4427,9 +4522,13 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
           return;
         }
 
-        const storeFailure = await flushDiskAndDetectFailure(docName);
-        if (storeFailure) {
-          respondPersistenceFailure(res, storeFailure, 'agent-patch');
+        const flushOutcome = await flushDiskAndDetectOutcome(docName);
+        if (flushOutcome?.kind === 'failure') {
+          respondPersistenceFailure(res, flushOutcome.failure, 'agent-patch');
+          return;
+        }
+        if (flushOutcome?.kind === 'divergence') {
+          respondDiskDivergence(res, 'agent-patch');
           return;
         }
 
@@ -4455,6 +4554,7 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
 
         const { response: summaryResponse } = summaryResponseFields(normalizedSummary);
 
+        const patchWarning = buildReconcileWarning(patchReconcile);
         successResponse(
           res,
           200,
@@ -4466,7 +4566,9 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
             ...(summaryResponse ? { summary: summaryResponse } : {}),
             ...(patchDivergence !== undefined
               ? { warning: toContentDivergenceWarning(patchDivergence) }
-              : {}),
+              : patchWarning
+                ? { warning: patchWarning }
+                : {}),
           },
           { handler: 'agent-patch' },
         );
@@ -4573,6 +4675,15 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
         }
 
         if (undone) {
+          const flushOutcome = await flushDiskAndDetectOutcome(docName);
+          if (flushOutcome?.kind === 'failure') {
+            respondPersistenceFailure(res, flushOutcome.failure, 'agent-undo');
+            return;
+          }
+          if (flushOutcome?.kind === 'divergence') {
+            respondDiskDivergence(res, 'agent-undo');
+            return;
+          }
           flushDocToGit(docName, 'agent-undo');
         }
 
@@ -5480,9 +5591,13 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
         }
         renameAttributionCounter().add(1, { kind: 'rollback', attribution_kind: actor.kind });
 
-        const storeFailure = await flushDiskAndDetectFailure(docName);
-        if (storeFailure) {
-          respondPersistenceFailure(res, storeFailure, 'rollback');
+        const flushOutcome = await flushDiskAndDetectOutcome(docName);
+        if (flushOutcome?.kind === 'failure') {
+          respondPersistenceFailure(res, flushOutcome.failure, 'rollback');
+          return;
+        }
+        if (flushOutcome?.kind === 'divergence') {
+          respondDiskDivergence(res, 'rollback');
           return;
         }
 

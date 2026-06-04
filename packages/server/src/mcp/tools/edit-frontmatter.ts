@@ -1,4 +1,8 @@
-import { FRONTMATTER_TYPES, FrontmatterValueSchema } from '@inkeep/open-knowledge-core';
+import {
+  FRONTMATTER_TYPES,
+  FrontmatterValueSchema,
+  WriteWarningSchema,
+} from '@inkeep/open-knowledge-core';
 import { z } from 'zod';
 import { resolveLockDir } from '../../config/paths.ts';
 import type { AgentIdentity } from '../agent-identity.ts';
@@ -143,13 +147,25 @@ export function register(server: ServerInstance, deps: EditFrontmatterDeps): voi
       ];
       if (noPreviewAnywhere && !preview) lines.push(START_UI_TEXT_HINT);
       if (summaryHint) lines.push(summaryHint);
+      const writeWarningParse = WriteWarningSchema.safeParse(result.warning);
+      const writeWarning = writeWarningParse.success ? writeWarningParse.data : undefined;
+      if (writeWarning?.hint) lines.push(`⚠ ${writeWarning.hint}`);
       const text = lines.join('\n');
 
-      if (!preview && !noPreviewAnywhere && !noPreviewOnThisDoc && !summaryResult) {
+      if (
+        !preview &&
+        !noPreviewAnywhere &&
+        !noPreviewOnThisDoc &&
+        !summaryResult &&
+        !writeWarning
+      ) {
         return textResult(text);
       }
 
       const structured: Record<string, unknown> = {};
+      if (writeWarning) {
+        structured.contentDivergence = writeWarning;
+      }
       if (preview) {
         structured.previewUrl = preview.url;
         structured.previewUrlSource = preview.source;

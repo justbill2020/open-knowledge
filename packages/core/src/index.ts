@@ -494,6 +494,8 @@ export {
   DiffLineSchema,
   type DiffSuccess,
   DiffSuccessSchema,
+  type DiskEditReconciledWarning,
+  DiskEditReconciledWarningSchema,
   type DocumentListEntry,
   DocumentListEntrySchema,
   type DocumentListSuccess,
@@ -772,6 +774,8 @@ export {
   UploadRequestSchema,
   type WorkspaceSuccess,
   WorkspaceSuccessSchema,
+  type WriteWarning,
+  WriteWarningSchema,
 } from './schemas/api/index.ts';
 export {
   CC1_CHANNEL_BRANCH_SWITCHED,

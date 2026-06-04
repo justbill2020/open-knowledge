@@ -1,10 +1,10 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve as resolvePath } from 'node:path';
 import {
-  ContentDivergenceWarningSchema,
   normalizeBridge,
   renderInventoryFooter,
   stripFrontmatter,
+  WriteWarningSchema,
 } from '@inkeep/open-knowledge-core';
 import { z } from 'zod';
 import { resolveContentDir, resolveLockDir } from '../../config/paths.ts';
@@ -339,7 +339,7 @@ export function register(server: ServerInstance, deps: WriteDocumentDeps): void 
         const documents = results.map((r) => {
           if (!r.ok) return { docName: r.docName, ok: false as const, error: r.error };
           const preview = resolvePreviewUrl(r.docName, { lockDir });
-          const divergenceParse = ContentDivergenceWarningSchema.safeParse(r.raw.warning);
+          const divergenceParse = WriteWarningSchema.safeParse(r.raw.warning);
           const divergence = divergenceParse.success ? divergenceParse.data : undefined;
           return {
             docName: r.docName,
@@ -359,9 +359,10 @@ export function register(server: ServerInstance, deps: WriteDocumentDeps): void 
           }
           const d = documents[i];
           const base = `Wrote ${spec.docName} (${r.position}).`;
-          return d?.ok && d.contentDivergence
+          if (!(d?.ok && d.contentDivergence)) return base;
+          return d.contentDivergence.kind === 'content-divergence'
             ? `${base} ⚠ Content divergence: ${d.contentDivergence.actualBytes} actual vs ${d.contentDivergence.intendedBytes} intended (byteDelta=${d.contentDivergence.byteDelta}).`
-            : base;
+            : `${base} ⚠ An out-of-band disk edit was reconciled in before your write — re-read for the combined result.`;
         });
         const perDocNotes = args.docs.flatMap((spec, i) => {
           const r = results[i];
@@ -420,10 +421,8 @@ export function register(server: ServerInstance, deps: WriteDocumentDeps): void 
           : undefined;
       const summaryHint = typeof summaryResult?.hint === 'string' ? summaryResult.hint : undefined;
 
-      const contentDivergenceParse = ContentDivergenceWarningSchema.safeParse(result.warning);
-      const contentDivergence = contentDivergenceParse.success
-        ? contentDivergenceParse.data
-        : undefined;
+      const writeWarningParse = WriteWarningSchema.safeParse(result.warning);
+      const writeWarning = writeWarningParse.success ? writeWarningParse.data : undefined;
 
       const noOpNote = emptyAppendNoOpNote(w.position, args.markdown);
       const lines: string[] = [
@@ -442,9 +441,11 @@ export function register(server: ServerInstance, deps: WriteDocumentDeps): void 
           if (hint.message) lines.push(hint.message);
         }
       }
-      if (contentDivergence) {
+      if (writeWarning) {
         lines.push(
-          `⚠ Content divergence: ${contentDivergence.actualBytes} actual bytes vs ${contentDivergence.intendedBytes} intended (byteDelta=${contentDivergence.byteDelta}). ${contentDivergence.hint ?? 'currentState carries the converged content (re-read only if it is truncated).'}`,
+          writeWarning.kind === 'content-divergence'
+            ? `⚠ Content divergence: ${writeWarning.actualBytes} actual bytes vs ${writeWarning.intendedBytes} intended (byteDelta=${writeWarning.byteDelta}). ${writeWarning.hint ?? 'currentState carries the converged content (re-read only if it is truncated).'}`
+            : `⚠ ${writeWarning.hint ?? 'An out-of-band edit was reconciled into this document before your write landed on top — re-read for the combined result.'}`,
         );
       }
       const text = lines.join('\n');
@@ -455,12 +456,15 @@ export function register(server: ServerInstance, deps: WriteDocumentDeps): void 
         !noPreviewOnThisDoc &&
         !hints &&
         !summaryResult &&
-        !contentDivergence
+        !writeWarning
       ) {
         return textResult(text);
       }
 
       const structured: Record<string, unknown> = {};
+      if (writeWarning) {
+        structured.contentDivergence = writeWarning;
+      }
       if (preview) {
         structured.previewUrl = preview.url;
         structured.previewUrlSource = preview.source;
@@ -473,9 +477,6 @@ export function register(server: ServerInstance, deps: WriteDocumentDeps): void 
       }
       if (summaryResult) {
         structured.summary = summaryResult;
-      }
-      if (contentDivergence) {
-        structured.contentDivergence = contentDivergence;
       }
       return textPlusStructured(text, structured);
     },
