@@ -1,3 +1,5 @@
+import type { SyncErrorCode } from '@inkeep/open-knowledge-core';
+
 type NetworkSubclass = 'dns' | 'timeout' | '5xx' | '429' | 'connection-refused' | 'unknown-network';
 type AuthSubclass = '401' | '403' | 'expired-token' | 'scope-mismatch' | 'unknown-auth';
 type SemanticSubclass =
@@ -13,11 +15,7 @@ type StructuralSubclass =
   | 'unknown-structural';
 type LocalSubclass = 'index-lock' | 'dirty-tree' | 'disk-full' | 'unknown-local';
 
-export type UserFacingErrorCode =
-  | 'auth-403'
-  | 'auth-401'
-  | 'auth-scope-mismatch'
-  | 'semantic-protected-branch';
+export type UserFacingErrorCode = SyncErrorCode;
 
 export type ClassifiedError =
   | {

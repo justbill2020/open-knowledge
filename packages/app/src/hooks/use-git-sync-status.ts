@@ -1,4 +1,7 @@
-import type { PushPermissionWire as GitPushPermission } from '@inkeep/open-knowledge-core';
+import type {
+  PushPermissionWire as GitPushPermission,
+  SyncErrorCode,
+} from '@inkeep/open-knowledge-core';
 import { useEffect, useState } from 'react';
 import { subscribeToDocumentsChanged } from '@/lib/documents-events';
 
@@ -24,8 +27,10 @@ export interface GitSyncStatus {
   syncEnabled: boolean;
   identityUnresolved?: boolean;
   remote?: { label: string; webUrl: string | null } | null;
-  error?: string;
-  errorCode?: 'auth-403' | 'auth-401' | 'auth-scope-mismatch' | 'semantic-protected-branch';
+  pushError?: string;
+  pushErrorCode?: SyncErrorCode;
+  pullError?: string;
+  pullErrorCode?: SyncErrorCode;
   pausedReason?: string;
   pushPermission?: GitPushPermission;
 }

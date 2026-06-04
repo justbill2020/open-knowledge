@@ -1,4 +1,4 @@
-import type { PushPermissionWire } from '@inkeep/open-knowledge-core';
+import type { PushPermissionWire, SyncErrorCode } from '@inkeep/open-knowledge-core';
 import { plural, t } from '@lingui/core/macro';
 import { Plural, Trans, useLingui } from '@lingui/react/macro';
 import {
@@ -161,9 +161,7 @@ export function formatPushPermissionDenied(
   }
 }
 
-export function formatPushFailureCode(
-  code: 'auth-403' | 'auth-401' | 'auth-scope-mismatch' | 'semantic-protected-branch',
-): string {
+export function formatPushFailureCode(code: SyncErrorCode): string {
   switch (code) {
     case 'auth-403':
       return t`You don't have permission to push to this repo.`;
@@ -176,6 +174,90 @@ export function formatPushFailureCode(
     default:
       return t`Push failed — check the server logs for details.`;
   }
+}
+
+export function formatPullFailureCode(code: SyncErrorCode): string {
+  switch (code) {
+    case 'auth-403':
+      return t`You don't have access to this repository.`;
+    case 'auth-401':
+      return t`GitHub authentication failed. Try signing in again.`;
+    case 'auth-scope-mismatch':
+      return t`Your GitHub token is missing required scopes. Try signing in again.`;
+    default:
+      return t`Fetch failed — check the server logs for details.`;
+  }
+}
+
+export function formatSyncFailureCode(code: SyncErrorCode): string {
+  switch (code) {
+    case 'auth-403':
+      return t`You don't have access to this repository.`;
+    case 'auth-401':
+      return t`GitHub authentication failed. Try signing in again.`;
+    case 'auth-scope-mismatch':
+      return t`Your GitHub token is missing required scopes. Try signing in again.`;
+    case 'semantic-protected-branch':
+      return t`The default branch is protected — pushes need a pull request.`;
+    default:
+      return t`Sync failed — check the server logs for details.`;
+  }
+}
+
+type SyncErrorDirection = 'push' | 'pull';
+
+export interface SyncErrorLine {
+  key: 'sync' | 'push' | 'pull';
+  direction: SyncErrorDirection | null;
+  message: string;
+}
+
+export function computeSyncErrorLines(
+  status: Pick<GitSyncStatus, 'pushError' | 'pushErrorCode' | 'pullError' | 'pullErrorCode'>,
+): SyncErrorLine[] {
+  const pushPresent = status.pushErrorCode != null || status.pushError != null;
+  const pullPresent = status.pullErrorCode != null || status.pullError != null;
+
+  if (pushPresent && pullPresent) {
+    const sameRootCause =
+      status.pushErrorCode != null
+        ? status.pushErrorCode === status.pullErrorCode
+        : status.pullErrorCode == null && status.pushError === status.pullError;
+    if (sameRootCause) {
+      return [
+        {
+          key: 'sync',
+          direction: null,
+          message:
+            status.pushErrorCode != null
+              ? formatSyncFailureCode(status.pushErrorCode)
+              : (status.pushError as string),
+        },
+      ];
+    }
+  }
+
+  const labelDirections = pushPresent && pullPresent;
+  const lines: SyncErrorLine[] = [];
+  if (pushPresent) {
+    lines.push({
+      key: 'push',
+      direction: labelDirections ? 'push' : null,
+      message: status.pushErrorCode
+        ? formatPushFailureCode(status.pushErrorCode)
+        : (status.pushError as string),
+    });
+  }
+  if (pullPresent) {
+    lines.push({
+      key: 'pull',
+      direction: labelDirections ? 'pull' : null,
+      message: status.pullErrorCode
+        ? formatPullFailureCode(status.pullErrorCode)
+        : (status.pullError as string),
+    });
+  }
+  return lines;
 }
 
 export function shouldOfferSignInAgain(pushPermission: PushPermissionWire | undefined): boolean {
@@ -255,11 +337,23 @@ function PopoverBody({ status, onSignIn, onSetIdentity }: PopoverBodyProps) {
         onConfirm={onConfirm}
       />
 
-      {status.errorCode ? (
-        <p className="text-xs text-destructive">{formatPushFailureCode(status.errorCode)}</p>
-      ) : status.error ? (
-        <p className="text-xs text-destructive">{status.error}</p>
-      ) : null}
+      {computeSyncErrorLines(status).map((line) => (
+        <p key={line.key} className="text-xs text-destructive">
+          {line.direction === 'push' ? (
+            <>
+              <span className="font-medium">{t`Push`}: </span>
+              {line.message}
+            </>
+          ) : line.direction === 'pull' ? (
+            <>
+              <span className="font-medium">{t`Pull`}: </span>
+              {line.message}
+            </>
+          ) : (
+            line.message
+          )}
+        </p>
+      ))}
       {status.pausedReason ? (
         <p className="text-xs text-muted-foreground">{formatPausedReason(status.pausedReason)}</p>
       ) : status.pushPermission?.checkStatus === 'denied' ? (

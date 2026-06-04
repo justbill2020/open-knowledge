@@ -504,9 +504,9 @@ describe('SyncEngine ConflictStore admission (content-only)', () => {
       expect(status.conflictCount).toBe(0);
       expect(status.state).toBe('idle');
       expect(status.pausedReason).toBe('non-content-merge-failure');
-      expect(status.error ?? '').toContain('.mcp.json');
-      expect(status.error ?? '').toContain('git rm <file>');
-      expect(status.error ?? '').toContain('git checkout');
+      expect(status.pullError ?? '').toContain('.mcp.json');
+      expect(status.pullError ?? '').toContain('git rm <file>');
+      expect(status.pullError ?? '').toContain('git checkout');
 
       const mergeHeadPath = join(projectDir, '.git', 'MERGE_HEAD');
       expect(existsSync(mergeHeadPath)).toBe(false);
@@ -1028,6 +1028,85 @@ describe('SyncEngine push cycle pushes existing commits when local is ahead of o
       const status = engine.getStatus();
       expect(status.lastPushedSha).toBe(head);
       expect(status.lastSyncUtc).not.toBeNull();
+    } finally {
+      await engine.destroy();
+    }
+  });
+});
+
+describe('SyncEngine per-operation error isolation', () => {
+  test('a successful fetch does not clear a standing push error', async () => {
+    const git = simpleGit(projectDir);
+    await git.init(['--initial-branch=main']);
+    await git.raw('config', 'user.name', 'Test');
+    await git.raw('config', 'user.email', 'test@test.com');
+    writeFileSync(join(projectDir, 'README.md'), '# Test\n');
+    await git.add('.');
+    await git.commit('Initial');
+
+    const bareDir = join(tmpDir, 'bare.git');
+    mkdirSync(bareDir, { recursive: true });
+    await simpleGit(bareDir).init(true);
+    await git.addRemote('origin', bareDir);
+    await git.push(['--set-upstream', 'origin', 'main']);
+
+    await git.raw('config', 'remote.origin.pushurl', join(tmpDir, 'nonexistent-bare.git'));
+
+    writeFileSync(join(projectDir, 'README.md'), '# Test\n\nlocal change\n');
+    await git.add('.');
+    await git.commit('local commit');
+
+    const engine = makeEngine({ syncEnabled: true });
+    try {
+      await engine.start();
+      await engine.trigger('sync');
+
+      const status = engine.getStatus();
+      expect(status.pushError ?? '').not.toBe('');
+      expect(status.lastFetchUtc).not.toBeNull();
+      expect(status.pullError).toBeUndefined();
+    } finally {
+      await engine.destroy();
+    }
+  });
+
+  test('a successful push does not clear a standing pull error', async () => {
+    const git = simpleGit(projectDir);
+    await git.init(['--initial-branch=main']);
+    await git.raw('config', 'user.name', 'Test');
+    await git.raw('config', 'user.email', 'test@test.com');
+    writeFileSync(join(projectDir, 'README.md'), '# Test\n');
+    await git.add('.');
+    await git.commit('Initial');
+
+    const bareDir = join(tmpDir, 'bare.git');
+    mkdirSync(bareDir, { recursive: true });
+    await simpleGit(bareDir).init(true);
+    await git.addRemote('origin', bareDir);
+    await git.push(['--set-upstream', 'origin', 'main']);
+    await git.raw('config', 'remote.origin.url', join(tmpDir, 'nonexistent-bare.git'));
+    await git.raw('config', 'remote.origin.pushurl', bareDir);
+
+    writeFileSync(join(projectDir, 'README.md'), '# Test\n\nlocal change\n');
+    await git.add('.');
+    await git.commit('local commit');
+    const head = (await git.revparse(['HEAD'])).trim();
+
+    const engine = makeEngine({ syncEnabled: true });
+    try {
+      await engine.start();
+
+      await engine.trigger('pull');
+      const afterPull = engine.getStatus();
+      expect(afterPull.pullError ?? '').not.toBe('');
+      expect(afterPull.pushError).toBeUndefined();
+
+      await engine.trigger('push');
+      const afterPush = engine.getStatus();
+      const remoteAfter = (await simpleGit(bareDir).revparse(['main'])).trim();
+      expect(remoteAfter).toBe(head);
+      expect(afterPush.lastPushedSha).toBe(head);
+      expect(afterPush.pullError ?? '').not.toBe('');
     } finally {
       await engine.destroy();
     }

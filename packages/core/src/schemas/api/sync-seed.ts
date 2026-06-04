@@ -41,6 +41,16 @@ export const PushPermissionSchema = z.discriminatedUnion('checkStatus', [
 ]) satisfies StandardSchemaV1;
 export type PushPermissionWire = z.infer<typeof PushPermissionSchema>;
 
+export const SYNC_ERROR_CODES = [
+  'auth-403',
+  'auth-401',
+  'auth-scope-mismatch',
+  'semantic-protected-branch',
+] as const;
+
+export const SyncErrorCodeSchema = z.enum(SYNC_ERROR_CODES);
+export type SyncErrorCode = z.infer<typeof SyncErrorCodeSchema>;
+
 export const SyncStatusSchema = z
   .object({
     state: SyncStateSchema,
@@ -55,10 +65,10 @@ export const SyncStatusSchema = z
     syncEnabled: z.boolean(),
     identityUnresolved: z.boolean(),
     remote: SyncRemoteSchema.nullable().optional(),
-    error: z.string().optional(),
-    errorCode: z
-      .enum(['auth-403', 'auth-401', 'auth-scope-mismatch', 'semantic-protected-branch'])
-      .optional(),
+    pushError: z.string().optional(),
+    pushErrorCode: SyncErrorCodeSchema.optional(),
+    pullError: z.string().optional(),
+    pullErrorCode: SyncErrorCodeSchema.optional(),
     pausedReason: z.string().optional(),
     pushPermission: PushPermissionSchema.optional(),
   })

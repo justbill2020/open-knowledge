@@ -98,8 +98,10 @@ interface SyncStatus {
   syncEnabled: boolean;
   identityUnresolved: boolean;
   remote: SyncRemoteInfo | null;
-  error?: string;
-  errorCode?: UserFacingErrorCode;
+  pushError?: string;
+  pushErrorCode?: UserFacingErrorCode;
+  pullError?: string;
+  pullErrorCode?: UserFacingErrorCode;
   pausedReason?: string;
   pushPermission?: PushPermissionStatus;
 }
@@ -206,8 +208,10 @@ export class SyncEngine {
   private ahead = 0;
   private behind = 0;
   private conflictCount = 0;
-  private error: string | undefined;
-  private errorCode: UserFacingErrorCode | undefined;
+  private pushError: string | undefined;
+  private pushErrorCode: UserFacingErrorCode | undefined;
+  private pullError: string | undefined;
+  private pullErrorCode: UserFacingErrorCode | undefined;
   private pausedReason: string | undefined;
   private currentBranch = 'main';
 
@@ -411,8 +415,8 @@ export class SyncEngine {
         await wait(50);
       }
       this.pausedReason = undefined;
-      this.error = undefined;
-      this.errorCode = undefined;
+      this.clearPushError();
+      this.clearPullError();
       this.transitionTo(this.hasRemote ? 'disabled' : 'dormant');
       this.saveStateNow();
       return;
@@ -421,8 +425,8 @@ export class SyncEngine {
     this.hasRemote = await this.probeRemote();
 
     this.pausedReason = undefined;
-    this.error = undefined;
-    this.errorCode = undefined;
+    this.clearPushError();
+    this.clearPullError();
     this.consecutiveFailures = 0;
 
     if (!this.hasRemote) {
@@ -446,8 +450,7 @@ export class SyncEngine {
       this.pausedReason === 'non-content-merge-failure'
     ) {
       this.pausedReason = undefined;
-      this.error = undefined;
-      this.errorCode = undefined;
+      this.clearPullError();
     }
     void this.probePushPermissionInternal('refresh');
     if (
@@ -494,8 +497,10 @@ export class SyncEngine {
       syncEnabled: this.syncEnabled === true,
       identityUnresolved: this.identityUnresolved,
       remote: this.hasRemote ? readSyncRemoteInfo(this.projectDir) : null,
-      error: this.error,
-      ...(this.errorCode !== undefined ? { errorCode: this.errorCode } : {}),
+      ...(this.pushError !== undefined ? { pushError: this.pushError } : {}),
+      ...(this.pushErrorCode !== undefined ? { pushErrorCode: this.pushErrorCode } : {}),
+      ...(this.pullError !== undefined ? { pullError: this.pullError } : {}),
+      ...(this.pullErrorCode !== undefined ? { pullErrorCode: this.pullErrorCode } : {}),
       pausedReason: this.pausedReason,
       ...(this.pushPermission !== null ? { pushPermission: this.pushPermission } : {}),
     };
@@ -799,7 +804,7 @@ export class SyncEngine {
       branch = b;
       this.currentBranch = branch;
     } catch (e) {
-      this.handleError(classifyGitError(e instanceof Error ? e : new Error(String(e))));
+      this.handleError(classifyGitError(e instanceof Error ? e : new Error(String(e))), 'pull');
       return;
     }
 
@@ -808,11 +813,10 @@ export class SyncEngine {
       await handle.git.fetch('origin');
       this.lastFetchUtc = new Date().toISOString();
       this.consecutiveFailures = 0;
-      this.error = undefined;
-      this.errorCode = undefined;
+      this.clearPullError();
     } catch (e) {
       const classified = classifyGitError(e instanceof Error ? e : new Error(String(e)));
-      this.handleError(classified);
+      this.handleError(classified, 'pull');
       return;
     }
 
@@ -842,7 +846,7 @@ export class SyncEngine {
         if (classified.class === 'semantic' && classified.subclass === 'merge-conflict') {
           await this.handleMergeConflict();
         } else {
-          this.handleError(classified);
+          this.handleError(classified, 'pull');
         }
         return;
       } finally {
@@ -909,7 +913,7 @@ export class SyncEngine {
             this.transitionTo('idle');
             return;
           }
-          this.handleError(classifyGitError(e instanceof Error ? e : new Error(String(e))));
+          this.handleError(classifyGitError(e instanceof Error ? e : new Error(String(e))), 'push');
           return; // early exit from lock
         }
 
@@ -950,6 +954,7 @@ export class SyncEngine {
             );
             this.lastPushedSha = headSha;
             this.lastSyncUtc = new Date().toISOString();
+            this.clearPushError();
             this.transitionTo('idle');
             return;
           }
@@ -1060,13 +1065,13 @@ export class SyncEngine {
         this.lastPushedSha = commitSha;
         this.lastSyncUtc = new Date().toISOString();
         this.ahead = 0;
+        this.clearPushError();
         if (this.state === 'pushing') {
           this.transitionTo('idle');
         }
         if (this.pausedReason === 'dirty-tree') {
           this.pausedReason = undefined;
-          this.error = undefined;
-          this.errorCode = undefined;
+          this.clearPullError();
           this.schedulePull(0);
         }
       }
@@ -1100,7 +1105,7 @@ export class SyncEngine {
             if (mc.class === 'semantic' && mc.subclass === 'merge-conflict') {
               await this.handleMergeConflict();
             } else {
-              this.handleError(mc);
+              this.handleError(mc, 'pull');
             }
             this.scheduleSaveState();
             return;
@@ -1114,7 +1119,7 @@ export class SyncEngine {
         this.consecutiveFailures++;
         if (this.state === 'pushing') this.transitionTo('idle');
       } else {
-        this.handleError(classified);
+        this.handleError(classified, 'push');
       }
     } finally {
       try {
@@ -1242,8 +1247,8 @@ export class SyncEngine {
     if (blocking.length > 0) {
       const display = blocking.slice(0, 3).join(', ');
       const rest = blocking.length > 3 ? `, +${blocking.length - 3} more` : '';
-      this.errorCode = undefined;
-      this.error = `Sync paused — your local changes to ${display}${rest} conflict with incoming changes. Commit, stash, or discard them before syncing.`;
+      this.pullErrorCode = undefined;
+      this.pullError = `Sync paused — your local changes to ${display}${rest} conflict with incoming changes. Commit, stash, or discard them before syncing.`;
       this.pausedReason = 'external-changes-pending';
       this.consecutiveFailures = 0;
       this.transitionTo('idle');
@@ -1379,8 +1384,8 @@ export class SyncEngine {
       } catch (abortErr) {
         log.warn({ err: abortErr }, '[sync] git merge --abort failed during cleanup');
       }
-      this.errorCode = undefined;
-      this.error = 'Failed to detect conflict files — merge aborted';
+      this.pullErrorCode = undefined;
+      this.pullError = 'Failed to detect conflict files — merge aborted';
       this.pausedReason = undefined;
       this.transitionTo('idle');
       return;
@@ -1430,8 +1435,8 @@ export class SyncEngine {
       }
       const display = failedFiles.slice(0, 3).join(', ');
       const rest = failedFiles.length > 3 ? `, +${failedFiles.length - 3} more` : '';
-      this.errorCode = undefined;
-      this.error = `Sync paused — couldn't auto-resolve ${display}${rest}. Resolve in your terminal (e.g. \`git rm <file>\` or \`git checkout --ours/--theirs <file> && git add <file>\`), then retry sync.`;
+      this.pullErrorCode = undefined;
+      this.pullError = `Sync paused — couldn't auto-resolve ${display}${rest}. Resolve in your terminal (e.g. \`git rm <file>\` or \`git checkout --ours/--theirs <file> && git add <file>\`), then retry sync.`;
       this.pausedReason = 'non-content-merge-failure';
       this.consecutiveFailures = 0;
       this.transitionTo('idle');
@@ -1509,13 +1514,31 @@ export class SyncEngine {
     this.scheduleSaveState();
   }
 
-  private handleError(classified: ClassifiedError): void {
+  private clearPushError(): void {
+    this.pushError = undefined;
+    this.pushErrorCode = undefined;
+  }
+
+  private clearPullError(): void {
+    this.pullError = undefined;
+    this.pullErrorCode = undefined;
+  }
+
+  private handleError(classified: ClassifiedError, op: 'push' | 'pull'): void {
     if (classified.userFacingCode !== null) {
-      this.errorCode = classified.userFacingCode;
-      this.error = undefined;
+      if (op === 'push') {
+        this.pushErrorCode = classified.userFacingCode;
+        this.pushError = undefined;
+      } else {
+        this.pullErrorCode = classified.userFacingCode;
+        this.pullError = undefined;
+      }
+    } else if (op === 'push') {
+      this.pushErrorCode = undefined;
+      this.pushError = classified.message;
     } else {
-      this.errorCode = undefined;
-      this.error = classified.message;
+      this.pullErrorCode = undefined;
+      this.pullError = classified.message;
     }
     log.warn(
       {

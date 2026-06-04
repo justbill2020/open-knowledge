@@ -2283,6 +2283,10 @@ msgid "Fenced code block with monospace text."
 msgstr ""
 
 #: src/components/SyncStatusBadge.tsx
+msgid "Fetch failed — check the server logs for details."
+msgstr ""
+
+#: src/components/SyncStatusBadge.tsx
 msgid "Fetching"
 msgstr ""
 
@@ -4324,11 +4328,19 @@ msgid "Publishing..."
 msgstr ""
 
 #: src/components/SyncStatusBadge.tsx
+msgid "Pull"
+msgstr ""
+
+#: src/components/SyncStatusBadge.tsx
 msgid "Pulling"
 msgstr ""
 
 #: src/components/AutoSyncEnableWarning.tsx
 msgid "Pulls may overwrite uncommitted local file changes."
+msgstr ""
+
+#: src/components/SyncStatusBadge.tsx
+msgid "Push"
 msgstr ""
 
 #: src/components/SyncStatusBadge.tsx
@@ -5258,6 +5270,10 @@ msgid "Sync disabled — you don't have permission to push"
 msgstr ""
 
 #: src/components/SyncStatusBadge.tsx
+msgid "Sync failed — check the server logs for details."
+msgstr ""
+
+#: src/components/SyncStatusBadge.tsx
 msgid "Sync is off — your edits will not sync to the remote repository."
 msgstr ""
 
@@ -6001,6 +6017,10 @@ msgstr ""
 
 #: src/components/SyncStatusBadge.tsx
 msgid "You don't have access to this private repo. Sign in with an account that does."
+msgstr ""
+
+#: src/components/SyncStatusBadge.tsx
+msgid "You don't have access to this repository."
 msgstr ""
 
 #: src/components/SyncStatusBadge.tsx

@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { SYNC_ERROR_CODES } from '@inkeep/open-knowledge-core';
 
 describe('SyncStatusBadge module', () => {
   test('exports the SyncStatusBadge component', async () => {
@@ -11,6 +12,9 @@ describe('SyncStatusBadge module', () => {
     expect(typeof mod.formatPausedReason).toBe('function');
     expect(typeof mod.formatPushPermissionDenied).toBe('function');
     expect(typeof mod.formatPushFailureCode).toBe('function');
+    expect(typeof mod.formatPullFailureCode).toBe('function');
+    expect(typeof mod.formatSyncFailureCode).toBe('function');
+    expect(typeof mod.computeSyncErrorLines).toBe('function');
     expect(typeof mod.shouldDisableSyncSwitch).toBe('function');
     expect(typeof mod.shouldOfferSignInAgain).toBe('function');
   });
@@ -96,6 +100,95 @@ describe('formatPushFailureCode — code-to-localized-string mapping', () => {
       formatPushFailureCode('semantic-protected-branch'),
     ]);
     expect(strings.size).toBe(4);
+  });
+});
+
+describe('formatSyncFailureCode — neutral collapsed copy', () => {
+  test('every bounded enum value produces a non-empty string', async () => {
+    const { formatSyncFailureCode } = await import('./SyncStatusBadge');
+    for (const code of SYNC_ERROR_CODES) {
+      const out = formatSyncFailureCode(code);
+      expect(typeof out).toBe('string');
+      expect(out.length).toBeGreaterThan(0);
+    }
+  });
+
+  test('auth-403 copy is direction-agnostic (not the push-only framing)', async () => {
+    const { formatSyncFailureCode, formatPushFailureCode, formatPullFailureCode } = await import(
+      './SyncStatusBadge'
+    );
+    expect(formatSyncFailureCode('auth-403')).not.toBe(formatPushFailureCode('auth-403'));
+    expect(formatSyncFailureCode('auth-403')).toBe(formatPullFailureCode('auth-403'));
+  });
+});
+
+describe('computeSyncErrorLines — collapse + label truth table', () => {
+  test('no errors → no lines', async () => {
+    const { computeSyncErrorLines } = await import('./SyncStatusBadge');
+    expect(computeSyncErrorLines({})).toEqual([]);
+  });
+
+  test('push-only → single unlabeled line with push copy', async () => {
+    const { computeSyncErrorLines, formatPushFailureCode } = await import('./SyncStatusBadge');
+    const lines = computeSyncErrorLines({ pushErrorCode: 'semantic-protected-branch' });
+    expect(lines).toEqual([
+      { key: 'push', direction: null, message: formatPushFailureCode('semantic-protected-branch') },
+    ]);
+  });
+
+  test('pull-only (raw) → single unlabeled line with the raw message', async () => {
+    const { computeSyncErrorLines } = await import('./SyncStatusBadge');
+    const lines = computeSyncErrorLines({ pullError: 'Sync paused — local changes conflict.' });
+    expect(lines).toEqual([
+      { key: 'pull', direction: null, message: 'Sync paused — local changes conflict.' },
+    ]);
+  });
+
+  test('same code on both legs → one collapsed, unlabeled, neutral line', async () => {
+    const { computeSyncErrorLines, formatSyncFailureCode } = await import('./SyncStatusBadge');
+    const lines = computeSyncErrorLines({ pushErrorCode: 'auth-401', pullErrorCode: 'auth-401' });
+    expect(lines).toEqual([
+      { key: 'sync', direction: null, message: formatSyncFailureCode('auth-401') },
+    ]);
+  });
+
+  test('identical raw message on both legs → one collapsed line', async () => {
+    const { computeSyncErrorLines } = await import('./SyncStatusBadge');
+    const lines = computeSyncErrorLines({
+      pushError: 'Network unreachable',
+      pullError: 'Network unreachable',
+    });
+    expect(lines).toEqual([{ key: 'sync', direction: null, message: 'Network unreachable' }]);
+  });
+
+  test('different codes → two lines, each labeled with its direction', async () => {
+    const { computeSyncErrorLines, formatPushFailureCode, formatPullFailureCode } = await import(
+      './SyncStatusBadge'
+    );
+    const lines = computeSyncErrorLines({
+      pushErrorCode: 'semantic-protected-branch',
+      pullErrorCode: 'auth-403',
+    });
+    expect(lines).toEqual([
+      {
+        key: 'push',
+        direction: 'push',
+        message: formatPushFailureCode('semantic-protected-branch'),
+      },
+      { key: 'pull', direction: 'pull', message: formatPullFailureCode('auth-403') },
+    ]);
+  });
+
+  test('coded push + raw pull → treated as different, both labeled', async () => {
+    const { computeSyncErrorLines, formatPushFailureCode } = await import('./SyncStatusBadge');
+    const lines = computeSyncErrorLines({
+      pushErrorCode: 'auth-401',
+      pullError: 'Could not detect conflict files',
+    });
+    expect(lines).toEqual([
+      { key: 'push', direction: 'push', message: formatPushFailureCode('auth-401') },
+      { key: 'pull', direction: 'pull', message: 'Could not detect conflict files' },
+    ]);
   });
 });
 

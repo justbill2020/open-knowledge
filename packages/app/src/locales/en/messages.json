@@ -903,6 +903,7 @@
     "Rah7yq": ["What should the AI do? (optional)"],
     "RfHNf8": ["Open activity panel for ", ["tooltipName"]],
     "RfaEio": ["Toggle source comment"],
+    "RgbKEe": ["You don't have access to this repository."],
     "Rj01Fz": ["Links"],
     "RlCInP": ["Slash commands"],
     "RmBY0A": ["No git remote"],
@@ -1226,6 +1227,7 @@
     "cUK8lW": [
       ["conflictCount", "plural", { "one": ["#", " conflict"], "other": ["#", " conflicts"] }]
     ],
+    "cUk6TF": ["Sync failed — check the server logs for details."],
     "cZGNlb": ["Add another pattern"],
     "cZI5AL": ["OK Desktop"],
     "cdm00A": ["No Incoming"],
@@ -1254,6 +1256,7 @@
     "dw_dUJ": ["Failed to duplicate path"],
     "e0NrBM": ["Project"],
     "e1hptq": ["Embed a video with native player controls."],
+    "e4GHWP": ["Pull"],
     "e6pmcJ": [
       "What this folder is about — give it a title, description, tags, or any properties you like, just like a doc has. This describes the folder itself; it is not copied into the docs inside it. To start new docs in this folder with a ready-made set of properties, add a template instead."
     ],
@@ -1416,6 +1419,7 @@
     "jRHdCz": ["Failed to load PDF"],
     "jSY41h": ["\"", ["docName"], "\" took too long. Check your connection."],
     "jTLWxh": ["Embed an external page in an inline iframe (docs, demos, Figma, CodeSandbox)."],
+    "jZ_E5M": ["Fetch failed — check the server logs for details."],
     "jbSG8V": ["Show Files (", ["sidebarShortcutLabel"], ")"],
     "jdGUeI": ["Couldn't create template: ", ["error"]],
     "jerqF0": ["Loading branch state"],
@@ -1752,6 +1756,7 @@
     "uH_S-u": [["loadErrorTitle"], ": ", ["message"]],
     "uKRYiW": ["Sync status unavailable — server error."],
     "uM6jnS": ["Restore failed"],
+    "uO9WLl": ["Push"],
     "uQNW00": ["Detached HEAD — checkout a branch to resume"],
     "uWtdQR": [
       "No templates yet. Add one in this folder's Templates section, or in Settings → Templates."
