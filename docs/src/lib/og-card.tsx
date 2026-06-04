@@ -1,7 +1,5 @@
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { ReactNode } from 'react';
+import { OK_WORDMARK_DATA_URL } from './ok-wordmark.data';
 
 export const OG_SIZE = { width: 1200, height: 630 } as const;
 export const OG_CONTENT_TYPE = 'image/png';
@@ -28,23 +26,7 @@ const WORDMARK_NATURAL_H = 55;
 const WORDMARK_HEIGHT = 44;
 const WORDMARK_WIDTH = Math.round((WORDMARK_HEIGHT * WORDMARK_NATURAL_W) / WORDMARK_NATURAL_H);
 
-const FALLBACK_LOGO =
-  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
-
-const wordmarkDataUrl = (() => {
-  const here = path.dirname(fileURLToPath(import.meta.url));
-  const candidates = [
-    path.join(process.cwd(), 'public', 'ok-wordmark.svg'),
-    path.join(here, '..', '..', 'public', 'ok-wordmark.svg'),
-  ];
-  for (const candidate of candidates) {
-    try {
-      const bytes = readFileSync(candidate);
-      return `data:image/svg+xml;base64,${bytes.toString('base64')}`;
-    } catch {}
-  }
-  return FALLBACK_LOGO;
-})();
+const wordmarkDataUrl = OK_WORDMARK_DATA_URL;
 
 interface MaskEllipse {
   cx: number;

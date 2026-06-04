@@ -3,7 +3,6 @@
   "version": "0.0.1",
   "license": "GPL-3.0-or-later",
   "private": true,
-  "type": "module",
   "packageManager": "bun@1.3.13",
   "scripts": {
     "dev": "next dev --port 3010",
@@ -12,6 +11,7 @@
     "start": "next start --port 3010",
     "typecheck": "next typegen && fumadocs-mdx && tsc --noEmit",
     "validate-link": "bun scripts/validate-link.ts",
+    "generate:og-wordmark": "bun scripts/generate-og-wordmark.ts",
     "postinstall": "fumadocs-mdx"
   },
   "dependencies": {
