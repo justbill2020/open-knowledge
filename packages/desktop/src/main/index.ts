@@ -161,6 +161,7 @@ import {
   recordCreateNewBannerShown,
   recordOnboardingFlow,
 } from './onboarding-telemetry.ts';
+import { installStdioBrokenPipeGuard } from './process-safety-net.ts';
 import {
   checkAndRepairProjectMcpOnProjectOpen,
   type ProjectMcpReclaimCliSurface,
@@ -2070,6 +2071,16 @@ function installEmbedRefererRewriter() {
     },
   );
 }
+
+const safetyNetLogger = getLogger('process-safety-net');
+installStdioBrokenPipeGuard(process, {
+  onNonBenignError: (stream, err) => {
+    safetyNetLogger.error(
+      { stream, code: (err as NodeJS.ErrnoException).code, message: err.message },
+      'unexpected stdio stream error',
+    );
+  },
+});
 
 if (isDriverBootSmokeMode(process.env)) {
   app.whenReady().then(() => {
