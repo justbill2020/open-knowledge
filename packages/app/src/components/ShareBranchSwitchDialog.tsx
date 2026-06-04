@@ -312,26 +312,28 @@ export function ShareBranchSwitchDialog({
               {share.owner}/{share.repo} — {shareTargetPath(share.target)}
             </Trans>
           </DialogDescription>
-          <ShareMetadataRows
-            owner={share.owner}
-            repo={share.repo}
-            path={shareTargetPath(share.target)}
-            kind={share.target.kind}
-            branch={share.branch}
-            testId="share-branch-switch-metadata"
-            branchTestId="share-branch-switch-metadata-branch"
-          />
         </DialogHeader>
         <DialogBody>
+          <div className="mb-4">
+            <ShareMetadataRows
+              owner={share.owner}
+              repo={share.repo}
+              path={shareTargetPath(share.target)}
+              kind={share.target.kind}
+              branch={share.branch}
+              testId="share-branch-switch-metadata"
+              branchTestId="share-branch-switch-metadata-branch"
+            />
+          </div>
           {branchSwitchState.phase === 'branch-in-other-worktree' ? (
             <div
               className="text-sm text-muted-foreground"
               data-testid="share-branch-switch-in-other-worktree"
             >
-              <p>
+              <p className="leading-6">
                 <Trans>
                   Branch{' '}
-                  <code className="rounded bg-muted px-1 py-0.5 text-foreground/80">
+                  <code className="rounded-sm bg-muted px-1 py-0.5 text-foreground/80">
                     {shareBranch}
                   </code>{' '}
                   is checked out in:
@@ -362,10 +364,10 @@ export function ShareBranchSwitchDialog({
               </Trans>
             </p>
           ) : variant?.kind === 'D' ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm leading-6 text-muted-foreground">
               <Trans>
                 This {targetNoun} only exists on branch{' '}
-                <code className="rounded bg-muted px-1 py-0.5 text-foreground/80">
+                <code className="rounded-sm bg-muted px-1 py-0.5 text-foreground/80">
                   {shareBranch}
                 </code>
                 . You have uncommitted changes that prevent switching. Commit or stash your changes,
@@ -373,28 +375,28 @@ export function ShareBranchSwitchDialog({
               </Trans>
             </p>
           ) : variant?.kind === 'B' ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm leading-6 text-muted-foreground">
               <Trans>
                 This {targetNoun} was shared from branch{' '}
-                <code className="rounded bg-muted px-1 py-0.5 text-foreground/80">
+                <code className="rounded-sm bg-muted px-1 py-0.5 text-foreground/80">
                   {shareBranch}
                 </code>
                 . It doesn't exist on your current branch (
-                <code className="rounded bg-muted px-1 py-0.5 text-foreground/80">
+                <code className="rounded-sm bg-muted px-1 py-0.5 text-foreground/80">
                   {currentLabel}
                 </code>
                 ).
               </Trans>
             </p>
           ) : (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm leading-6 text-muted-foreground">
               <Trans>
                 This {targetNoun} was shared from branch{' '}
-                <code className="rounded bg-muted px-1 py-0.5 text-foreground/80">
+                <code className="rounded-sm bg-muted px-1 py-0.5 text-foreground/80">
                   {shareBranch}
                 </code>
                 . You're currently on{' '}
-                <code className="rounded bg-muted px-1 py-0.5 text-foreground/80">
+                <code className="rounded-sm bg-muted px-1 py-0.5 text-foreground/80">
                   {currentLabel}
                 </code>
                 .
@@ -403,7 +405,7 @@ export function ShareBranchSwitchDialog({
           )}
           {variant && !variant.switchEnabled && variant.conflictingFiles.length > 0 ? (
             <div
-              className="mt-3 rounded-md border border-border bg-muted/30 p-3 text-xs"
+              className="mt-3 rounded-md border border-border bg-muted/30 p-3 text-1sm"
               data-testid="share-branch-switch-conflict"
             >
               <p className="font-medium text-foreground/90">
@@ -434,7 +436,12 @@ export function ShareBranchSwitchDialog({
           ) : null}
         </DialogBody>
         <DialogFooter className="sm:justify-between">
-          <Button variant="ghost" onClick={handleCancel} data-testid="share-branch-switch-cancel">
+          <Button
+            variant="ghost"
+            className="font-mono uppercase"
+            onClick={handleCancel}
+            data-testid="share-branch-switch-cancel"
+          >
             <Trans>Cancel</Trans>
           </Button>
           {branchSwitchState.phase === 'branch-in-other-worktree' ? (
@@ -445,7 +452,8 @@ export function ShareBranchSwitchDialog({
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:gap-2">
               {variant?.openCurrentEnabled ? (
                 <Button
-                  variant="secondary"
+                  variant="outline"
+                  className="font-mono uppercase"
                   onClick={handleOpenCurrent}
                   disabled={switching}
                   data-testid="share-branch-switch-open-current"
