@@ -21,6 +21,7 @@ const TRACER_NAME = 'open-knowledge-server';
 
 let tracerProvider: BasicTracerProvider | null = null;
 let meterProvider: MeterProvider | null = null;
+let fileSpanExporter: FileSpanExporter | null = null;
 
 function noopResult(): { tracer: Tracer; meter: Meter } {
   return {
@@ -65,14 +66,11 @@ export function initTelemetry(opts: InitTelemetryOptions = {}): { tracer: Tracer
       opts.localSink?.attributeDenylist ?? DEFAULT_TELEMETRY_ATTRIBUTE_DENYLIST;
     spanProcessors.push(new ScrubbingSpanProcessor({ attributeDenylist }));
     if (fileSinkEnabled && opts.localSink !== undefined) {
-      spanProcessors.push(
-        new SimpleSpanProcessor(
-          new FileSpanExporter({
-            contentDir: opts.localSink.contentDir,
-            maxBytes: opts.localSink.spansMaxBytes,
-          }),
-        ),
-      );
+      fileSpanExporter = new FileSpanExporter({
+        contentDir: opts.localSink.contentDir,
+        maxBytes: opts.localSink.spansMaxBytes,
+      });
+      spanProcessors.push(new SimpleSpanProcessor(fileSpanExporter));
     }
     if (pushEnabled) {
       spanProcessors.push(new BatchSpanProcessor(new OTLPTraceExporter()));
@@ -126,6 +124,7 @@ export function initTelemetry(opts: InitTelemetryOptions = {}): { tracer: Tracer
     } else {
       log.error({ err: e }, 'failed to initialize OpenTelemetry — falling back to no-op');
       meterProvider = null;
+      fileSpanExporter = null;
     }
   }
 
@@ -150,14 +149,21 @@ export async function shutdownTelemetry(): Promise<void> {
     }
   }
   if (!tracerProvider && !meterProvider) return;
-  const shutdownPromise = Promise.all([
-    tracerProvider?.shutdown().catch((e: unknown) => {
-      log.warn({ err: e }, 'tracer provider shutdown failed');
-    }),
-    meterProvider?.shutdown().catch((e: unknown) => {
-      log.warn({ err: e }, 'meter provider shutdown failed');
-    }),
-  ]);
+  const fileFlush = fileSpanExporter
+    ? fileSpanExporter.forceFlush().catch((e: unknown) => {
+        log.warn({ err: e }, 'telemetry file-sink flush failed during shutdown');
+      })
+    : Promise.resolve();
+  const shutdownPromise = fileFlush.then(() =>
+    Promise.all([
+      tracerProvider?.shutdown().catch((e: unknown) => {
+        log.warn({ err: e }, 'tracer provider shutdown failed');
+      }),
+      meterProvider?.shutdown().catch((e: unknown) => {
+        log.warn({ err: e }, 'meter provider shutdown failed');
+      }),
+    ]),
+  );
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timedOut = await Promise.race([
     shutdownPromise.then(() => {
@@ -174,6 +180,7 @@ export async function shutdownTelemetry(): Promise<void> {
   }
   tracerProvider = null;
   meterProvider = null;
+  fileSpanExporter = null;
   trace.disable();
   metrics.disable();
   context.disable();
