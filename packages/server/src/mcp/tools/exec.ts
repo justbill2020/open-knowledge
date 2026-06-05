@@ -31,7 +31,11 @@ import {
 } from './shared.ts';
 
 const SOFT_CAP_LINES = 500;
-const SOFT_CAP_BYTES = 50 * 1024;
+export const WIRE_BODY_COPIES = 2;
+export const RESULT_BODY_BUDGET_BYTES = 64 * 1024;
+const PER_COPY_DECORATION_HEADROOM_BYTES = 8 * 1024;
+const SOFT_CAP_BYTES =
+  Math.floor(RESULT_BODY_BUDGET_BYTES / WIRE_BODY_COPIES) - PER_COPY_DECORATION_HEADROOM_BYTES;
 
 const BINARY_EXT_RE = /\.(png|jpe?g|gif|webp|svg|pdf|zip|tar|gz|tgz|mp4|mov|mp3|wav|ico|bmp)$/i;
 
@@ -67,7 +71,6 @@ type ExecEnrichedEntry = EnrichedEntry & {
 export interface ExecStructuredResult {
   enrichedPaths: ExecEnrichedEntry[];
   cwd?: string;
-  stdout?: string;
   warnings?: string[];
   stdoutTruncated?: boolean;
   error?: { category: ErrorCategory; message: string };
@@ -460,7 +463,6 @@ export async function buildExecResult(
 
   const structured: ExecStructuredResult = {
     enrichedPaths: enrichedWithPreview,
-    stdout: stdoutText,
     stdoutTruncated: capped.truncated,
     cwd,
     ...(banners.length > 0 ? { warnings: banners } : {}),
@@ -490,10 +492,6 @@ export function register(server: ServerInstance, deps: ExecDeps): void {
         enrichedPaths: looseObjectArray.describe(
           'Per-referenced-file metadata: frontmatter, backlink/forward-link counts, recent shadow-repo activity, and a route-only previewUrl.',
         ),
-        stdout: z
-          .string()
-          .optional()
-          .describe('Raw command stdout (soft-cap truncated), without banners or enrichment.'),
         stdoutTruncated: z
           .boolean()
           .optional()
