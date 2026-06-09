@@ -14,7 +14,7 @@ export const DESCRIPTION = [
   '',
   'Read returns the FULL merged config or a sub-tree when `key` is provided. There is no allowlist on reads — every field is readable.',
   '',
-  'Note: the `server.*`, `mcp.*`, and `github.*` config sub-trees, plus `preview.baseUrl`, were removed; their values are now built-in constants in `@inkeep/open-knowledge-core`. Reading those keys returns `exists: false`. (`preview.scriptSrc` and `appearance.preview.autoOpen` are still live keys.)',
+  'Note: the `server.*`, `mcp.*`, and `github.*` config sub-trees, plus `preview.baseUrl` and `preview.scriptSrc`, were removed; their values are now built-in constants in `@inkeep/open-knowledge-core` (or, for the preview iframe, a fixed open network policy). Reading those keys returns `exists: false`. (`appearance.preview.autoOpen` is still a live key.)',
   '',
   '**Parameters:**',
   '- `key` (optional) — Dotted config key. `"content"` returns the content sub-tree; `"appearance.theme"` returns just that leaf. Omit for full config.',

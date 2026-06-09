@@ -32,20 +32,6 @@ export const ConfigSchema = z.looseObject({
     .default({
       dir: '.',
     }),
-  preview: z
-    .looseObject({
-      scriptSrc: z
-        .enum(['cdn-allowlist', 'inline-only'])
-        .register(fieldRegistry, {
-          scope: 'project',
-          agentSettable: false,
-          defaultScope: 'project',
-          description:
-            "Security policy for scripts in code-block preview embeds. 'cdn-allowlist' allows <script src> from a fixed set of trusted CDNs; 'inline-only' is the strict policy for cloud / multi-tenant deployments. Shared across collaborators.",
-        })
-        .default('cdn-allowlist'),
-    })
-    .default({ scriptSrc: 'cdn-allowlist' }),
   appearance: z
     .looseObject({
       theme: z

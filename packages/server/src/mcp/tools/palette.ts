@@ -18,6 +18,8 @@ export const DESCRIPTION = [
   '- `embedPatterns` — copy-ready ` ```html preview ` starters (chart, stat cards, custom SVG, interactive control) already wired to the theme tokens, so an embed tracks light/dark with no hand-picked colors.',
   '- `tokens` — the CSS custom properties injected into every preview iframe; reference them as `var(--chart-1)`, `var(--foreground)`, … inside an `html preview` embed.',
   '',
+  'External resources load directly: the preview iframe has open network access, so an embed can load external stylesheets, `fetch` live data, or pull map tiles / remote images / web fonts over `https:`. The iframe is a sandboxed null-origin frame — an embed can reach the network but never the knowledge base, cookies, or auth.',
+  '',
   'Pass `components: [ids]` to ALSO get the full JSX-form prop schema for specific canonicals (e.g. `palette({ components: ["Callout", "Tabs"] })`) — merged from the former `get_components`.',
   '',
   '**Parameters:**',

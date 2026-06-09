@@ -14,7 +14,6 @@ import {
 } from '@/components/ui/command';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { useConfigContext } from '@/lib/config-provider';
 import { cn } from '@/lib/utils';
 import { OPT_OUT_ATTR } from '../clipboard/index.ts';
 import { CodePreviewEditModal } from '../components/CodePreviewEditModal';
@@ -82,8 +81,6 @@ export function CodeBlockView({ node, updateAttributes, editor, getPos, selected
   const appTheme: PreviewTheme =
     resolvedTheme === 'dark' || resolvedTheme === 'light' ? resolvedTheme : readAppTheme();
   const [bakedTheme] = useState<PreviewTheme>(readAppTheme);
-  const { merged } = useConfigContext();
-  const previewScriptSrc = merged?.preview?.scriptSrc ?? 'cdn-allowlist';
   const rawLanguage = (node.attrs.language as string | null) ?? null;
   const rawMeta = (node.attrs.meta as string | null) ?? null;
   const title = getMetaTitle(rawMeta);
@@ -223,7 +220,7 @@ export function CodeBlockView({ node, updateAttributes, editor, getPos, selected
             ref={previewFrameRef}
             sandbox="allow-scripts"
             referrerPolicy="no-referrer"
-            srcDoc={buildPreviewIframeHeader(previewScriptSrc, bakedTheme) + node.textContent}
+            srcDoc={buildPreviewIframeHeader(bakedTheme) + node.textContent}
             className="ok-codeblock-preview-frame"
             onLoad={() => {
               previewFrameRef.current?.contentWindow?.postMessage(
@@ -454,7 +451,7 @@ export function CodeBlockView({ node, updateAttributes, editor, getPos, selected
               title={t`HTML preview`}
               sandbox="allow-scripts"
               className="size-full border-0"
-              srcDoc={buildPreviewIframeHeader(previewScriptSrc, bakedTheme) + value}
+              srcDoc={buildPreviewIframeHeader(bakedTheme) + value}
             />
           )}
           onSave={handleEditSave}

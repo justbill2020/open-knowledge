@@ -198,6 +198,8 @@ const c1 = getComputedStyle(document.documentElement).getPropertyValue('--chart-
 
 **Boundary.** Reach for a canonical (via its markdown-native form) when one matches the semantic need — it is themed and integrated. Reach for ` ```html preview ` for interactive or bespoke content no canonical covers. ` ```<lang> ` fences for other languages are plain syntax-highlighted code, no preview.
 
+**External resources load directly.** The preview iframe has open network access — an embed can load external stylesheets, `fetch` live data, pull map tiles / remote images, use web fonts, or embed third-party iframes over `https:`. A Leaflet map, a live-`fetch` chart, or a Google-Font embed renders with no extra setup. The iframe is a sandboxed null-origin frame, so an embed can reach the network but can never read the knowledge base, cookies, or auth. (`'unsafe-eval'` is not granted — Chart.js / Leaflet / Plotly don't need it; a library that compiles expression strings at runtime won't run.)
+
 ## Grounding — every factual claim needs a source (MUST)
 
 Knowledge-base docs are factual artifacts — whether the project is a wiki, an LLM brain, a spec collection, a research log, or anything else markdown-shaped. Every claim must be traceable, and **the source has to live inside the knowledge base**, not float on the public web.

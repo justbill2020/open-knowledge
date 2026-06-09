@@ -4,7 +4,6 @@ import { cleanup, fireEvent, render } from '@testing-library/react';
 import type { NodeViewProps } from '@tiptap/core';
 import { ConfigContext, type ConfigContextValue } from '@/lib/config-context';
 import { CodeBlockView } from './CodeBlockView';
-import { PREVIEW_SCRIPT_SRC_CDN_ALLOWLIST } from './preview-iframe-header';
 
 function makeConfigValue(merged: Config | null): ConfigContextValue {
   return {
@@ -48,9 +47,9 @@ function makeProps(): NodeViewProps {
   } as unknown as NodeViewProps;
 }
 
-function renderSrcdoc(merged: Config | null): string {
+function renderSrcdoc(): string {
   const { container } = render(
-    <ConfigContext value={makeConfigValue(merged)}>
+    <ConfigContext value={makeConfigValue(null)}>
       <CodeBlockView {...makeProps()} />
     </ConfigContext>,
   );
@@ -64,27 +63,14 @@ describe('CodeBlockView preview-CSP wiring', () => {
     cleanup();
   });
 
-  test('inline-only config produces a strict script-src with no CDN origins', () => {
-    const srcdoc = renderSrcdoc({ preview: { scriptSrc: 'inline-only' } } as Config);
-    expect(srcdoc).toContain("script-src 'unsafe-inline'");
-    for (const origin of PREVIEW_SCRIPT_SRC_CDN_ALLOWLIST) {
-      expect(srcdoc).not.toContain(origin);
-    }
+  test('renders the fixed open-network CSP in the iframe srcdoc', () => {
+    const srcdoc = renderSrcdoc();
+    expect(srcdoc).toContain("script-src 'unsafe-inline' https:");
+    expect(srcdoc).toContain('connect-src https:');
+    expect(srcdoc).toContain('img-src https:');
+    expect(srcdoc).not.toContain("connect-src 'none'");
+    expect(srcdoc).not.toContain("'unsafe-eval'");
     expect(srcdoc).toContain('<div id="probe">hello</div>');
-  });
-
-  test('cdn-allowlist config admits every allowlisted CDN origin', () => {
-    const srcdoc = renderSrcdoc({ preview: { scriptSrc: 'cdn-allowlist' } } as Config);
-    for (const origin of PREVIEW_SCRIPT_SRC_CDN_ALLOWLIST) {
-      expect(srcdoc).toContain(origin);
-    }
-  });
-
-  test('falls back to cdn-allowlist when merged config is null (pre-sync)', () => {
-    const srcdoc = renderSrcdoc(null);
-    for (const origin of PREVIEW_SCRIPT_SRC_CDN_ALLOWLIST) {
-      expect(srcdoc).toContain(origin);
-    }
   });
 });
 
@@ -95,7 +81,7 @@ describe('CodeBlockView edit-source modal language wiring', () => {
 
   test('html-preview fence opens edit-source modal with language="html"', () => {
     const { container } = render(
-      <ConfigContext value={makeConfigValue({ preview: { scriptSrc: 'inline-only' } } as Config)}>
+      <ConfigContext value={makeConfigValue(null)}>
         <CodeBlockView {...makeProps()} />
       </ConfigContext>,
     );

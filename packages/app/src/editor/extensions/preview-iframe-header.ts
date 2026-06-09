@@ -1,7 +1,4 @@
-import type { Config } from '@inkeep/open-knowledge-core';
 import { PREVIEW_THEME_TOKENS } from '@inkeep/open-knowledge-core';
-
-export type PreviewScriptSrcPolicy = Config['preview']['scriptSrc'];
 
 export type PreviewTheme = 'light' | 'dark';
 
@@ -22,13 +19,6 @@ export function parsePreviewHeightMessage(data: unknown): number | null {
   const h = (data as Record<string, unknown>)[PREVIEW_HEIGHT_MESSAGE_KEY];
   return typeof h === 'number' && Number.isFinite(h) && h > 0 ? Math.ceil(h) : null;
 }
-
-export const PREVIEW_SCRIPT_SRC_CDN_ALLOWLIST = [
-  'https://cdnjs.cloudflare.com',
-  'https://cdn.jsdelivr.net',
-  'https://unpkg.com',
-  'https://esm.sh',
-] as const;
 
 const PREVIEW_SCROLLBAR_STYLE = `<style>
   html, body { scrollbar-width: thin; scrollbar-color: rgba(115,115,115,0.4) transparent; }
@@ -83,27 +73,18 @@ function previewBootstrapScript(theme: PreviewTheme): string {
   );
 }
 
-function scriptSrcDirective(policy: PreviewScriptSrcPolicy): string {
-  switch (policy) {
-    case 'cdn-allowlist':
-      return `script-src 'unsafe-inline' ${PREVIEW_SCRIPT_SRC_CDN_ALLOWLIST.join(' ')}`;
-    case 'inline-only':
-      return "script-src 'unsafe-inline'";
-    default: {
-      const _exhaustive: never = policy;
-      throw new Error(
-        `Unhandled preview script-src policy: ${JSON.stringify(_exhaustive as unknown)}`,
-      );
-    }
-  }
-}
+const PREVIEW_CSP =
+  "default-src 'none'; " +
+  "script-src 'unsafe-inline' https:; " +
+  "style-src 'unsafe-inline' https: data:; " +
+  'img-src https: data: blob:; ' +
+  'font-src https: data:; ' +
+  'connect-src https: wss: data: blob:; ' +
+  'media-src https: data: blob:; ' +
+  "frame-src https:; child-src https:; form-action 'none'; base-uri 'none';";
 
-export function buildPreviewIframeHeader(
-  policy: PreviewScriptSrcPolicy,
-  theme: PreviewTheme,
-): string {
-  const csp = `default-src 'none'; ${scriptSrcDirective(policy)}; style-src 'unsafe-inline' data:; img-src data:; font-src data:; connect-src 'none'; frame-src 'none'; child-src 'none'; form-action 'none'; base-uri 'none';`;
-  return `<meta http-equiv="Content-Security-Policy" content="${csp}">
+export function buildPreviewIframeHeader(theme: PreviewTheme): string {
+  return `<meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}">
 ${themeTokenStyle()}
 ${PREVIEW_SCROLLBAR_STYLE}
 ${previewBootstrapScript(theme)}`;

@@ -94,6 +94,14 @@ export const REMOVED_KEYS: readonly RemovedKey[] = [
       MIGRATE_HINT,
     ].join(' '),
   },
+  {
+    path: ['preview', 'scriptSrc'],
+    redirect: [
+      'preview.scriptSrc has been removed.',
+      'The code-block preview iframe now runs a fixed open network policy (it is no longer configurable).',
+      MIGRATE_HINT,
+    ].join(' '),
+  },
 ];
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
