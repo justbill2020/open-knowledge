@@ -700,16 +700,36 @@ describe('startUiServer', () => {
     expect(headers.get('x-content-type-options')).toBe('nosniff');
   });
 
-  test('asset serve: scripted-document extension is not served from contentDir', async () => {
+  test('asset serve: content .html is served only inside a sandbox CSP (stored-XSS defense)', async () => {
     const fs = await import('node:fs');
     const seedDoc = resolve(tmpDir, 'doc.md');
     fs.writeFileSync(seedDoc, '# seed', 'utf-8');
-    const seedHtml = resolve(tmpDir, 'evil.html');
-    fs.writeFileSync(seedHtml, '<script>alert(1)</script>', 'utf-8');
+    const seedHtml = resolve(tmpDir, 'viewer.html');
+    fs.writeFileSync(seedHtml, '<h1>viewer</h1><script>alert(1)</script>', 'utf-8');
 
     handle = await startUiServer({ config: config(), cwd: tmpDir, port: 0, host: 'localhost' });
-    const { body } = await get(handle.port, '/evil.html');
-    expect(body).not.toContain('<script>alert(1)</script>');
+    const { status, headers } = await get(handle.port, '/viewer.html');
+    expect(status).toBe(200);
+    expect(headers.get('content-disposition')).toBe('inline');
+    expect(headers.get('content-security-policy')).toBe(
+      "sandbox allow-scripts; connect-src 'none'",
+    );
+    expect(headers.get('x-content-type-options')).toBe('nosniff');
+  });
+
+  test('asset serve: SPA app shell (/index.html miss) is NOT sandboxed', async () => {
+    const dist = seedDist(tmpDir, 'noshell');
+    handle = await startUiServer({
+      config: config(),
+      cwd: tmpDir,
+      port: 0,
+      host: 'localhost',
+      assetDir: dist,
+    });
+    const { status, headers } = await get(handle.port, '/index.html');
+    expect(status).toBe(200);
+    expect(headers.get('content-security-policy')).toBeNull();
+    expect(headers.get('content-disposition')).toBeNull();
   });
 
   test('/api/* gate rejects requests with non-loopback Host header (DNS-rebind defense)', async () => {

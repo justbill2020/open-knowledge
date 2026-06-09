@@ -24,6 +24,11 @@ describe('matchAssetUrl', () => {
     expect(matchAssetUrl('http://localhost:5173/index.html', ORIGIN)).toBeNull();
   });
 
+  test('content html/htm → null (handled by the renderer dispatcher, not the safety net)', () => {
+    expect(matchAssetUrl('http://localhost:5173/fishing-log/trip-viewer.html', ORIGIN)).toBeNull();
+    expect(matchAssetUrl('http://localhost:5173/notes/legacy.htm', ORIGIN)).toBeNull();
+  });
+
   test('app bundle without explicit path → null', () => {
     expect(matchAssetUrl('http://localhost:5173/', ORIGIN)).toBeNull();
   });

@@ -123,6 +123,8 @@ import {
   RollbackRequestSchema,
   RollbackSuccessSchema,
   readFmMap,
+  SANDBOXED_HTML_CSP,
+  SANDBOXED_HTML_EXTENSIONS,
   SaveVersionRequestSchema,
   SaveVersionSuccessSchema,
   SearchRequestSchema,
@@ -6028,18 +6030,20 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
           });
           return;
         }
+        const isSandboxedHtml = SANDBOXED_HTML_EXTENSIONS.has(assetExt);
         const headers: Record<string, string> = {
           'Content-Type': contentType,
           'Content-Length': String(stat.size),
           'X-Content-Type-Options': 'nosniff',
-          'Content-Disposition': INLINE_RENDERABLE_EXTENSIONS.has(assetExt)
-            ? 'inline'
-            : 'attachment',
+          'Content-Disposition':
+            INLINE_RENDERABLE_EXTENSIONS.has(assetExt) || isSandboxedHtml ? 'inline' : 'attachment',
           'Cache-Control': 'no-store',
         };
         if (assetExt === 'svg') {
           headers['Content-Security-Policy'] =
             "sandbox; default-src 'none'; style-src 'unsafe-inline'";
+        } else if (isSandboxedHtml) {
+          headers['Content-Security-Policy'] = SANDBOXED_HTML_CSP;
         }
         res.writeHead(200, headers);
         try {

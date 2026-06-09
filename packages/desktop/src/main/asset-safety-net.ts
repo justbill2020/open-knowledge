@@ -47,6 +47,7 @@ export function matchAssetUrl(url: string, editorOrigin: string): string | null 
   const extMatch = lastSegment.match(/\.([a-z0-9]+)$/i);
   if (!extMatch) return null;
   const ext = (extMatch[1] ?? '').toLowerCase();
+  if (ext === 'html' || ext === 'htm') return null;
   if (!ASSET_EXTENSIONS.has(ext)) return null;
 
   return path;
