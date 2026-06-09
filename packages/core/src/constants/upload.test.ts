@@ -72,6 +72,18 @@ describe('upload extension sets', () => {
       expect(AUDIO_EXTENSIONS.has(ext)).toBe(false);
     }
   });
+
+  test('WIKI_EMBED_EXTENSIONS ⊆ ASSET_EXTENSIONS (embeddable ⇒ servable + resolvable)', () => {
+    for (const ext of WIKI_EMBED_EXTENSIONS) {
+      expect(ASSET_EXTENSIONS.has(ext)).toBe(true);
+    }
+  });
+
+  test('ASSET_EXTENSIONS admits user-linked non-embed types (html/htm/gpx)', () => {
+    expect(ASSET_EXTENSIONS.has('html')).toBe(true);
+    expect(ASSET_EXTENSIONS.has('htm')).toBe(true);
+    expect(ASSET_EXTENSIONS.has('gpx')).toBe(true);
+  });
 });
 
 describe('mediaKindForSidebarAssetExtension', () => {

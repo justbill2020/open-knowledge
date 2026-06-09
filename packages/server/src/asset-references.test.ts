@@ -326,6 +326,64 @@ describe('asset reference extraction', () => {
       });
     }));
 
+  test('collects referenced existing html / gpx / xml / 7z assets (PRD-6948)', () =>
+    withFixture((dir) => {
+      mkdirSync(join(dir, 'fishing-log'), { recursive: true });
+      writeFileSync(
+        join(dir, 'fishing-log', 'log.md'),
+        [
+          '[viewer](./trip-viewer.html)',
+          '[track](./Morning_Activity.gpx)',
+          '[data](./readings.xml)',
+          '[archive](./bundle.7z)',
+          '[photo](./photo.png)',
+        ].join('\n'),
+      );
+      for (const f of [
+        'trip-viewer.html',
+        'Morning_Activity.gpx',
+        'readings.xml',
+        'bundle.7z',
+        'photo.png',
+      ]) {
+        writeFileSync(join(dir, 'fishing-log', f), 'x');
+      }
+      const now = new Date().toISOString();
+      const fileIndex = new Map<string, FileIndexEntry>([
+        [
+          'fishing-log/log',
+          {
+            size: 1,
+            modified: now,
+            canonicalPath: join(dir, 'fishing-log/log.md'),
+            inode: 1,
+            aliases: [],
+          },
+        ],
+      ]);
+
+      const assets = collectReferencedAssets({
+        contentDir: dir,
+        fileIndex,
+        readMarkdown: () =>
+          [
+            '[viewer](./trip-viewer.html)',
+            '[track](./Morning_Activity.gpx)',
+            '[data](./readings.xml)',
+            '[archive](./bundle.7z)',
+            '[photo](./photo.png)',
+          ].join('\n'),
+      });
+      const paths = assets.map((a) => a.path).sort();
+      expect(paths).toEqual([
+        'fishing-log/Morning_Activity.gpx',
+        'fishing-log/bundle.7z',
+        'fishing-log/photo.png',
+        'fishing-log/readings.xml',
+        'fishing-log/trip-viewer.html',
+      ]);
+    }));
+
   test('returns empty asset list when content directory cannot be resolved', () => {
     const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
     try {

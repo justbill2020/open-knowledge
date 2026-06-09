@@ -1160,18 +1160,16 @@ describe('ContentFilter', () => {
       expect(filter.isExcluded('apps/web/dist/index.md', { bypassFilters: true })).toBe(false);
     });
 
-    test('admits non-md/non-asset extensions (.ts, .py, .sh, .yaml)', () => {
+    test('admits non-md/non-asset extensions (.ts, .py, .sh) only under bypass', () => {
       const filter = createContentFilter({ projectDir, contentDir: projectDir });
 
       expect(filter.isExcluded('src/index.ts')).toBe(true);
       expect(filter.isExcluded('scripts/build.sh')).toBe(true);
       expect(filter.isExcluded('analysis.py')).toBe(true);
-      expect(filter.isExcluded('config.yaml')).toBe(true);
 
       expect(filter.isExcluded('src/index.ts', { bypassFilters: true })).toBe(false);
       expect(filter.isExcluded('scripts/build.sh', { bypassFilters: true })).toBe(false);
       expect(filter.isExcluded('analysis.py', { bypassFilters: true })).toBe(false);
-      expect(filter.isExcluded('config.yaml', { bypassFilters: true })).toBe(false);
     });
 
     test('STOP rule preserved — reserved system + config doc names stay hidden in bypass mode', () => {
