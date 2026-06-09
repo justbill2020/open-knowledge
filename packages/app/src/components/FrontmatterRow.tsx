@@ -87,7 +87,18 @@ export function FrontmatterRow({
     >
       {(dragHandle) => (
         <>
-          <div className="flex items-start gap-1">
+          {/*
+            Narrow-container reflow (precedent: Tailwind v4 container queries,
+            see ui/field.tsx). The row is a `@container/prow`; below ~26rem of
+            row width the fixed 128px key column starves the value widget into a
+            tall thin strip. At that width the value flips to `order-last` +
+            `basis-full` so it wraps to its own full-width line, indented by the
+            drag-handle + type-icon gutter (3.25rem = w-4 + gap + w-7 + gap) so
+            its left edge lines up under the key name instead of jutting out to
+            the row's left edge. Above the breakpoint every reflow class is an
+            inert `@max-*` override, so the wide layout is unchanged.
+          */}
+          <div className="flex items-start gap-1 @max-[26rem]/prow:flex-wrap">
             {dragHandle}
             <div className="flex items-center gap-1" data-testid="property-row-identity">
               {isPlaceholder ? (
@@ -95,7 +106,7 @@ export function FrontmatterRow({
               ) : (
                 <>
                   <TypeIconButton keyName={keyName} type={declared} onChangeType={onChangeType} />
-                  <div className="w-32 shrink-0">
+                  <div className="w-32 shrink-0 @max-[26rem]/prow:w-auto">
                     {rename?.state ? (
                       <RenameInput
                         keyName={keyName}
@@ -126,7 +137,7 @@ export function FrontmatterRow({
                 <AlertTriangle className="size-3.5" />
               </span>
             ) : null}
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 @max-[26rem]/prow:order-last @max-[26rem]/prow:mt-0.5 @max-[26rem]/prow:basis-full @max-[26rem]/prow:pl-[3.25rem]">
               <Widget
                 key={`widget-${resetCounter}`}
                 keyName={keyName}
@@ -156,7 +167,7 @@ export function FrontmatterRow({
               role="alert"
               data-testid="property-error"
               data-key={keyName}
-              className="pl-9 text-[10px] text-destructive"
+              className="pl-9 text-[10px] text-destructive @max-[26rem]/prow:pl-[3.25rem]"
             >
               {error}
             </div>
@@ -200,7 +211,7 @@ function SortableShell({
   const dragHandleSlot = isPlaceholder ? <span aria-hidden className="h-7 w-4 shrink-0" /> : null;
   return (
     <div
-      className="group py-0.5"
+      className="group @container/prow py-0.5"
       data-testid="property-row"
       data-key={keyName}
       data-widget-type={declared}
@@ -256,7 +267,7 @@ function SortableRowBody({
     <div
       ref={setNodeRef}
       style={style}
-      className="group py-0.5"
+      className="group @container/prow py-0.5"
       data-testid="property-row"
       data-key={keyName}
       data-widget-type={declared}
@@ -361,7 +372,7 @@ function PlaceholderIdentity({ keyName, type }: { keyName: string; type: Frontma
       >
         <Icon className="size-3.5" />
       </span>
-      <div className="w-32 shrink-0">
+      <div className="w-32 shrink-0 @max-[26rem]/prow:w-auto">
         <span
           data-testid="property-placeholder-name"
           data-key={keyName}
@@ -398,10 +409,10 @@ export function AddPropertyRow({
 
   return (
     <div
-      className="mt-1 rounded border border-dashed bg-background/40 p-1"
+      className="mt-1 rounded border border-dashed bg-background/40 p-1 @container/prow"
       data-testid="add-property-row"
     >
-      <div className="flex items-start gap-1">
+      <div className="flex items-start gap-1 @max-[26rem]/prow:flex-wrap">
         <TypeIconButton
           keyName="__add__"
           type={draft.type}
@@ -431,9 +442,9 @@ export function AddPropertyRow({
               onCancel();
             }
           }}
-          className="h-7 w-32 border-transparent bg-transparent px-2 text-sm shadow-none placeholder:text-muted-foreground/60 focus-visible:border-transparent focus-visible:bg-muted focus-visible:ring-0 rounded-sm"
+          className="h-7 w-32 border-transparent bg-transparent px-2 text-sm shadow-none placeholder:text-muted-foreground/60 focus-visible:border-transparent focus-visible:bg-muted focus-visible:ring-0 rounded-sm @max-[26rem]/prow:w-auto @max-[26rem]/prow:flex-1"
         />
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 @max-[26rem]/prow:order-last @max-[26rem]/prow:mt-0.5 @max-[26rem]/prow:basis-full @max-[26rem]/prow:pl-[2rem]">
           <Widget
             keyName="__add__"
             value={draft.value}
