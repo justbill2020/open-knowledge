@@ -471,9 +471,7 @@ export async function bootStartServer(opts: BootStartServerOptions): Promise<Boo
     ...(opts.reactShellDistDir ? { reactShellDistDir: opts.reactShellDistDir } : {}),
   });
 
-  if (!uiSpawnDecision) {
-    uiSpawnDecision = { action: 'skip', reason: 'alive', pid: 0, port: 0 };
-  }
+  uiSpawnDecision ||= { action: 'skip', reason: 'alive', pid: 0, port: 0 };
 
   const decisionAtBoot: UiSpawnDecision = uiSpawnDecision;
   let resolvedUiPort: number | null = null;

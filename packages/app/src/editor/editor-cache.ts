@@ -382,9 +382,7 @@ export function parkTiptapEditor(entry: TiptapCacheEntry): void {
     if (parent) {
       parent.removeChild(view.dom);
     }
-    if (!entry.parkingNode) {
-      entry.parkingNode = tryCreateParkingNode();
-    }
+    entry.parkingNode ||= tryCreateParkingNode();
     if (entry.parkingNode) {
       entry.parkingNode.appendChild(view.dom);
     }
@@ -569,9 +567,7 @@ export function parkCmEditor(entry: CmCacheEntry): void {
   if (parent) {
     parent.removeChild(dom);
   }
-  if (!entry.parkingNode) {
-    entry.parkingNode = tryCreateParkingNode();
-  }
+  entry.parkingNode ||= tryCreateParkingNode();
   if (entry.parkingNode) {
     entry.parkingNode.appendChild(dom);
   }

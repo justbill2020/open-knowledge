@@ -96,21 +96,17 @@ function toArray(val: string | string[] | undefined): string[] {
 
 let _chainDepthHist: ReturnType<ReturnType<typeof getMeter>['createHistogram']> | null = null;
 function chainDepthHist(): ReturnType<ReturnType<typeof getMeter>['createHistogram']> {
-  if (!_chainDepthHist) {
-    _chainDepthHist = getMeter().createHistogram('rename.predecessor_chain_depth_histogram', {
-      description: 'Predecessor chain depth observed per timeline query',
-    });
-  }
+  _chainDepthHist ||= getMeter().createHistogram('rename.predecessor_chain_depth_histogram', {
+    description: 'Predecessor chain depth observed per timeline query',
+  });
   return _chainDepthHist;
 }
 
 let _transientSkipCounter: ReturnType<ReturnType<typeof getMeter>['createCounter']> | null = null;
 function transientSkipCounter(): ReturnType<ReturnType<typeof getMeter>['createCounter']> {
-  if (!_transientSkipCounter) {
-    _transientSkipCounter = getMeter().createCounter('rename.transient_skip_total', {
-      description: 'Count of empty-commitSha entries encountered (lazy-population transient skip)',
-    });
-  }
+  _transientSkipCounter ||= getMeter().createCounter('rename.transient_skip_total', {
+    description: 'Count of empty-commitSha entries encountered (lazy-population transient skip)',
+  });
   return _transientSkipCounter;
 }
 

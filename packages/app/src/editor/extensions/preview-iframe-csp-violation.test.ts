@@ -10,7 +10,7 @@ function evalBootstrap() {
   const script = header.match(/<script>([\s\S]*?)<\/script>/)?.[1] ?? '';
   const listeners: Record<string, Array<(e: unknown) => void>> = {};
   const addEventListener = (type: string, fn: (e: unknown) => void) => {
-    if (!listeners[type]) listeners[type] = [];
+    listeners[type] ||= [];
     listeners[type].push(fn);
   };
   const postMessage = mock((_msg: unknown, _origin?: string) => {});

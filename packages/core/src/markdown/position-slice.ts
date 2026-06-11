@@ -450,7 +450,7 @@ export function applyPositionSliceToNode(
           while (rightPad < seg.length - leftPad && seg[seg.length - 1 - rightPad] === ' ') {
             rightPad++;
           }
-          if (!cell.data) cell.data = {};
+          cell.data ||= {};
           cell.data.sourcePadding = { left: leftPad, right: rightPad };
         }
       }

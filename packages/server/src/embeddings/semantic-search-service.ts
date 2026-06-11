@@ -89,7 +89,7 @@ export class SemanticSearchService {
   ensureWarm(): Promise<void> {
     if (!this.enabled) return Promise.resolve();
     if (this.ready) return Promise.resolve();
-    if (!this.warmPromise) this.warmPromise = this.warm();
+    this.warmPromise ||= this.warm();
     return this.warmPromise;
   }
 

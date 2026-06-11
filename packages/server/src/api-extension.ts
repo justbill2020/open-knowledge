@@ -458,38 +458,32 @@ import { getDocumentHistory, getFolderTimeline } from './timeline-query.ts';
 
 let _httpDurationHist: ReturnType<ReturnType<typeof getMeter>['createHistogram']> | null = null;
 function httpDurationHist(): ReturnType<ReturnType<typeof getMeter>['createHistogram']> {
-  if (!_httpDurationHist) {
-    _httpDurationHist = getMeter().createHistogram('http.server.request.duration', {
-      description: 'HTTP server request duration in seconds',
-      unit: 's',
-    });
-  }
+  _httpDurationHist ||= getMeter().createHistogram('http.server.request.duration', {
+    description: 'HTTP server request duration in seconds',
+    unit: 's',
+  });
   return _httpDurationHist;
 }
 
 let _hintEmittedCounter: ReturnType<ReturnType<typeof getMeter>['createCounter']> | null = null;
 function hintEmittedCounter(): ReturnType<ReturnType<typeof getMeter>['createCounter']> {
-  if (!_hintEmittedCounter) {
-    _hintEmittedCounter = getMeter().createCounter('ok.preview_attach.hint_emitted', {
-      description:
-        'Count of preview-attach hints emitted on write-tool responses when no editor is attached to __system__. Covers both attach-preview-once (URL exists, no browser) and start-ui (no UI running anywhere) variants — the tool side disambiguates via the warning action; the metric name is retained as-is so existing dashboards keep working.',
-    });
-  }
+  _hintEmittedCounter ||= getMeter().createCounter('ok.preview_attach.hint_emitted', {
+    description:
+      'Count of preview-attach hints emitted on write-tool responses when no editor is attached to __system__. Covers both attach-preview-once (URL exists, no browser) and start-ui (no UI running anywhere) variants — the tool side disambiguates via the warning action; the metric name is retained as-is so existing dashboards keep working.',
+  });
   return _hintEmittedCounter;
 }
 
 let _agentPatchFmTouchCounter: ReturnType<ReturnType<typeof getMeter>['createCounter']> | null =
   null;
 function agentPatchFmTouchCounter(): ReturnType<ReturnType<typeof getMeter>['createCounter']> {
-  if (!_agentPatchFmTouchCounter) {
-    _agentPatchFmTouchCounter = getMeter().createCounter(
-      'ok.frontmatter.agent_patch_fm_touch_total',
-      {
-        description:
-          'Count of agent-patch calls whose find string targets the frontmatter region. Measures incidence during the soft-deprecation window before agent-patch FM-intersecting calls are enforced as 400. Bounded label: result ∈ {rejected, pre_deprecation_passthrough}.',
-      },
-    );
-  }
+  _agentPatchFmTouchCounter ||= getMeter().createCounter(
+    'ok.frontmatter.agent_patch_fm_touch_total',
+    {
+      description:
+        'Count of agent-patch calls whose find string targets the frontmatter region. Measures incidence during the soft-deprecation window before agent-patch FM-intersecting calls are enforced as 400. Bounded label: result ∈ {rejected, pre_deprecation_passthrough}.',
+    },
+  );
   return _agentPatchFmTouchCounter;
 }
 
@@ -502,24 +496,20 @@ function findLooksLikeFrontmatter(find: string): boolean {
 let _renameAttributionCounter: ReturnType<ReturnType<typeof getMeter>['createCounter']> | null =
   null;
 function renameAttributionCounter(): ReturnType<ReturnType<typeof getMeter>['createCounter']> {
-  if (!_renameAttributionCounter) {
-    _renameAttributionCounter = getMeter().createCounter('ok.rename.attribution_kind', {
-      description:
-        'Count of rename and rollback handler dispatches by attribution kind (agent | principal | anonymous)',
-    });
-  }
+  _renameAttributionCounter ||= getMeter().createCounter('ok.rename.attribution_kind', {
+    description:
+      'Count of rename and rollback handler dispatches by attribution kind (agent | principal | anonymous)',
+  });
   return _renameAttributionCounter;
 }
 
 let _agentWriteGateFiredCounter: ReturnType<ReturnType<typeof getMeter>['createCounter']> | null =
   null;
 function agentWriteGateFiredCounter(): ReturnType<ReturnType<typeof getMeter>['createCounter']> {
-  if (!_agentWriteGateFiredCounter) {
-    _agentWriteGateFiredCounter = getMeter().createCounter('ok.agent_write.gate_fired_total', {
-      description:
-        'Count of agent writes that ran the Site A content-divergence gate (denominator for the divergence rate). Bounded label: handler ∈ {agent-write-md, agent-patch, rollback}.',
-    });
-  }
+  _agentWriteGateFiredCounter ||= getMeter().createCounter('ok.agent_write.gate_fired_total', {
+    description:
+      'Count of agent writes that ran the Site A content-divergence gate (denominator for the divergence rate). Bounded label: handler ∈ {agent-write-md, agent-patch, rollback}.',
+  });
   return _agentWriteGateFiredCounter;
 }
 
@@ -529,15 +519,13 @@ let _agentWriteContentDivergenceCounter: ReturnType<
 function agentWriteContentDivergenceCounter(): ReturnType<
   ReturnType<typeof getMeter>['createCounter']
 > {
-  if (!_agentWriteContentDivergenceCounter) {
-    _agentWriteContentDivergenceCounter = getMeter().createCounter(
-      'ok.agent_write.content_divergence_total',
-      {
-        description:
-          'Count of agent writes whose converged Y.Text diverged from the composed intent (numerator for the divergence rate). Bounded labels: handler ∈ {agent-write-md, agent-patch, rollback}, divergence_type.',
-      },
-    );
-  }
+  _agentWriteContentDivergenceCounter ||= getMeter().createCounter(
+    'ok.agent_write.content_divergence_total',
+    {
+      description:
+        'Count of agent writes whose converged Y.Text diverged from the composed intent (numerator for the divergence rate). Bounded labels: handler ∈ {agent-write-md, agent-patch, rollback}, divergence_type.',
+    },
+  );
   return _agentWriteContentDivergenceCounter;
 }
 

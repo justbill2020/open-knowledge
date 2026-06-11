@@ -920,8 +920,8 @@ function buildMdastToPmHandlers(
       });
   }
 
-  if (!handlers.math) handlers.math = blockUnknownHandler;
-  if (!handlers.inlineMath) handlers.inlineMath = inlineUnknownHandler;
+  handlers.math ||= blockUnknownHandler;
+  handlers.inlineMath ||= inlineUnknownHandler;
 
   if (n.footnoteReference) {
     handlers.footnoteReference = (node: FootnoteReference) =>
@@ -929,8 +929,8 @@ function buildMdastToPmHandlers(
         identifier: node.identifier,
         label: node.label ?? node.identifier,
       });
-  } else if (!handlers.footnoteReference) {
-    handlers.footnoteReference = (node: FootnoteReference) => {
+  } else {
+    handlers.footnoteReference ||= (node: FootnoteReference) => {
       console.warn(
         JSON.stringify({
           event: 'unknown-mdast-type',
@@ -949,8 +949,8 @@ function buildMdastToPmHandlers(
         label: def.label ?? def.identifier,
       };
     });
-  } else if (!handlers.footnoteDefinition) {
-    handlers.footnoteDefinition = (node: FootnoteDefinition) => {
+  } else {
+    handlers.footnoteDefinition ||= (node: FootnoteDefinition) => {
       console.warn(
         JSON.stringify({
           event: 'unknown-mdast-type',
@@ -1517,8 +1517,8 @@ function buildPmToMdastHandlers(schema: Schema): {
       for (const child of children) {
         if (child.type === 'text' && child.value) {
           const textChild = child as Text;
-          textChild.data = textChild.data ?? {};
-          textChild.data.escapedChars = textChild.data.escapedChars ?? [];
+          textChild.data ??= {};
+          textChild.data.escapedChars ??= [];
           for (let i = 0; i < textChild.value.length; i++) {
             textChild.data.escapedChars.push({ offset: i, char: textChild.value[i] });
           }
@@ -1535,7 +1535,7 @@ function buildPmToMdastHandlers(schema: Schema): {
         const textChild = children[0] as Text;
         const candidate = raw || textChild.value;
         if (isValidSourceLiteralRaw(candidate, textChild.value)) {
-          textChild.data = textChild.data ?? {};
+          textChild.data ??= {};
           textChild.data.sourceRaw = candidate;
         }
         return textChild;

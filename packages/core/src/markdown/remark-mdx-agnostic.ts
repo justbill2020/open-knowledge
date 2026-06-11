@@ -9,9 +9,9 @@ const TO_MARKDOWN_EXT = mdxToMarkdown();
 export function remarkMdxAgnostic(this: Processor): void {
   const data = this.data();
 
-  if (!data.micromarkExtensions) data.micromarkExtensions = [];
-  if (!data.fromMarkdownExtensions) data.fromMarkdownExtensions = [];
-  if (!data.toMarkdownExtensions) data.toMarkdownExtensions = [];
+  data.micromarkExtensions ||= [];
+  data.fromMarkdownExtensions ||= [];
+  data.toMarkdownExtensions ||= [];
 
   const micromarkExts = data.micromarkExtensions as unknown[];
   if (!micromarkExts.some((e) => e === MICROMARK_EXT)) {

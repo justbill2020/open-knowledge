@@ -320,9 +320,7 @@ export function configureWikiLinkSuggestion(editor: Editor) {
       }
 
       if (!pagesLoaded) {
-        if (!pagesPromise) {
-          pagesPromise = fetchPages();
-        }
+        pagesPromise ||= fetchPages();
         try {
           cachedPages = await pagesPromise;
           fetchError = null;

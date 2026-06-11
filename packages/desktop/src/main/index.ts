@@ -2606,23 +2606,19 @@ function bootPrimaryInstance(): void {
 let _trashItemDurationHistCache: ReturnType<ReturnType<typeof getMeter>['createHistogram']> | null =
   null;
 function _trashItemDurationHist() {
-  if (!_trashItemDurationHistCache) {
-    _trashItemDurationHistCache = getMeter().createHistogram('ok.shell.trash_item.duration_ms', {
-      description: 'Duration of ok:shell:trash-item IPC dispatches in milliseconds',
-      unit: 'ms',
-    });
-  }
+  _trashItemDurationHistCache ||= getMeter().createHistogram('ok.shell.trash_item.duration_ms', {
+    description: 'Duration of ok:shell:trash-item IPC dispatches in milliseconds',
+    unit: 'ms',
+  });
   return _trashItemDurationHistCache;
 }
 
 let _trashItemFailureCounterCache: ReturnType<ReturnType<typeof getMeter>['createCounter']> | null =
   null;
 function _trashItemFailureCounter() {
-  if (!_trashItemFailureCounterCache) {
-    _trashItemFailureCounterCache = getMeter().createCounter('ok.shell.trash_item.failures', {
-      description: 'Count of ok:shell:trash-item handler failures, labeled by reason',
-    });
-  }
+  _trashItemFailureCounterCache ||= getMeter().createCounter('ok.shell.trash_item.failures', {
+    description: 'Count of ok:shell:trash-item handler failures, labeled by reason',
+  });
   return _trashItemFailureCounterCache;
 }
 
@@ -2630,15 +2626,13 @@ let _openInTerminalDurationHistCache: ReturnType<
   ReturnType<typeof getMeter>['createHistogram']
 > | null = null;
 function _openInTerminalDurationHist() {
-  if (!_openInTerminalDurationHistCache) {
-    _openInTerminalDurationHistCache = getMeter().createHistogram(
-      'ok.shell.open_in_terminal.duration_ms',
-      {
-        description: 'Duration of ok:shell:open-in-terminal IPC dispatches in milliseconds',
-        unit: 'ms',
-      },
-    );
-  }
+  _openInTerminalDurationHistCache ||= getMeter().createHistogram(
+    'ok.shell.open_in_terminal.duration_ms',
+    {
+      description: 'Duration of ok:shell:open-in-terminal IPC dispatches in milliseconds',
+      unit: 'ms',
+    },
+  );
   return _openInTerminalDurationHistCache;
 }
 
@@ -2646,13 +2640,11 @@ let _openInTerminalFailureCounterCache: ReturnType<
   ReturnType<typeof getMeter>['createCounter']
 > | null = null;
 function _openInTerminalFailureCounter() {
-  if (!_openInTerminalFailureCounterCache) {
-    _openInTerminalFailureCounterCache = getMeter().createCounter(
-      'ok.shell.open_in_terminal.failures',
-      {
-        description: 'Count of ok:shell:open-in-terminal handler failures, labeled by reason',
-      },
-    );
-  }
+  _openInTerminalFailureCounterCache ||= getMeter().createCounter(
+    'ok.shell.open_in_terminal.failures',
+    {
+      description: 'Count of ok:shell:open-in-terminal handler failures, labeled by reason',
+    },
+  );
   return _openInTerminalFailureCounterCache;
 }

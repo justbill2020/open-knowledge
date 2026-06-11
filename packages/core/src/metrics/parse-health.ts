@@ -9,9 +9,7 @@ interface YpsCountersHost {
 
 function ypsCounters(): YpsCounters {
   const host = globalThis as YpsCountersHost;
-  if (!host.__okYpsCounters) {
-    host.__okYpsCounters = { block: 0, inline: 0 };
-  }
+  host.__okYpsCounters ||= { block: 0, inline: 0 };
   return host.__okYpsCounters;
 }
 

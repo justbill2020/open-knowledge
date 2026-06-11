@@ -40,11 +40,9 @@ function configScopeAttr(documentName: string): WriteScope | undefined {
 
 let _okignoreRejectionCounter: Counter | null = null;
 function okignoreRejectionCounter(): Counter {
-  if (!_okignoreRejectionCounter) {
-    _okignoreRejectionCounter = getMeter().createCounter('ok.config.ignore.rejection_total', {
-      description: 'Count of okignore L3 rejections by error code.',
-    });
-  }
+  _okignoreRejectionCounter ||= getMeter().createCounter('ok.config.ignore.rejection_total', {
+    description: 'Count of okignore L3 rejections by error code.',
+  });
   return _okignoreRejectionCounter;
 }
 

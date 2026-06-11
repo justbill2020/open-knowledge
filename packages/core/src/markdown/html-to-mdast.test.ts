@@ -172,7 +172,7 @@ describe('htmlToMdast — Branch D source-form attr defaults (FR-39)', () => {
   ): T | undefined {
     let found: T | undefined;
     visit(tree, type, (node) => {
-      if (!found) found = node as T;
+      found ||= node as T;
     });
     return found;
   }

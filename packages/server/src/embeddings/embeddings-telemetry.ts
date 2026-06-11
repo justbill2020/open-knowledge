@@ -29,52 +29,42 @@ let _queryTotal: Counter | null = null;
 let _queryEmbedDuration: Histogram | null = null;
 
 function tokensCounter(): Counter {
-  if (!_tokens) {
-    _tokens = getMeter().createCounter('ok.embeddings.tokens_total', {
-      description:
-        'Embeddings tokens billed, by role. Bounded label: role ∈ {query, document}. Makes spend legible; never includes content.',
-    });
-  }
+  _tokens ||= getMeter().createCounter('ok.embeddings.tokens_total', {
+    description:
+      'Embeddings tokens billed, by role. Bounded label: role ∈ {query, document}. Makes spend legible; never includes content.',
+  });
   return _tokens;
 }
 
 function errorsCounter(): Counter {
-  if (!_errors) {
-    _errors = getMeter().createCounter('ok.embeddings.provider_errors_total', {
-      description:
-        'Embeddings provider failures, by reason. Bounded label: reason ∈ {rate_limit, timeout, http_error, network, dims_mismatch, malformed_response}.',
-    });
-  }
+  _errors ||= getMeter().createCounter('ok.embeddings.provider_errors_total', {
+    description:
+      'Embeddings provider failures, by reason. Bounded label: reason ∈ {rate_limit, timeout, http_error, network, dims_mismatch, malformed_response}.',
+  });
   return _errors;
 }
 
 function requestDurationHist(): Histogram {
-  if (!_requestDuration) {
-    _requestDuration = getMeter().createHistogram('ok.embeddings.request_duration_ms', {
-      description: 'Wall-clock duration of one embeddings API request. Bounded label: role.',
-      unit: 'ms',
-    });
-  }
+  _requestDuration ||= getMeter().createHistogram('ok.embeddings.request_duration_ms', {
+    description: 'Wall-clock duration of one embeddings API request. Bounded label: role.',
+    unit: 'ms',
+  });
   return _requestDuration;
 }
 
 function queryTotalCounter(): Counter {
-  if (!_queryTotal) {
-    _queryTotal = getMeter().createCounter('ok.search.semantic_query_total', {
-      description:
-        'Semantic-requested searches, by outcome and caller surface. Bounded labels: outcome ∈ {applied, no_match, warming, incapable, provider_error}, source ∈ {omnibar, mcp, http}. The omnibar/mcp split separates interactive cost from agent cost.',
-    });
-  }
+  _queryTotal ||= getMeter().createCounter('ok.search.semantic_query_total', {
+    description:
+      'Semantic-requested searches, by outcome and caller surface. Bounded labels: outcome ∈ {applied, no_match, warming, incapable, provider_error}, source ∈ {omnibar, mcp, http}. The omnibar/mcp split separates interactive cost from agent cost.',
+  });
   return _queryTotal;
 }
 
 function queryEmbedDurationHist(): Histogram {
-  if (!_queryEmbedDuration) {
-    _queryEmbedDuration = getMeter().createHistogram('ok.search.semantic_query_embed_ms', {
-      description: 'Wall-clock latency of the per-query embed on the semantic search path.',
-      unit: 'ms',
-    });
-  }
+  _queryEmbedDuration ||= getMeter().createHistogram('ok.search.semantic_query_embed_ms', {
+    description: 'Wall-clock latency of the per-query embed on the semantic search path.',
+    unit: 'ms',
+  });
   return _queryEmbedDuration;
 }
 

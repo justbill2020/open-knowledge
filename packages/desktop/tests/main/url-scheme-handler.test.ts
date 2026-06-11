@@ -120,7 +120,7 @@ function makeEnv(opts?: { isPackaged?: boolean }): TestEnv {
       ): Promise<FakeWindowHandle | null> => {
         const win: FakeWindowHandle = { id: `win-${p}` };
         existingWindows.set(p, win);
-        if (!readyWindow) readyWindow = win;
+        readyWindow ||= win;
         return win;
       },
     ),

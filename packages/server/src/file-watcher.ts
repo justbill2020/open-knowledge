@@ -913,11 +913,9 @@ export async function handleRawEvents(
 
 let _fwEventsCounterCache: ReturnType<ReturnType<typeof getMeter>['createCounter']> | null = null;
 function _fileWatcherEventsCounter() {
-  if (!_fwEventsCounterCache) {
-    _fwEventsCounterCache = getMeter().createCounter('ok.file_watcher.events', {
-      description: 'Number of file-watcher events classified by kind',
-    });
-  }
+  _fwEventsCounterCache ||= getMeter().createCounter('ok.file_watcher.events', {
+    description: 'Number of file-watcher events classified by kind',
+  });
   return _fwEventsCounterCache;
 }
 
@@ -1007,22 +1005,20 @@ async function startChokidarWatcher(
 
   function queueEvent(type: 'create' | 'update' | 'delete', path: string) {
     pendingEvents.push({ type, path });
-    if (!batchTimer) {
-      batchTimer = setTimeout(() => {
-        const batch = pendingEvents;
-        pendingEvents = [];
-        batchTimer = null;
-        handleRawEvents(
-          batch,
-          contentDir,
-          contentFilter,
-          fileIndex,
-          folderIndex,
-          onDiskEvent,
-          aliasMap,
-        ).catch((err) => console.error('[file-watcher] chokidar batch error:', err));
-      }, BATCH_WINDOW_MS);
-    }
+    batchTimer ||= setTimeout(() => {
+      const batch = pendingEvents;
+      pendingEvents = [];
+      batchTimer = null;
+      handleRawEvents(
+        batch,
+        contentDir,
+        contentFilter,
+        fileIndex,
+        folderIndex,
+        onDiskEvent,
+        aliasMap,
+      ).catch((err) => console.error('[file-watcher] chokidar batch error:', err));
+    }, BATCH_WINDOW_MS);
   }
 
   watcher.on('add', (path) => queueEvent('create', path));

@@ -394,17 +394,17 @@ export function remarkWikiLink(this: Processor) {
     toMarkdownExtensions?: unknown[];
   };
 
-  if (!data.micromarkExtensions) data.micromarkExtensions = [];
+  data.micromarkExtensions ||= [];
   if (!data.micromarkExtensions.some((e) => e === MICROMARK_EXT)) {
     data.micromarkExtensions.push(MICROMARK_EXT);
   }
 
-  if (!data.fromMarkdownExtensions) data.fromMarkdownExtensions = [];
+  data.fromMarkdownExtensions ||= [];
   if (!data.fromMarkdownExtensions.some((e) => e === wikiLinkFromMarkdown)) {
     data.fromMarkdownExtensions.push(wikiLinkFromMarkdown);
   }
 
-  if (!data.toMarkdownExtensions) data.toMarkdownExtensions = [];
+  data.toMarkdownExtensions ||= [];
   if (!data.toMarkdownExtensions.some((e) => e === wikiLinkToMarkdown)) {
     data.toMarkdownExtensions.push(wikiLinkToMarkdown);
   }

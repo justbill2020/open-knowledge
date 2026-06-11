@@ -62,9 +62,7 @@ const matchMediaStub = (query: string): MediaQueryList =>
 (globalThis as { matchMedia?: typeof matchMediaStub }).matchMedia = matchMediaStub;
 (win as { matchMedia?: typeof matchMediaStub }).matchMedia = matchMediaStub;
 
-if (!win.HTMLElement.prototype.scrollIntoView) {
-  win.HTMLElement.prototype.scrollIntoView = () => {};
-}
+win.HTMLElement.prototype.scrollIntoView ||= () => {};
 
 if (typeof (globalThis as { MessageChannel?: unknown }).MessageChannel === 'undefined') {
   class MinimalMessagePort {

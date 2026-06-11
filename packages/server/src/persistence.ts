@@ -614,15 +614,13 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
     if (gitCommitTimer) {
       clearTimeout(gitCommitTimer);
       gitCommitTimer = null;
-      if (!commitInFlight) {
-        commitInFlight = commitToWipRef().finally(() => {
-          commitInFlight = null;
-          if (pendingAfterCommit) {
-            pendingAfterCommit = false;
-            scheduleGitCommit();
-          }
-        });
-      }
+      commitInFlight ||= commitToWipRef().finally(() => {
+        commitInFlight = null;
+        if (pendingAfterCommit) {
+          pendingAfterCommit = false;
+          scheduleGitCommit();
+        }
+      });
     }
     if (commitInFlight) await commitInFlight;
   }

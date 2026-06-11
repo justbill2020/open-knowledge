@@ -106,7 +106,7 @@ describe('parse-health metrics', () => {
       __okYpsCounters?: { block: number; inline: number };
     };
     const g = globalThis as GlobalWithCounters;
-    g.__okYpsCounters = g.__okYpsCounters || { block: 0, inline: 0 };
+    g.__okYpsCounters ||= { block: 0, inline: 0 };
     g.__okYpsCounters.block += 5;
     g.__okYpsCounters.inline += 2;
 

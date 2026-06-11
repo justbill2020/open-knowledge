@@ -19,7 +19,7 @@ function parseMdast(source: string): Root {
 function findNode<T extends AnyNode = AnyNode>(tree: Root, type: string): T {
   let found: AnyNode | null = null;
   visit(tree, type, (node) => {
-    if (!found) found = node as AnyNode;
+    found ||= node as AnyNode;
   });
   return found as unknown as T;
 }
