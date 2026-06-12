@@ -1562,7 +1562,11 @@
   border-collapse: collapse;
   width: 100%;
   table-layout: fixed;
-  overflow: hidden;
+  /* `clip`, not `hidden`: overflow:hidden makes the table itself a scroll
+     container, which would capture the first-column `position: sticky` cells
+     below (sticky constrains to the nearest scrollport — the cells must reach
+     .tableWrapper's). clip clips identically without creating a scrollport. */
+  overflow: clip;
 }
 
 .ProseMirror th,
@@ -1609,6 +1613,63 @@
 
 .ProseMirror.resize-cursor {
   cursor: col-resize;
+}
+
+/* First-column sticky freeze (horizontal scroll). Works because .tableWrapper
+   is the CSS scroll container for the x-axis. */
+.ProseMirror .tableWrapper > table > tbody > tr > td:first-child,
+.ProseMirror .tableWrapper > table > tbody > tr > th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+
+.ProseMirror .tableWrapper > table > tbody > tr > td:first-child {
+  background-color: var(--background);
+}
+
+/* Corner cell (first column + header row) must clear both frozen row layer and
+   sticky column layer when both are active simultaneously. */
+.ProseMirror .tableWrapper > table > tbody > tr > th:first-child {
+  background-color: var(--color-gray-50);
+  z-index: 3;
+}
+
+/* Occluder above the frozen header (frozen-table-headers.ts): scrolled-past
+   rows must not show in the translucent toolbar-fade slot above the pinned
+   header. An opaque block riding each header cell's composited layer tracks
+   the frozen header's transform pixel-for-pixel — unlike a scroll-driven
+   clip-path on the wrapper, which updates on the main thread and trails the
+   compositor during scroll. Hidden until the extension's scroll-driven
+   opacity flip reveals it while frozen. The wrapper's own overflow clips the
+   block at the table's top edge, so it never covers content above the table.
+   ±1px horizontal overlap closes the seams over collapsed cell borders.
+   height must stay >= TOOLBAR_HEIGHT (56px, frozen-table-headers.ts) so the
+   block spans the whole toolbar-fade slot; 80px adds margin. */
+.ProseMirror .tableWrapper > table > tbody > tr:first-child > th::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  bottom: 100%;
+  height: 80px;
+  background: var(--background);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Print: neutralize the freeze. The WAAPI fill animations hold transform /
+   occluder opacity at the on-screen scroll position, which would print the
+   header mid-table; !important author declarations override animation
+   effects in the cascade, so these win over the fills. */
+@media print {
+  .ProseMirror .tableWrapper > table > tbody > tr:first-child > th {
+    transform: none;
+    box-shadow: none;
+  }
+  .ProseMirror .tableWrapper > table > tbody > tr:first-child > th::before {
+    opacity: 0;
+  }
 }
 
 .ProseMirror p.is-empty::before {
@@ -4469,6 +4530,10 @@ html.electron-mode [data-slot="sidebar-inner"] {
 }
 
 .dark .ProseMirror th {
+  background: var(--color-gray-900);
+}
+
+.dark .ProseMirror .tableWrapper > table > tbody > tr > th:first-child {
   background: var(--color-gray-900);
 }
 

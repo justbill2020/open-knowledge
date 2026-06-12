@@ -41,6 +41,7 @@ import {
 import { useDocumentContext } from './DocumentContext';
 import { setEditorDocName } from './extensions/doc-context.ts';
 import { setEditorSourceMode } from './extensions/editor-mode-context.ts';
+import { FrozenTableHeaders } from './extensions/frozen-table-headers.ts';
 import { sharedExtensions } from './extensions/shared.ts';
 import { uploadDecorationPlugin } from './image-upload/index.ts';
 import { getMountId } from './mount-id-registry';
@@ -201,6 +202,7 @@ export function buildExtensionList(args: BuildEditorOptionsArgs): AnyExtension[]
       },
     }),
     ...guard,
+    FrozenTableHeaders,
   ];
 }
 
