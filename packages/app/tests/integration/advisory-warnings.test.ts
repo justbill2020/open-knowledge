@@ -24,7 +24,7 @@ async function writeMd(
   docName: string,
   position: 'append' | 'prepend' | 'replace' = 'replace',
 ): Promise<{ status: number; body: WriteResponse }> {
-  const res = await fetch(`http://localhost:${server.port}/api/agent-write-md`, {
+  const res = await fetch(`http://127.0.0.1:${server.port}/api/agent-write-md`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ markdown, position, docName }),
@@ -37,7 +37,7 @@ async function patchDoc(
   find: string,
   replace: string,
 ): Promise<{ status: number; body: WriteResponse }> {
-  const res = await fetch(`http://localhost:${server.port}/api/agent-patch`, {
+  const res = await fetch(`http://127.0.0.1:${server.port}/api/agent-patch`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ docName, find, replace }),
@@ -116,7 +116,7 @@ describe('advisory warnings on POST /api/frontmatter-patch', () => {
       '---\ntitle: v1\n---\n\n# Doc\n\nbody-v2-native\n',
       'utf-8',
     );
-    const res = await fetch(`http://localhost:${server.port}/api/frontmatter-patch`, {
+    const res = await fetch(`http://127.0.0.1:${server.port}/api/frontmatter-patch`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ docName, patch: { status: 'draft' } }),

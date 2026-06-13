@@ -848,7 +848,7 @@ describe('bootStartServer (integration)', () => {
       skipUiAutoSpawn: true,
     });
 
-    const ws = new WebSocket(`ws://localhost:${booted.port}/collab/keepalive?pid=${process.pid}`);
+    const ws = new WebSocket(`ws://127.0.0.1:${booted.port}/collab/keepalive?pid=${process.pid}`);
     try {
       await new Promise<void>((done, fail) => {
         const onOpen = () => {

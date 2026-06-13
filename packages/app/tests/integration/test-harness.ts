@@ -63,6 +63,8 @@ async function getFreePort(): Promise<number> {
 
 export interface TestServer {
   port: number;
+  baseUrl: string;
+  wsUrl: string;
   contentDir: string;
   instance: ServerInstance;
   cleanup: () => Promise<void>;
@@ -157,12 +159,22 @@ export async function createTestServer(options: CreateTestServerOptions = {}): P
     keepaliveGraceMs: options.keepaliveGraceMs,
   });
 
-  await new Promise<void>((resolve) => {
-    httpServer.listen(port, '127.0.0.1', () => resolve());
+  await new Promise<void>((resolve, reject) => {
+    const onErr = (err: Error): void => {
+      httpServer.off('error', onErr);
+      reject(err);
+    };
+    httpServer.once('error', onErr);
+    httpServer.listen(port, '127.0.0.1', () => {
+      httpServer.off('error', onErr);
+      resolve();
+    });
   });
 
   return {
     port,
+    baseUrl: `http://127.0.0.1:${port}`,
+    wsUrl: `ws://127.0.0.1:${port}`,
     contentDir,
     instance: srv,
     cleanup: async () => {
@@ -890,7 +902,7 @@ export async function waitForPortFree(port: number, timeoutMs = 2500): Promise<v
         lastErr = err;
         resolve(false);
       });
-      probe.listen(port, () => {
+      probe.listen(port, '127.0.0.1', () => {
         probe.close(() => resolve(true));
       });
     });
@@ -964,7 +976,7 @@ export async function createRestartableServer(
             reject(err);
           };
           httpServer.once('error', onErr);
-          httpServer.listen(port, () => {
+          httpServer.listen(port, '127.0.0.1', () => {
             httpServer.off('error', onErr);
             resolve();
           });

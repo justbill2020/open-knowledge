@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createApiExtension } from './api-extension.ts';
 import type { ContentFilter } from './content-filter.ts';
+import { listenOnLoopback } from './loopback-rig-test-helpers.ts';
 
 interface Harness {
   baseURL: string;
@@ -30,14 +31,10 @@ async function startHarness(contentDir: string, contentFilter?: ContentFilter): 
     ).onRequest({ request: req, response: res });
   });
 
-  await new Promise<void>((resolve) => server.listen(0, resolve));
-  const address = server.address();
-  if (typeof address !== 'object' || address === null) {
-    throw new Error('server did not bind to a port');
-  }
+  const { baseUrl } = await listenOnLoopback(server);
 
   return {
-    baseURL: `http://127.0.0.1:${address.port}`,
+    baseURL: baseUrl,
     close: () =>
       new Promise<void>((resolve, reject) => {
         server.close((err) => (err ? reject(err) : resolve()));

@@ -29,6 +29,7 @@ beforeAll(async () => {
   writeFileSync(join(okDir, 'config.yml'), '', 'utf-8');
   writeFileSync(join(okDir, '.gitignore'), '', 'utf-8');
   booted = await bootServer({
+    host: '127.0.0.1',
     config: ConfigSchema.parse({}),
     contentDir,
     port: 0,

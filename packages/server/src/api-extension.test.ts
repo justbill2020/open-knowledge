@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { resumeSyncOnAuthEvent, safeSubdir, sanitizeFilename } from './api-extension.ts';
 import type { AuthEvent } from './local-ops/types.ts';
+import { listenOnLoopback } from './loopback-rig-test-helpers.ts';
 import type { SyncEngine } from './sync-engine.ts';
 
 describe('safeSubdir', () => {
@@ -190,12 +191,7 @@ describe('handleUploadAsset', () => {
 
     hocuspocus.configuration.extensions.push(ext);
 
-    port = await new Promise<number>((res) => {
-      server.listen(0, () => {
-        const addr = server.address();
-        res(typeof addr === 'object' && addr ? addr.port : 0);
-      });
-    });
+    ({ port } = await listenOnLoopback(server));
   });
 
   afterEach(async () => {
@@ -224,7 +220,7 @@ describe('handleUploadAsset', () => {
     const formData = new FormData();
     formData.append('parentDocName', parentDocName);
     formData.append('file', new Blob([file]), filename);
-    return fetch(`http://localhost:${port}/api/upload`, {
+    return fetch(`http://127.0.0.1:${port}/api/upload`, {
       method: 'POST',
       body: formData,
     });
@@ -245,7 +241,7 @@ describe('handleUploadAsset', () => {
   test('rejects missing parentDocName', async () => {
     const formData = new FormData();
     formData.append('file', new Blob([createPngBuffer()]), 'test.png');
-    const res = await fetch(`http://localhost:${port}/api/upload`, {
+    const res = await fetch(`http://127.0.0.1:${port}/api/upload`, {
       method: 'POST',
       body: formData,
     });
@@ -353,7 +349,7 @@ describe('handleUploadAsset', () => {
     const formData = new FormData();
     formData.append('parentDocName', 'docs/guide.md');
     formData.append('file', new Blob([createPngBuffer()]), 'screenshot.png');
-    const res = await fetch(`http://localhost:${port}/api/upload`, {
+    const res = await fetch(`http://127.0.0.1:${port}/api/upload`, {
       method: 'POST',
       body: formData,
     });
@@ -369,7 +365,7 @@ describe('handleUploadAsset', () => {
     const formData = new FormData();
     formData.append('parentDocName', 'docs/guide.md');
     formData.append('file', new Blob([pdfBuffer]), 'draft.pdf');
-    const res = await fetch(`http://localhost:${port}/api/upload`, {
+    const res = await fetch(`http://127.0.0.1:${port}/api/upload`, {
       method: 'POST',
       body: formData,
     });
@@ -384,7 +380,7 @@ describe('handleUploadAsset', () => {
     const formData = new FormData();
     formData.append('parentDocName', 'docs/guide.md');
     formData.append('file', new Blob([csvBuffer]), 'data.csv');
-    const res = await fetch(`http://localhost:${port}/api/upload`, {
+    const res = await fetch(`http://127.0.0.1:${port}/api/upload`, {
       method: 'POST',
       body: formData,
     });
@@ -449,12 +445,7 @@ describe('handleUploadAsset — same-dir sha256 dedup (FR-2)', () => {
 
     hocuspocus.configuration.extensions.push(ext);
 
-    port = await new Promise<number>((res) => {
-      server.listen(0, () => {
-        const addr = server.address();
-        res(typeof addr === 'object' && addr ? addr.port : 0);
-      });
-    });
+    ({ port } = await listenOnLoopback(server));
   });
 
   afterEach(async () => {
@@ -473,7 +464,7 @@ describe('handleUploadAsset — same-dir sha256 dedup (FR-2)', () => {
     const formData = new FormData();
     formData.append('parentDocName', parent);
     formData.append('file', new Blob([buf]), filename);
-    return fetch(`http://localhost:${port}/api/upload`, { method: 'POST', body: formData });
+    return fetch(`http://127.0.0.1:${port}/api/upload`, { method: 'POST', body: formData });
   }
 
   test('second upload of identical bytes into same dir → deduped:true, single file on disk', async () => {

@@ -63,10 +63,14 @@ export function tailServerLog(log: ServerLog, lines = 40): string {
   }
 }
 
-export async function checkCollabSync(port: number, timeoutMs = 10_000): Promise<void> {
+export async function checkCollabSync(
+  port: number,
+  timeoutMs = 10_000,
+  loopbackHost: '127.0.0.1' | '::1' = '127.0.0.1',
+): Promise<void> {
   const doc = new Y.Doc();
   const provider = new HocuspocusProvider({
-    url: `ws://localhost:${port}/collab`,
+    url: `ws://${loopbackHost === '::1' ? '[::1]' : '127.0.0.1'}:${port}/collab`,
     name: SYSTEM_DOC_NAME,
     document: doc,
     connect: false,
@@ -92,11 +96,13 @@ export async function checkCollabSync(port: number, timeoutMs = 10_000): Promise
   }
 }
 
-export async function getFreePort(): Promise<number> {
+export async function getFreePort(
+  loopbackHost: '127.0.0.1' | '::1' = '127.0.0.1',
+): Promise<number> {
   return new Promise((resolve, reject) => {
     const s = createNetServer();
     s.once('error', reject);
-    s.listen(0, () => {
+    s.listen(0, loopbackHost === '::1' ? '::1' : '127.0.0.1', () => {
       const port = (s.address() as AddressInfo).port;
       s.close(() => resolve(port));
     });

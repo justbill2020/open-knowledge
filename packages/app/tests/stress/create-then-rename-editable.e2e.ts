@@ -84,6 +84,6 @@ test.describe('create → inline-rename → click → type', () => {
     const stuckWarmFallbackCount = await page.locator('.tiptap-editor[aria-hidden="true"]').count();
     expect(stuckWarmFallbackCount).toBe(0);
 
-    expect(workerServer.baseURL).toMatch(/^http:\/\/localhost:\d+$/);
+    expect(workerServer.baseURL).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
   });
 });

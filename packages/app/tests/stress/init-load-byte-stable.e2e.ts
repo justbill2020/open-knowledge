@@ -39,7 +39,7 @@ interface OkFixture {
 const test = base.extend<{ okFixture: OkFixture }>({
   // biome-ignore lint/correctness/noEmptyPattern: Playwright requires an object-destructuring pattern for the fixtures arg; this fixture has no dependencies so the destructure is empty by design (matches the convention used by the `workerServer` fixture in `_helpers/fixtures.ts`).
   okFixture: async ({}, use) => {
-    const port = await getFreePort();
+    const port = await getFreePort('::1');
     const contentDir = realpathSync(mkdtempSync(join(tmpdir(), 'ok-init-load-e2e-')));
 
     for (const entry of CORPUS) {
@@ -52,10 +52,10 @@ const test = base.extend<{ okFixture: OkFixture }>({
       installUserSkill: async () => 'skip-current',
     });
 
-    const baseURL = `http://localhost:${port}`;
+    const baseURL = `http://[::1]:${port}`;
     const viteCacheDir = prepareViteCacheDir('init-load');
     const serverLog = openServerLog('init-load');
-    const proc = spawn('bun', ['run', '--silent', 'dev'], {
+    const proc = spawn('bun', ['run', '--silent', 'dev', '--host', '::1'], {
       cwd: APP_PACKAGE_ROOT,
       env: {
         ...process.env,
@@ -72,7 +72,7 @@ const test = base.extend<{ okFixture: OkFixture }>({
       await Promise.race([
         (async () => {
           await waitForHttpReady(baseURL, 60_000);
-          await checkCollabSync(port);
+          await checkCollabSync(port, 10_000, '::1');
         })(),
         new Promise<never>((_, reject) => {
           proc.once('error', (err) => reject(err));

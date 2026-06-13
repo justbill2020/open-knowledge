@@ -1,11 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type Server as HttpServer, request as httpRequest } from 'node:http';
-import {
-  type AddressInfo,
-  connect as createNetConnection,
-  createServer as createNetServer,
-} from 'node:net';
+import { connect as createNetConnection } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Hocuspocus } from '@hocuspocus/server';
@@ -16,6 +12,7 @@ import {
 } from '@inkeep/open-knowledge-core';
 import sirv from 'sirv';
 import { createAssetServeMiddleware } from './asset-serve-middleware.ts';
+import { getFreeLoopbackPort } from './loopback-rig-test-helpers.ts';
 import type { McpHttpHandler } from './mcp-http.ts';
 import {
   type MountMcpAndApiHandle,
@@ -41,16 +38,6 @@ const hocuspocus = {
 
 let servers: Array<{ httpServer: HttpServer; mount: MountMcpAndApiHandle }> = [];
 
-async function getFreePort(): Promise<number> {
-  return new Promise((resolve) => {
-    const server = createNetServer();
-    server.listen(0, () => {
-      const port = (server.address() as AddressInfo).port;
-      server.close(() => resolve(port));
-    });
-  });
-}
-
 async function startMountedServer(handler: McpHttpHandler): Promise<{ port: number }> {
   const httpServer = createServer();
   const mount = mountMcpAndApi({
@@ -59,7 +46,7 @@ async function startMountedServer(handler: McpHttpHandler): Promise<{ port: numb
     mcpHttpHandler: handler,
     log,
   });
-  const port = await getFreePort();
+  const port = await getFreeLoopbackPort();
   await new Promise<void>((resolve) => httpServer.listen(port, '127.0.0.1', () => resolve()));
   servers.push({ httpServer, mount });
   return { port };
@@ -279,7 +266,7 @@ describe('mountMcpAndApi content-asset middleware', () => {
         blocklistExtensions: EXECUTABLE_BLOCKLIST_EXTENSIONS,
       }),
     });
-    const port = await getFreePort();
+    const port = await getFreeLoopbackPort();
     await new Promise<void>((resolve) => httpServer.listen(port, '127.0.0.1', () => resolve()));
     servers.push({ httpServer, mount });
     return { port };
@@ -334,7 +321,7 @@ describe('mountMcpAndApi content-asset middleware', () => {
         throw new Error('simulated EMFILE');
       },
     });
-    const port = await getFreePort();
+    const port = await getFreeLoopbackPort();
     await new Promise<void>((resolve) => httpServer.listen(port, '127.0.0.1', () => resolve()));
     servers.push({ httpServer, mount });
 
@@ -377,7 +364,7 @@ describe('mountMcpAndApi ephemeral content-asset gate', () => {
         blocklistExtensions: EXECUTABLE_BLOCKLIST_EXTENSIONS,
       }),
     });
-    const port = await getFreePort();
+    const port = await getFreeLoopbackPort();
     await new Promise<void>((resolve) => httpServer.listen(port, '127.0.0.1', () => resolve()));
     servers.push({ httpServer, mount });
     return { port };
@@ -440,7 +427,7 @@ describe('mountMcpAndApi react-shell middleware', () => {
         immutable: true,
       }),
     });
-    const port = await getFreePort();
+    const port = await getFreeLoopbackPort();
     await new Promise<void>((resolve) => httpServer.listen(port, '127.0.0.1', () => resolve()));
     servers.push({ httpServer, mount });
     return { port, shellDir };

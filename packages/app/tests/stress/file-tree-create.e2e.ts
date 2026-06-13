@@ -179,7 +179,7 @@ async function installDelayedDesktopSessionBridge(
         platform: 'darwin',
         config: {
           apiOrigin: baseURL,
-          collabUrl: `ws://localhost:${port}/collab`,
+          collabUrl: `ws://127.0.0.1:${port}/collab`,
           mode: 'editor',
           projectName: 'session-restore-test',
           projectPath: contentDir,

@@ -45,7 +45,7 @@ interface EphemeralFixture {
 const test = base.extend<{ ephemeral: EphemeralFixture }>({
   // biome-ignore lint/correctness/noEmptyPattern: Playwright requires an object-destructuring pattern; this fixture has no dependencies.
   ephemeral: async ({}, use) => {
-    const port = await getFreePort();
+    const port = await getFreePort('::1');
     const userDir = realpathSync(mkdtempSync(join(tmpdir(), 'ok-sf-e2e-')));
     const notesDir = join(userDir, 'notes');
     mkdirSync(notesDir, { recursive: true });
@@ -55,10 +55,10 @@ const test = base.extend<{ ephemeral: EphemeralFixture }>({
     writeFileSync(join(notesDir, 'pic.png'), 'not-a-real-png', 'utf-8');
     const projectDir = createEphemeralProjectDir(notesDir);
 
-    const baseURL = `http://localhost:${port}`;
+    const baseURL = `http://[::1]:${port}`;
     const viteCacheDir = prepareViteCacheDir('sf-ephemeral');
     const serverLog = openServerLog('sf-ephemeral');
-    const proc = spawn('bun', ['run', '--silent', 'dev'], {
+    const proc = spawn('bun', ['run', '--silent', 'dev', '--host', '::1'], {
       cwd: APP_PACKAGE_ROOT,
       env: {
         ...process.env,
@@ -77,7 +77,7 @@ const test = base.extend<{ ephemeral: EphemeralFixture }>({
       await Promise.race([
         (async () => {
           await waitForHttpReady(baseURL, 60_000);
-          await checkCollabSync(port);
+          await checkCollabSync(port, 10_000, '::1');
         })(),
         new Promise<never>((_, reject) => {
           proc.once('error', (err) => reject(err));

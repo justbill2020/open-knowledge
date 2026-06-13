@@ -48,6 +48,7 @@ describe('bootServer — MissingOkConfigError pre-listen check', () => {
     let caught: unknown;
     try {
       await bootServer({
+        host: '127.0.0.1',
         config: TEST_CONFIG,
         contentDir,
         port: 0,
@@ -79,6 +80,7 @@ describe('bootServer — MissingOkConfigError pre-listen check', () => {
     let caught: unknown;
     try {
       await bootServer({
+        host: '127.0.0.1',
         config: TEST_CONFIG,
         contentDir,
         port: 0,
@@ -109,6 +111,7 @@ describe('bootServer — MissingOkConfigError pre-listen check', () => {
     let booted: Awaited<ReturnType<typeof bootServer>> | null = null;
     try {
       booted = await bootServer({
+        host: '127.0.0.1',
         config: TEST_CONFIG,
         contentDir,
         projectDir,
@@ -134,6 +137,7 @@ describe('bootServer — MissingOkConfigError pre-listen check', () => {
     let caught: unknown;
     try {
       await bootServer({
+        host: '127.0.0.1',
         config: TEST_CONFIG,
         contentDir,
         projectDir,
@@ -168,6 +172,7 @@ describe('bootServer — MissingOkConfigError pre-listen check', () => {
     let booted: Awaited<ReturnType<typeof bootServer>> | null = null;
     try {
       booted = await bootServer({
+        host: '127.0.0.1',
         config: TEST_CONFIG,
         contentDir,
         port: 0,
@@ -196,6 +201,7 @@ describe('bootServer — runtime state lives at projectDir, not contentDir', () 
     mkdirSync(contentDir, { recursive: true });
 
     const booted = await bootServer({
+      host: '127.0.0.1',
       config: TEST_CONFIG,
       projectDir,
       contentDir,
@@ -264,6 +270,7 @@ describe('bootServer — idle-shutdown runs full destroy', () => {
     seedOkScaffold(projectDir);
 
     const booted = await bootServer({
+      host: '127.0.0.1',
       config: TEST_CONFIG,
       contentDir: projectDir,
       port: 0,
@@ -297,6 +304,7 @@ describe('bootServer — reactShellDistDir + ui.lock advertisement', () => {
     writeFileSync(resolve(shellDistDir, 'index.html'), '<html>shell</html>', 'utf-8');
 
     const booted = await bootServer({
+      host: '127.0.0.1',
       config: TEST_CONFIG,
       projectDir,
       contentDir: projectDir,
@@ -327,6 +335,7 @@ describe('bootServer — reactShellDistDir + ui.lock advertisement', () => {
     seedOkScaffold(projectDir);
 
     const booted = await bootServer({
+      host: '127.0.0.1',
       config: TEST_CONFIG,
       contentDir: projectDir,
       port: 0,
@@ -366,6 +375,7 @@ describe('bootServer — reactShellDistDir + ui.lock advertisement', () => {
     writeFileSync(resolve(lockDir, 'ui.lock'), JSON.stringify(peerSnapshot), 'utf-8');
 
     const booted = await bootServer({
+      host: '127.0.0.1',
       config: TEST_CONFIG,
       projectDir,
       contentDir: projectDir,
@@ -424,6 +434,7 @@ describe('bootServer — reactShellDistDir + ui.lock advertisement', () => {
     );
 
     const booted = await bootServer({
+      host: '127.0.0.1',
       config: TEST_CONFIG,
       projectDir,
       contentDir: projectDir,
@@ -457,6 +468,7 @@ describe('bootServer — reactShellDistDir + ui.lock advertisement', () => {
     writeFileSync(resolve(shellDistDir, 'index.html'), '<html>shell</html>', 'utf-8');
 
     const booted1 = await bootServer({
+      host: '127.0.0.1',
       config: TEST_CONFIG,
       projectDir,
       contentDir: projectDir,
@@ -474,6 +486,7 @@ describe('bootServer — reactShellDistDir + ui.lock advertisement', () => {
     expect(existsSync(uiLockPath)).toBe(false);
 
     const booted2 = await bootServer({
+      host: '127.0.0.1',
       config: TEST_CONFIG,
       projectDir,
       contentDir: projectDir,
@@ -523,6 +536,7 @@ describe('bootServer — reactShellDistDir end-to-end HTTP shape', () => {
     writeFileSync(resolve(projectDir, 'assets', 'upload.png'), uploadBytes);
 
     const booted = await bootServer({
+      host: '127.0.0.1',
       config: TEST_CONFIG,
       projectDir,
       contentDir: projectDir,
@@ -536,7 +550,7 @@ describe('bootServer — reactShellDistDir end-to-end HTTP shape', () => {
     });
     try {
       await booted.ready;
-      const base = `http://localhost:${booted.port}`;
+      const base = `http://127.0.0.1:${booted.port}`;
 
       const rootRes = await fetch(`${base}/`);
       expect(rootRes.status).toBe(200);
@@ -620,6 +634,7 @@ describe('bootServer — ok.boot OTel span attributes', () => {
     seedOkScaffold(contentDir);
 
     const booted = await bootServer({
+      host: '127.0.0.1',
       config: TEST_CONFIG,
       contentDir,
       port: 0,
@@ -664,6 +679,7 @@ describe('bootServer — ok.boot OTel span attributes', () => {
     seedOkScaffold(wtPath);
 
     const booted = await bootServer({
+      host: '127.0.0.1',
       config: TEST_CONFIG,
       contentDir: wtPath,
       port: 0,
@@ -692,6 +708,7 @@ describe('bootServer — ok.boot OTel span attributes', () => {
     let caught: unknown;
     try {
       await bootServer({
+        host: '127.0.0.1',
         config: TEST_CONFIG,
         contentDir,
         port: 0,
@@ -716,6 +733,7 @@ describe('bootServer — ok.boot OTel span attributes', () => {
     await execFileAsync('git', ['init', '--initial-branch=main', mainDir]);
     seedOkScaffold(mainDir);
     const bootedMain = await bootServer({
+      host: '127.0.0.1',
       config: TEST_CONFIG,
       contentDir: mainDir,
       port: 0,
@@ -746,6 +764,7 @@ describe('bootServer — ok.boot OTel span attributes', () => {
     ]);
     seedOkScaffold(wtPath);
     const bootedLinked = await bootServer({
+      host: '127.0.0.1',
       config: TEST_CONFIG,
       contentDir: wtPath,
       port: 0,

@@ -298,7 +298,7 @@ describe('POST /api/share/construct-url', () => {
         branchesOnOrigin: ['main'],
       });
     });
-    const res = await fetch(`http://localhost:${rig.port}/api/share/construct-url`);
+    const res = await fetch(`http://127.0.0.1:${rig.port}/api/share/construct-url`);
     expect(res.status).toBe(405);
   });
 

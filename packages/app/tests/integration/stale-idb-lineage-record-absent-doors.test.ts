@@ -128,7 +128,7 @@ async function stageStaleRowsAndReseed(opts: {
   storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 }): Promise<void> {
   const { server, docName, filePath, storage } = opts;
-  const poolA = new ProviderPool(3, `ws://localhost:${server.port}/collab`, { storage });
+  const poolA = new ProviderPool(3, `ws://127.0.0.1:${server.port}/collab`, { storage });
   const serverInstanceId = await seedPoolServerInstanceId(server, poolA);
   poolA.open(docName);
   poolA.setActive(docName);
@@ -193,7 +193,7 @@ describe('client-persisted state meets a re-seeded doc lineage (boot-window fres
     expect(envelopeRaw).not.toBeNull();
     expect(envelopeRaw as string).toContain(docName);
 
-    const poolB = new ProviderPool(3, `ws://localhost:${server.port}/collab`, {
+    const poolB = new ProviderPool(3, `ws://127.0.0.1:${server.port}/collab`, {
       storage: sharedStorage,
     });
     cleanups.push(() => poolB.dispose());
@@ -233,7 +233,7 @@ describe('client-persisted state meets a re-seeded doc lineage (record-absent pr
     await stageStaleRowsAndReseed({ server, docName, filePath, storage: storageA });
 
     const { stub: emptyStorage } = makeStubStorage();
-    const poolB = new ProviderPool(3, `ws://localhost:${server.port}/collab`, {
+    const poolB = new ProviderPool(3, `ws://127.0.0.1:${server.port}/collab`, {
       storage: emptyStorage,
     });
     cleanups.push(() => poolB.dispose());
@@ -269,7 +269,7 @@ describe('refusing dead-lineage state is observable (boot-window fresh-pool door
     const capture = captureLineageMismatchWarns();
     cleanups.push(capture.restore);
 
-    const poolB = new ProviderPool(3, `ws://localhost:${server.port}/collab`, {
+    const poolB = new ProviderPool(3, `ws://127.0.0.1:${server.port}/collab`, {
       storage: sharedStorage,
     });
     cleanups.push(() => poolB.dispose());
@@ -310,7 +310,7 @@ describe('refusing dead-lineage state is observable (record-absent profile door)
     cleanups.push(capture.restore);
 
     const { stub: emptyStorage } = makeStubStorage();
-    const poolB = new ProviderPool(3, `ws://localhost:${server.port}/collab`, {
+    const poolB = new ProviderPool(3, `ws://127.0.0.1:${server.port}/collab`, {
       storage: emptyStorage,
     });
     cleanups.push(() => poolB.dispose());

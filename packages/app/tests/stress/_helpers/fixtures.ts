@@ -96,11 +96,11 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       const contentDir = mkdtempSync(join(tmpdir(), `ok-w${workerInfo.workerIndex}-`));
       const viteCacheDir = prepareViteCacheDir(`w${workerInfo.workerIndex}`);
       seedRequiredFixtureFiles(contentDir);
-      const baseURL = `http://localhost:${port}`;
+      const baseURL = `http://127.0.0.1:${port}`;
 
       const serverLog = openServerLog(`w${workerInfo.workerIndex}`);
 
-      const proc = spawn('bun', ['run', '--silent', 'dev'], {
+      const proc = spawn('bun', ['run', '--silent', 'dev', '--host', '127.0.0.1'], {
         cwd: APP_PACKAGE_ROOT,
         env: {
           ...process.env,

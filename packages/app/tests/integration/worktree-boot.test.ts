@@ -28,6 +28,7 @@ describe('bootServer in a linked git worktree (FR2)', () => {
     expect(existsSync(expectedShadowHead)).toBe(false);
 
     const booted = await bootServer({
+      host: '127.0.0.1',
       config: TEST_CONFIG,
       contentDir: handle.worktreePath,
       port: 0,
@@ -53,6 +54,7 @@ describe('bootServer pre-listen check in a linked worktree (FR3)', () => {
     let caught: unknown;
     try {
       await bootServer({
+        host: '127.0.0.1',
         config: TEST_CONFIG,
         contentDir: handle.worktreePath,
         port: 0,
@@ -79,6 +81,7 @@ describe('bootServer pre-listen check in a linked worktree (FR3)', () => {
     let caught: unknown;
     try {
       await bootServer({
+        host: '127.0.0.1',
         config: TEST_CONFIG,
         contentDir: handle.worktreePath,
         port: 0,
@@ -113,6 +116,7 @@ describe('bootServer pre-listen check in a linked worktree (FR3)', () => {
     let booted: Awaited<ReturnType<typeof bootServer>> | null = null;
     try {
       booted = await bootServer({
+        host: '127.0.0.1',
         config: TEST_CONFIG,
         contentDir: handle.worktreePath,
         port: 0,
@@ -159,6 +163,7 @@ describe('bootServer ok.boot span attributes against a real linked worktree', ()
     handle = createLinkedWorktree({ seedOkScaffold: true });
 
     const booted = await bootServer({
+      host: '127.0.0.1',
       config: TEST_CONFIG,
       contentDir: handle.worktreePath,
       port: 0,
@@ -215,6 +220,7 @@ describe('bootServer pre-listen check on main worktree (FR3)', () => {
     let caught: unknown;
     try {
       await bootServer({
+        host: '127.0.0.1',
         config: TEST_CONFIG,
         contentDir,
         port: 0,
@@ -243,6 +249,7 @@ describe('bootServer pre-listen check on main worktree (FR3)', () => {
     let caught: unknown;
     try {
       await bootServer({
+        host: '127.0.0.1',
         config: TEST_CONFIG,
         contentDir,
         port: 0,

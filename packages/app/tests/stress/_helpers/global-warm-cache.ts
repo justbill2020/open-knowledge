@@ -68,7 +68,7 @@ async function buildSeedOnce(key: string): Promise<void> {
   mkdirSync(join(APP_PACKAGE_ROOT, 'node_modules'), { recursive: true });
   const buildDir = mkdtempSync(join(APP_PACKAGE_ROOT, 'node_modules', '.vite-e2e-seed-building-'));
   const log = openServerLog('warm-cache');
-  const proc = spawn('bun', ['run', '--silent', 'dev'], {
+  const proc = spawn('bun', ['run', '--silent', 'dev', '--host', '127.0.0.1'], {
     cwd: APP_PACKAGE_ROOT,
     env: {
       ...process.env,
@@ -84,7 +84,7 @@ async function buildSeedOnce(key: string): Promise<void> {
   });
   let succeeded = false;
   try {
-    await waitForHttpReady(`http://localhost:${port}`, 60_000);
+    await waitForHttpReady(`http://127.0.0.1:${port}`, 60_000);
     const depsDir = join(buildDir, 'deps');
     const metaPath = join(depsDir, '_metadata.json');
     const deadline = Date.now() + OPTIMIZER_SETTLE_BUDGET_MS;
