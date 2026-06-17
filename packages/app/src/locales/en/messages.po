@@ -4071,10 +4071,6 @@ msgstr "Ordered list"
 msgid "Ordered List"
 msgstr "Ordered List"
 
-#: src/components/PublishToGitHubDialog.tsx
-msgid "org"
-msgstr "org"
-
 #: src/components/GraphPanel.tsx
 msgid "Orphan mode"
 msgstr "Orphan mode"
@@ -4245,10 +4241,6 @@ msgstr "Pick a name"
 #: src/components/EmptyEditorState.tsx
 msgid "Pick a starter pack to scaffold folders, templates, and AI-readable rules."
 msgstr "Pick a starter pack to scaffold folders, templates, and AI-readable rules."
-
-#: src/components/PublishToGitHubDialog.tsx
-msgid "Pick an owner"
-msgstr "Pick an owner"
 
 #: src/components/ShareReceiveDialog.tsx
 msgid "Pick the folder where you've cloned it."
@@ -6158,10 +6150,6 @@ msgstr "writing"
 #: src/components/TimelinePanel.tsx
 msgid "yesterday"
 msgstr "yesterday"
-
-#: src/components/PublishToGitHubDialog.tsx
-msgid "you"
-msgstr "you"
 
 #: src/components/TerminalGate.tsx
 msgid "You can also manage this in Settings."

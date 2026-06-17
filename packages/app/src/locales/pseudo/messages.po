@@ -4066,10 +4066,6 @@ msgstr ""
 msgid "Ordered List"
 msgstr ""
 
-#: src/components/PublishToGitHubDialog.tsx
-msgid "org"
-msgstr ""
-
 #: src/components/GraphPanel.tsx
 msgid "Orphan mode"
 msgstr ""
@@ -4239,10 +4235,6 @@ msgstr ""
 
 #: src/components/EmptyEditorState.tsx
 msgid "Pick a starter pack to scaffold folders, templates, and AI-readable rules."
-msgstr ""
-
-#: src/components/PublishToGitHubDialog.tsx
-msgid "Pick an owner"
 msgstr ""
 
 #: src/components/ShareReceiveDialog.tsx
@@ -6152,10 +6144,6 @@ msgstr ""
 
 #: src/components/TimelinePanel.tsx
 msgid "yesterday"
-msgstr ""
-
-#: src/components/PublishToGitHubDialog.tsx
-msgid "you"
 msgstr ""
 
 #: src/components/TerminalGate.tsx

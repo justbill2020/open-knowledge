@@ -129,6 +129,8 @@ mock.module('@/lib/share/publish-wizard', () => ({
   extractFolderBasename: (path: string) => path.split('/').filter(Boolean).at(-1) ?? '',
   fetchPublishNameCheck: fetchPublishNameCheckMock,
   fetchPublishOwners: fetchPublishOwnersMock,
+  pickDefaultOwner: (owners: SharePublishOwner[]) =>
+    owners.find((o) => o.kind === 'org')?.login ?? owners[0]?.login ?? '',
   presentPublishError: () => presentError,
   resolveNameCheckStatus: (_result: unknown, owner: string, name: string) => ({
     kind: 'available' as const,
@@ -212,7 +214,13 @@ describe('PublishToGitHubDialog runtime behavior', () => {
     await renderDialog();
 
     expect(screen.getByRole('dialog', { name: 'Publish to GitHub' })).toBeTruthy();
-    expect(await screen.findByTestId('publish-owner-trigger')).toBeTruthy();
+    expect(await screen.findByTestId('publish-owner-radio')).toBeTruthy();
+    expect(screen.getByTestId('publish-owner-option-docs-team').getAttribute('data-state')).toBe(
+      'checked',
+    );
+    expect(screen.getByTestId('publish-owner-option-alice').getAttribute('data-state')).toBe(
+      'unchecked',
+    );
     expect((screen.getByTestId('publish-name') as HTMLInputElement).value).toBe('my-project');
     expect(screen.getByText('Will be created as')).toBeTruthy();
     expect(screen.getByText('my-project')).toBeTruthy();
@@ -232,6 +240,37 @@ describe('PublishToGitHubDialog runtime behavior', () => {
     expect((screen.getByTestId('publish-submit') as HTMLButtonElement).disabled).toBe(false);
   });
 
+  test('pre-selects the user account when no org is available', async () => {
+    ownersQueue = [{ ok: true, owners: [{ kind: 'user', login: 'alice' }] }];
+    await renderDialog();
+
+    expect(await screen.findByTestId('publish-owner-radio')).toBeTruthy();
+    expect(screen.getByTestId('publish-owner-option-alice').getAttribute('data-state')).toBe(
+      'checked',
+    );
+    await waitForAvailableNameCheck();
+    await userEvent.click(screen.getByTestId('publish-submit'));
+
+    await waitFor(() => expect(submitCalls).toHaveLength(1));
+    expect(submitCalls[0]?.owner).toBe('alice');
+  });
+
+  test('selecting a different owner radio updates the publish payload', async () => {
+    const { onOpenChange } = await renderDialog();
+    await waitForAvailableNameCheck();
+
+    await userEvent.click(screen.getByTestId('publish-owner-option-alice'));
+    expect(screen.getByTestId('publish-owner-option-alice').getAttribute('data-state')).toBe(
+      'checked',
+    );
+    await waitForAvailableNameCheck();
+    await userEvent.click(screen.getByTestId('publish-submit'));
+
+    await waitFor(() => expect(submitCalls).toHaveLength(1));
+    expect(submitCalls[0]?.owner).toBe('alice');
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+  });
+
   test('submits through publish helpers, shows success URL, copies from a fresh button click, and Done closes', async () => {
     const { onOpenChange } = await renderDialog();
     await waitForAvailableNameCheck();
@@ -246,7 +285,7 @@ describe('PublishToGitHubDialog runtime behavior', () => {
       {
         description: 'Internal docs',
         name: 'my-project',
-        owner: 'alice',
+        owner: 'docs-team',
         visibility: 'private',
       },
     ]);

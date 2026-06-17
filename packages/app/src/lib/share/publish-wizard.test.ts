@@ -1,10 +1,12 @@
 import { describe, expect, mock, test } from 'bun:test';
+import type { SharePublishOwner } from '@inkeep/open-knowledge-core';
 import {
   buildSamlSsoAuthorizeUrl,
   canSubmitPublish,
   extractFolderBasename,
   fetchPublishNameCheck,
   fetchPublishOwners,
+  pickDefaultOwner,
   presentPublishError,
   resolveNameCheckStatus,
   sanitizeRepoName,
@@ -58,6 +60,28 @@ describe('extractFolderBasename', () => {
 
   test('no-separator input returns the input unchanged', () => {
     expect(extractFolderBasename('foo')).toBe('foo');
+  });
+});
+
+describe('pickDefaultOwner', () => {
+  const user: SharePublishOwner = { login: 'alice', kind: 'user' };
+  const orgA: SharePublishOwner = { login: 'docs-team', kind: 'org' };
+  const orgB: SharePublishOwner = { login: 'platform', kind: 'org' };
+
+  test('prefers the first org over the user account', () => {
+    expect(pickDefaultOwner([user, orgA, orgB])).toBe('docs-team');
+  });
+
+  test('falls back to the user account when there is no org', () => {
+    expect(pickDefaultOwner([user])).toBe('alice');
+  });
+
+  test('returns the first entry when somehow ordered with no org', () => {
+    expect(pickDefaultOwner([orgA, orgB])).toBe('docs-team');
+  });
+
+  test('empty list yields empty string', () => {
+    expect(pickDefaultOwner([])).toBe('');
   });
 });
 

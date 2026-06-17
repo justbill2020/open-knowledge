@@ -27,6 +27,11 @@ export function sanitizeRepoName(input: string): string {
 
 export { extractFolderBasename } from '@/lib/path-utils';
 
+export function pickDefaultOwner(owners: SharePublishOwner[]): string {
+  const firstOrg = owners.find((o) => o.kind === 'org');
+  return firstOrg?.login ?? owners[0]?.login ?? '';
+}
+
 export function buildSamlSsoAuthorizeUrl(orgLogin: string): string {
   return `https://github.com/orgs/${encodeURIComponent(orgLogin)}/policies/applications`;
 }

@@ -308,7 +308,6 @@
     "8TLE9g": [
       "Read-only copy of a MirrorSource block from another doc. Edit at the source — every Mirror reflects the change live."
     ],
-    "8XQ7Ib": ["Pick an owner"],
     "8XQRON": ["Loading repositories"],
     "8_brI5": ["Name is required"],
     "8cS0nH": ["Config sharing unavailable: ", ["0"], "."],
@@ -1114,7 +1113,6 @@
       "."
     ],
     "_K2CvV": ["Template"],
-    "_N2eSU": ["org"],
     "_PACVa": ["Release notes"],
     "_QwkMu": ["No matching paths"],
     "_TDESN": ["Network error - ", ["kind"], " \"", ["createdPath"], "\" still exists on disk"],
@@ -1156,7 +1154,6 @@
     "aiArms": ["We couldn't clone this repository."],
     "ajz9F8": ["Couldn't load conflict content for ", ["filePath"], ". Try reloading the page."],
     "aoa6xA": ["network error (is `ok ui` running?)"],
-    "av_PD9": ["you"],
     "b3Thhd": ["Upload failed"],
     "b4AQFK": ["Open activity panel for ", ["tooltipName"], ", editing ", ["realCurrentDoc"]],
     "b4itZn": ["Working"],
