@@ -104,6 +104,7 @@ export interface WatcherHandle {
   getFileIndexGeneration: () => number;
   getFolderIndex: () => ReadonlyMap<string, FolderIndexEntry>;
   getAliasMap: () => ReadonlyMap<string, string>;
+  getFolderAliasIndex: () => ReadonlyMap<string, string>;
   mutateFileIndex: (event: DiskEvent) => void;
   pruneFileIndexNowExcluded: () => number;
   pruneFolderIndexNowExcluded: () => number;
@@ -441,6 +442,7 @@ async function seedLastKnownHashes(
   fileIndex: Map<string, FileIndexEntry>,
   folderIndex: Map<string, FolderIndexEntry>,
   aliasMap: Map<string, string>,
+  folderAliasIndex: Map<string, string>,
   visitedInodes?: Set<number>,
 ): Promise<void> {
   const visited = visitedInodes ?? new Set<number>();
@@ -489,6 +491,14 @@ async function seedLastKnownHashes(
               if (existing && !existing.aliases.includes(aliasDocName)) {
                 existing.aliases.push(aliasDocName);
               }
+            } else if (canonStat.isDirectory()) {
+              const relPath = contentRelativePath(contentDir, fullPath);
+              if (!contentFilter || (relPath && !contentFilter.isDirExcluded(relPath))) {
+                folderAliasIndex.set(
+                  pathToDocName(fullPath, contentDir),
+                  pathToDocName(canonical, contentDir),
+                );
+              }
             }
             continue;
           }
@@ -499,7 +509,10 @@ async function seedLastKnownHashes(
             if (contentFilter) {
               if (!relPath || contentFilter.isDirExcluded(relPath)) continue;
             }
-            upsertFolderIndexEntry(folderIndex, contentDir, fullPath, canonStat, canonical);
+            folderAliasIndex.set(
+              pathToDocName(fullPath, contentDir),
+              pathToDocName(canonical, contentDir),
+            );
             await seedLastKnownHashes(
               canonical,
               contentDir,
@@ -507,6 +520,7 @@ async function seedLastKnownHashes(
               fileIndex,
               folderIndex,
               aliasMap,
+              folderAliasIndex,
               visited,
             );
           } else if (canonStat.isFile() && isSupportedDocFile(entry.name)) {
@@ -578,6 +592,7 @@ async function seedLastKnownHashes(
           fileIndex,
           folderIndex,
           aliasMap,
+          folderAliasIndex,
           visited,
         );
       } else if (lst.isFile() && isSupportedDocFile(entry.name)) {
@@ -1210,6 +1225,7 @@ export async function startWatcher(
   const fileIndex = new Map<string, FileIndexEntry>();
   const folderIndex = new Map<string, FolderIndexEntry>();
   const aliasMap = new Map<string, string>();
+  const folderAliasIndex = new Map<string, string>();
 
   let fileIndexGeneration = 0;
   let cachedMarkdownView: ReadonlyMap<string, FileIndexEntry> | null = null;
@@ -1225,6 +1241,7 @@ export async function startWatcher(
     fileIndex,
     folderIndex,
     aliasMap,
+    folderAliasIndex,
   );
   bumpFileIndexGeneration();
 
@@ -1293,6 +1310,9 @@ export async function startWatcher(
     getAliasMap() {
       return aliasMap;
     },
+    getFolderAliasIndex() {
+      return folderAliasIndex;
+    },
     mutateFileIndex(event) {
       updateFileIndex(event, fileIndex);
       bumpFileIndexGeneration();
@@ -1333,6 +1353,7 @@ export async function startWatcher(
         fileIndex,
         folderIndex,
         aliasMap,
+        folderAliasIndex,
       );
       bumpFileIndexGeneration();
     },

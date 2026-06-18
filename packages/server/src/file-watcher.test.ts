@@ -1118,6 +1118,37 @@ describe('startWatcher symlink handling', () => {
     }
   });
 
+  test('records a folder-alias edge for a symlinked directory without materializing its subtree', async () => {
+    const canonicalDir = resolve(contentDir, 'canonical');
+    mkdirSync(canonicalDir, { recursive: true });
+    writeFileSync(resolve(canonicalDir, 'note.md'), '# Note\n');
+    mkdirSync(resolve(canonicalDir, 'sub'), { recursive: true });
+    writeFileSync(resolve(canonicalDir, 'sub', 'deep.md'), '# Deep\n');
+    symlinkSync(canonicalDir, resolve(contentDir, 'aliasA'));
+    symlinkSync(canonicalDir, resolve(contentDir, 'aliasB'));
+
+    const handle = await startWatcher(contentDir, async () => {});
+    try {
+      const folderAliasIndex = handle.getFolderAliasIndex();
+      expect(folderAliasIndex.get('aliasA')).toBe('canonical');
+      expect(folderAliasIndex.get('aliasB')).toBe('canonical');
+
+      const index = handle.getFileIndex();
+      expect(index.has('canonical/note')).toBe(true);
+      expect(index.has('canonical/sub/deep')).toBe(true);
+      expect(index.has('aliasA/note')).toBe(false);
+      expect(index.has('aliasB/sub/deep')).toBe(false);
+
+      const folderIndex = handle.getFolderIndex();
+      expect(folderIndex.has('canonical')).toBe(true);
+      expect(folderIndex.has('canonical/sub')).toBe(true);
+      expect(folderIndex.has('aliasA')).toBe(false);
+      expect(folderIndex.has('aliasB')).toBe(false);
+    } finally {
+      await handle.unsubscribe();
+    }
+  });
+
   test('skips broken symlinks during startup walk', async () => {
     const linkPath = resolve(contentDir, 'broken.md');
     symlinkSync(resolve(contentDir, 'nonexistent.md'), linkPath);

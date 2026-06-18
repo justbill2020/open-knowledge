@@ -124,6 +124,7 @@ import { selectTrashConfirmCopy, trashTargetDisplayName } from '@/components/fil
 import {
   type DocumentEntry,
   type FileEntry,
+  type FolderEntry,
   filterVisibleEntries,
   isAssetEntry,
   isDocumentEntry,
@@ -1425,22 +1426,36 @@ export function FileTree({ ref }: { ref?: Ref<FileTreeHandle | null> }) {
     },
     onSelectionChange: (selectedPaths) => handleSelectionChangeRef.current(selectedPaths),
     renderRowDecoration: ({ item }) => {
-      if (item.kind !== 'file') return null;
-      const doc = documentsRef.current.find(
-        (entry): entry is DocumentEntry =>
-          isDocumentEntry(entry) && docNameToTreePath(entry.docName, entry.docExt) === item.path,
+      if (item.kind === 'file') {
+        const doc = documentsRef.current.find(
+          (entry): entry is DocumentEntry =>
+            isDocumentEntry(entry) && docNameToTreePath(entry.docName, entry.docExt) === item.path,
+        );
+        if (doc?.isSymlink) {
+          const targetPath = doc.targetPath;
+          return {
+            icon: LINK_DECORATION_ICON_ID,
+            title: targetPath ? t`Symlink to ${targetPath}` : t`Symlink`,
+          };
+        }
+        if (isAgentTreePath(item.path)) {
+          return {
+            icon: AGENT_DECORATION_ICON_ID,
+            title: t`Agent configuration file`,
+          };
+        }
+        return null;
+      }
+      const folder = documentsRef.current.find(
+        (entry): entry is FolderEntry =>
+          isFolderEntry(entry) &&
+          folderPathToTreeDirectoryPath(entry.path) === folderPathToTreeDirectoryPath(item.path),
       );
-      if (doc?.isSymlink) {
-        const targetPath = doc.targetPath;
+      if (folder?.isSymlink) {
+        const targetPath = folder.targetPath;
         return {
           icon: LINK_DECORATION_ICON_ID,
           title: targetPath ? t`Symlink to ${targetPath}` : t`Symlink`,
-        };
-      }
-      if (isAgentTreePath(item.path)) {
-        return {
-          icon: AGENT_DECORATION_ICON_ID,
-          title: t`Agent configuration file`,
         };
       }
       return null;

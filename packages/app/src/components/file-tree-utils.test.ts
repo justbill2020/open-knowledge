@@ -238,7 +238,41 @@ describe('toFileEntries', () => {
         modified,
         referencedBy: ['brain/note'],
       },
-      { kind: 'folder', path: 'team', size: 0, modified, hasChildren: true },
+      {
+        kind: 'folder',
+        path: 'team',
+        size: 0,
+        modified,
+        hasChildren: true,
+        isSymlink: false,
+        targetPath: null,
+      },
+    ]);
+  });
+
+  test('carries isSymlink + targetPath through for a symlinked folder', () => {
+    const wire = [
+      DocumentListEntrySchema.parse({
+        kind: 'folder',
+        path: 'alias-A',
+        size: 0,
+        modified,
+        hasChildren: true,
+        isSymlink: true,
+        canonicalDocName: 'canonical-folder',
+        targetPath: 'canonical-folder',
+      }),
+    ];
+    expect(toFileEntries(wire)).toEqual([
+      {
+        kind: 'folder',
+        path: 'alias-A',
+        size: 0,
+        modified,
+        hasChildren: true,
+        isSymlink: true,
+        targetPath: 'canonical-folder',
+      },
     ]);
   });
 

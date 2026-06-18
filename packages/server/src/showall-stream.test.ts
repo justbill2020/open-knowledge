@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, spyOn, test } from 'bun:test';
-import { chmodSync, mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ASSET_EXTENSIONS, type DocumentListEntry } from '@inkeep/open-knowledge-core';
@@ -328,5 +335,76 @@ describe('streamShowAllEntries — .base/.canvas mediaKind', () => {
   test('.base and .canvas are absent from ASSET_EXTENSIONS (serve allowlist unchanged)', () => {
     expect(ASSET_EXTENSIONS.has('base')).toBe(false);
     expect(ASSET_EXTENSIONS.has('canvas')).toBe(false);
+  });
+});
+
+describe('streamShowAllEntries — symlinked directories', () => {
+  function makeSymlinkDirFixture(): string {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'ok-showall-symdir-')));
+    const canonical = join(dir, 'canonical-folder');
+    mkdirSync(canonical);
+    writeFileSync(join(canonical, 'note-one.md'), '# one\n');
+    mkdirSync(join(canonical, 'nested'));
+    writeFileSync(join(canonical, 'nested', 'deep.md'), '# deep\n');
+    symlinkSync(canonical, join(dir, 'alias-A'));
+    symlinkSync(canonical, join(dir, 'alias-B'));
+    return dir;
+  }
+
+  function pathsOf(entries: DocumentListEntry[]): string[] {
+    return entries.map((e) => (e.kind === 'folder' ? (e.path ?? '') : (e.docName ?? e.path ?? '')));
+  }
+
+  test('emits each symlinked directory as a folder without recursing into it', async () => {
+    const dir = makeSymlinkDirFixture();
+    const { entries } = await drain(streamShowAllEntries(streamOptsFor(dir, 50_000)));
+    const folders = new Map(entries.filter((e) => e.kind === 'folder').map((e) => [e.path, e]));
+    for (const alias of ['alias-A', 'alias-B']) {
+      const f = folders.get(alias);
+      expect(f).toBeDefined();
+      expect(f?.isSymlink).toBe(true);
+      expect(f?.targetPath).toBe('canonical-folder');
+      expect(f?.hasChildren).toBe(true);
+    }
+    const paths = pathsOf(entries);
+    expect(paths).toContain('canonical-folder/note-one');
+    expect(paths).toContain('canonical-folder/nested/deep');
+    expect(paths.some((p) => p.startsWith('alias-A/'))).toBe(false);
+    expect(paths.some((p) => p.startsWith('alias-B/'))).toBe(false);
+  });
+
+  test('expanding a symlinked directory lists the canonical children under the alias prefix', async () => {
+    const dir = makeSymlinkDirFixture();
+    const { entries } = await drain(
+      streamShowAllEntries({ ...streamOptsFor(dir, 50_000), dirFilter: 'alias-A' }),
+    );
+    const paths = pathsOf(entries);
+    expect(paths).toContain('alias-A/note-one');
+    expect(paths).toContain('alias-A/nested');
+  });
+
+  test('refuses a symlinked directory whose target escapes contentDir', async () => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'ok-showall-symesc-')));
+    const outside = realpathSync(mkdtempSync(join(tmpdir(), 'ok-showall-outside-')));
+    writeFileSync(join(outside, 'secret.md'), '# secret\n');
+    symlinkSync(outside, join(dir, 'escape'));
+    const { entries } = await drain(streamShowAllEntries(streamOptsFor(dir, 50_000)));
+    const paths = pathsOf(entries);
+    expect(paths).not.toContain('escape');
+    expect(paths.some((p) => p.includes('secret'))).toBe(false);
+  });
+
+  test('does not infinitely recurse on cyclic symlinked directories', async () => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'ok-showall-symcycle-')));
+    mkdirSync(join(dir, 'A'));
+    mkdirSync(join(dir, 'B'));
+    writeFileSync(join(dir, 'A', 'a.md'), '# a\n');
+    writeFileSync(join(dir, 'B', 'b.md'), '# b\n');
+    symlinkSync(join(dir, 'B'), join(dir, 'A', 'to-b'));
+    symlinkSync(join(dir, 'A'), join(dir, 'B', 'to-a'));
+    const { entries, truncated } = await drain(streamShowAllEntries(streamOptsFor(dir, 50_000)));
+    const toB = entries.find((e) => e.kind === 'folder' && e.path === 'A/to-b');
+    expect(toB?.isSymlink).toBe(true);
+    expect(truncated).toBe(false);
   });
 });

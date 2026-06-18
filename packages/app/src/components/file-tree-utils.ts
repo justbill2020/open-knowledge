@@ -21,12 +21,14 @@ interface AssetEntry {
   referencedBy?: string[];
 }
 
-interface FolderEntry {
+export interface FolderEntry {
   kind: 'folder';
   path: string;
   size: number;
   modified: string;
   hasChildren?: boolean;
+  isSymlink?: boolean;
+  targetPath?: string | null;
 }
 
 export type FileEntry = DocumentEntry | AssetEntry | FolderEntry;
@@ -107,6 +109,8 @@ export function toFileEntries(entries: readonly DocumentListEntry[]): FileEntry[
           size: entry.size,
           modified: entry.modified,
           hasChildren: entry.hasChildren,
+          isSymlink: entry.isSymlink,
+          targetPath: entry.targetPath,
         });
         break;
       default: {

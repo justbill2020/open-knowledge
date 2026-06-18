@@ -1051,6 +1051,85 @@ export async function* streamShowAllEntries(
           continue;
         }
 
+        if (entry.isSymbolicLink()) {
+          const linkAbs = `${absDir}/${entry.name}`;
+          let canonical: string;
+          try {
+            canonical = await realpath(linkAbs);
+          } catch (err) {
+            console.warn(`[document-list][showAll] symlink realpath failed for ${linkAbs}:`, err);
+            continue;
+          }
+          if (!isInsideContentDir(canonical)) {
+            console.warn(
+              `[document-list][showAll] refusing symlink-escape ${linkAbs} -> ${canonical}`,
+            );
+            continue;
+          }
+          let canonStat: import('node:fs').Stats;
+          try {
+            canonStat = await stat(canonical);
+          } catch (err) {
+            console.warn(
+              `[document-list][showAll] symlink target stat failed for ${linkAbs}:`,
+              err,
+            );
+            continue;
+          }
+          const targetRel = relative(contentDir, canonical);
+          if (canonStat.isDirectory()) {
+            if (contentFilter.isDirExcluded(relPath, { bypassFilters: true })) continue;
+            if (!passesDirFilter(relPath)) continue;
+            emitted += 1;
+            yield {
+              kind: 'folder',
+              path: relPath,
+              size: 0,
+              modified: canonStat.mtime.toISOString(),
+              docExt: '.md',
+              isSymlink: true,
+              canonicalDocName: targetRel,
+              targetPath: targetRel,
+              hasChildren: await probeHasChildren(canonical, relPath),
+            };
+            continue;
+          }
+          if (!canonStat.isFile()) continue;
+          if (contentFilter.isExcluded(relPath, { bypassFilters: true })) continue;
+          if (!passesDirFilter(relPath)) continue;
+          emitted += 1;
+          if (isSupportedDocFile(entry.name)) {
+            const docName = relPath.replace(/\.(md|mdx)$/i, '');
+            yield {
+              kind: 'document',
+              docName,
+              docExt: getDocExtension(docName),
+              size: canonStat.size,
+              modified: canonStat.mtime.toISOString(),
+              isSymlink: true,
+              canonicalDocName: targetRel.replace(/\.(md|mdx)$/i, ''),
+              targetPath: targetRel,
+            };
+          } else {
+            const assetExt = synthesizeShowAllAssetExt(entry.name);
+            yield {
+              kind: 'asset',
+              docName: relPath,
+              docExt: assetExt,
+              path: relPath,
+              assetExt,
+              mediaKind: mediaKindForSidebarAssetExtension(assetExt),
+              referencedBy: [],
+              size: canonStat.size,
+              modified: canonStat.mtime.toISOString(),
+              isSymlink: true,
+              canonicalDocName: null,
+              targetPath: targetRel,
+            };
+          }
+          continue;
+        }
+
         if (!entry.isFile()) continue;
         if (contentFilter.isExcluded(relPath, { bypassFilters: true })) continue;
         if (!passesDirFilter(relPath)) continue;
@@ -1580,6 +1659,7 @@ export interface ApiExtensionOptions {
   getFolderIndex?: () => ReadonlyMap<string, FolderIndexEntry>;
   onReferencedAssetsCacheInvalidator?: (invalidate: () => void) => void;
   getAliasMap?: () => ReadonlyMap<string, string>;
+  getFolderAliasIndex?: () => ReadonlyMap<string, string>;
   rescanFiles?: () => void | Promise<void>;
   enableTestRoutes?: boolean;
   shadowRef?: ShadowRef;
@@ -1673,6 +1753,7 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
     getFolderIndex,
     onReferencedAssetsCacheInvalidator,
     getAliasMap,
+    getFolderAliasIndex,
     rescanFiles,
     enableTestRoutes = false,
     shadowRef,
@@ -4082,6 +4163,97 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
               isSymlink: true,
               canonicalDocName: docName,
               targetPath: targetRelPath,
+            });
+          }
+        }
+
+        const folderAliasIndex = getFolderAliasIndex?.() ?? new Map<string, string>();
+        if (folderAliasIndex.size > 0) {
+          const passesDirFilter = (p: string): boolean =>
+            !dir || p === dir || p.startsWith(`${dir}/`);
+          const aliasesByCanonical = new Map<string, string[]>();
+          for (const [aliasPrefix, canonicalPrefix] of folderAliasIndex) {
+            const arr = aliasesByCanonical.get(canonicalPrefix);
+            if (arr) arr.push(aliasPrefix);
+            else aliasesByCanonical.set(canonicalPrefix, [aliasPrefix]);
+          }
+          for (const [canonicalPrefix, aliasPrefixes] of aliasesByCanonical) {
+            const canonRoot = folderIndex.get(canonicalPrefix);
+            const rootTarget = canonRoot
+              ? relative(contentDir, canonRoot.canonicalPath)
+              : canonicalPrefix;
+            for (const aliasPrefix of aliasPrefixes) {
+              if (!passesDirFilter(aliasPrefix)) continue;
+              documents.push({
+                kind: 'folder',
+                path: aliasPrefix,
+                size: 0,
+                modified: canonRoot?.modified ?? '1970-01-01T00:00:00.000Z',
+                docExt: '.md',
+                isSymlink: true,
+                canonicalDocName: canonicalPrefix,
+                targetPath: rootTarget,
+              });
+            }
+          }
+          const projectChild = (name: string, emit: (aliasName: string) => void): void => {
+            for (
+              let slash = name.indexOf('/');
+              slash !== -1;
+              slash = name.indexOf('/', slash + 1)
+            ) {
+              const aliasPrefixes = aliasesByCanonical.get(name.slice(0, slash));
+              if (!aliasPrefixes) continue;
+              const rest = name.slice(slash);
+              for (const aliasPrefix of aliasPrefixes) {
+                const aliasName = `${aliasPrefix}${rest}`;
+                if (passesDirFilter(aliasName)) emit(aliasName);
+              }
+            }
+          };
+          for (const [folderPath, fEntry] of folderIndex) {
+            projectChild(folderPath, (aliasName) => {
+              documents.push({
+                kind: 'folder',
+                path: aliasName,
+                size: 0,
+                modified: fEntry.modified,
+                docExt: '.md',
+                isSymlink: true,
+                canonicalDocName: folderPath,
+                targetPath: relative(contentDir, fEntry.canonicalPath),
+              });
+            });
+          }
+          for (const [docName, dEntry] of allFiles) {
+            projectChild(docName, (aliasName) => {
+              const targetRelPath = relative(contentDir, dEntry.canonicalPath);
+              if (dEntry.kind === 'markdown') {
+                documents.push({
+                  kind: 'document',
+                  docName: aliasName,
+                  docExt: getDocExtension(docName),
+                  size: dEntry.size,
+                  modified: dEntry.modified,
+                  isSymlink: true,
+                  canonicalDocName: docName,
+                  targetPath: targetRelPath,
+                });
+              } else {
+                const assetExt = synthesizeShowAllAssetExt(aliasName);
+                documents.push({
+                  kind: 'file',
+                  docName: aliasName,
+                  path: aliasName,
+                  docExt: `.${assetExt}`,
+                  assetExt,
+                  size: dEntry.size,
+                  modified: dEntry.modified,
+                  isSymlink: true,
+                  canonicalDocName: docName,
+                  targetPath: targetRelPath,
+                });
+              }
             });
           }
         }

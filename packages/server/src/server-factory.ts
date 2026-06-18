@@ -687,6 +687,7 @@ export function createServer(options: ServerOptions): ServerInstance {
       mutateFileIndex: (event) => watcher?.mutateFileIndex(event),
       getFolderIndex: () => (watcher ? watcher.getFolderIndex() : new Map()),
       getAliasMap: () => (watcher ? watcher.getAliasMap() : new Map()),
+      getFolderAliasIndex: () => (watcher ? watcher.getFolderAliasIndex() : new Map()),
       rescanFiles: () => watcher?.rescanFromDisk(),
       enableTestRoutes,
       shadowRef,
