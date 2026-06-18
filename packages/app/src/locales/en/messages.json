@@ -185,6 +185,7 @@
       ["path"],
       ". Agents that reference this template by name will fail until it's recreated or replaced by one in a parent folder."
     ],
+    "5OqaJi": ["Enter a project name"],
     "5QGTaA": ["Could not copy relative path"],
     "5SwVv1": ["Not installed"],
     "5Tk8Fb": ["Loading files"],
@@ -282,6 +283,11 @@
     "7PNNNs": ["This sends content off your machine"],
     "7PzzBU": ["User"],
     "7_bFEL": ["Drag ", ["patternText"], " to reorder"],
+    "7apDiJ": [
+      "A folder named <0>",
+      ["sanitized"],
+      "</0> already has files here. Pick a different name."
+    ],
     "7d1a0d": ["Public"],
     "7hctf2": ["Describe the project you want to create"],
     "7kdoVR": ["Open the Open with AI menu for the current editor selection."],
@@ -289,7 +295,6 @@
       "Open Knowledge is using a GitHub account provided by the gh CLI. There's no separate Open Knowledge credential to disconnect."
     ],
     "7qRHf0": ["Install for Claude Chat & Cowork"],
-    "7wPFtg": ["Please select a folder"],
     "80c4-P": ["Code copied to clipboard"],
     "81H_23": ["Add properties"],
     "881Uwh": ["Delete selected table"],
@@ -328,6 +333,7 @@
     "8eW0WQ": ["No matching repositories."],
     "8fRyLo": ["Invalid patch payload"],
     "8fc_3j": ["Protected branch — cannot push"],
+    "8m8diM": ["No location selected. Use Browse to choose a folder."],
     "8tjQCz": ["Explore"],
     "8uAWix": [
       "This template lives in a parent folder — deleting it affects every folder beneath it that doesn't define its own version."
@@ -633,9 +639,6 @@
     "JLUTgi": ["No tags yet — author `#tagname` in any doc to populate the index."],
     "JLzQi_": ["Close ", ["accessibleLabel"]],
     "JOcPqH": ["Bring a remote repository onto this machine."],
-    "JUamR6": [
-      "This name has no characters that are safe for a folder identifier. Try a name with at least one letter or number."
-    ],
     "JWsZlx": ["Open a project to edit."],
     "JZ8cO6": ["Light, dark, or follow the OS."],
     "Jejur6": ["Couldn't load document"],
@@ -756,7 +759,6 @@
     "NRSLBe": [["diffMin"], "m ago"],
     "NSnIUP": ["Two-page (even)"],
     "NUr4kz": ["A reusable starting point for new documents in this folder."],
-    "NYUhy5": ["Subfolder name"],
     "N_7kkF": [
       "Read through this codebase and draft a technical spec for the most complex module: an overview, the architecture, key files, and open questions, all linked from a specs index page."
     ],
@@ -808,6 +810,7 @@
     "OuY8t9": ["Open in current branch"],
     "OvEjsP": ["Copying..."],
     "Oxyd5f": ["Pick a name"],
+    "OyIC0Q": ["Project name"],
     "P-ye9o": ["Could not open folder picker"],
     "P3NS4G": ["Pattern syntax error (line ", ["lineNumber"], "): ", ["message"]],
     "P3hnm0": ["File too large to open"],
@@ -1128,6 +1131,7 @@
     ],
     "_K2CvV": ["Template"],
     "_PACVa": ["Release notes"],
+    "_PBJRl": ["Add at least one letter or number."],
     "_QwkMu": ["No matching paths"],
     "_TDESN": ["Network error - ", ["kind"], " \"", ["createdPath"], "\" still exists on disk"],
     "_TF8ep": ["Failed to render PDF"],
@@ -1195,11 +1199,6 @@
     "c5rF4v": ["What is this knowledge base for?"],
     "c863eW": ["Could not switch to ", ["shareBranch"], ". Try switching manually."],
     "c8iK2Y": ["No templates found."],
-    "cBbVqQ": [
-      "The folder name <0>",
-      ["rawName"],
-      "</0> can't be used as a project identifier — it has no characters left after sanitization. Click Browse to pick a folder whose name contains at least one alphanumeric character."
-    ],
     "cEoyWz": ["Add item to ", ["keyName"]],
     "cF9DyA": ["Reconnecting after server restart"],
     "cIptmH": ["In the Claude Desktop App"],
@@ -1211,6 +1210,7 @@
       ["conflictCount", "plural", { "one": ["#", " conflict"], "other": ["#", " conflicts"] }]
     ],
     "cUk6TF": ["Sync failed — check the server logs for details."],
+    "cV7LOw": ["Team Wiki"],
     "cZGNlb": ["Add another pattern"],
     "cZI5AL": ["OK Desktop"],
     "cZ_8zB": ["Stays on this computer."],
@@ -1327,7 +1327,6 @@
     "gp3I7-": ["Before syncing, set your identity for git commits:"],
     "gtEbeW": ["Highlight"],
     "h06R3C": ["No pages are missing outgoing graph links."],
-    "h29Sd6": ["Select or create a folder for your new project"],
     "h6EvY-": [
       "This will replace the current document content with the version from <0>",
       ["relative"],
@@ -1346,7 +1345,6 @@
     "hDoLrm": ["Remove ", ["projectName"], " from recent projects"],
     "hGmuTc": ["Docs tagged #", ["tagDocsName"]],
     "hHMv6l": ["Delete block"],
-    "hJu2pH": ["This folder already has files. Add a name to create a new subfolder inside it."],
     "hSBIG-": ["A title, description, tags — anything that describes this folder."],
     "hSySVc": ["Install handoff failed: ", ["msg"]],
     "hXUWyd": ["Value is required"],
@@ -1375,6 +1373,7 @@
     "iEYxO4": ["Show thumbnails"],
     "iGCs04": ["No templates available"],
     "iH8pgl": ["Back"],
+    "iHAJDj": ["Resolving default location"],
     "iKSP5j": ["Word wrap"],
     "iMkWoF": ["Turn on"],
     "iNFKkm": ["No diff."],
@@ -1442,6 +1441,7 @@
     ],
     "kYL1lH": ["Agent activity"],
     "k_pade": ["Config sharing is now shared. Commit the OK files to share with your team."],
+    "k_yIIc": ["Will be created at: <0>", ["targetPreview"], "</0>"],
     "kdzzOK": ["Off — search ranks by keyword only. No content leaves this computer."],
     "keNFEd": ["Set identity"],
     "kj9pAE": ["Creating page"],
@@ -1734,11 +1734,6 @@
     "t18QYR": ["Unpin ", ["accessibleLabel"]],
     "t2TkQ3": ["Sync paused — resolve conflicts to resume."],
     "tAPZEx": ["Below"],
-    "tCelbM": [
-      "A folder named <0>",
-      ["sanitized"],
-      "</0> already has files at this location. Pick a different name."
-    ],
     "tP5DDk": ["Apply link"],
     "tUvUfp": ["Use a folder you already have."],
     "tW_yvQ": ["Expand ", ["docName"]],
@@ -1921,13 +1916,6 @@
     "yzGPkm": ["Expand graph"],
     "z0a2EA": ["Diagram from Mermaid source — flowchart, sequence, class, state, ER, gantt, pie."],
     "z1uNN0": ["No emoji found."],
-    "z2G3EK": [
-      "<0>",
-      ["rawName"],
-      "</0> has characters unsafe for the on-disk identifier, so the project will be created as <1>",
-      ["sanitized"],
-      "</1>. Click Browse to pick a safer name."
-    ],
     "z2JdQ-": ["Config sharing unchanged — see details below."],
     "z5pqI8": ["Cannot upload: no document is open"],
     "z60Lgn": [

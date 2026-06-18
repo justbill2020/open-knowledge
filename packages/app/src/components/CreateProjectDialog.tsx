@@ -64,14 +64,11 @@ type CreateNewError =
   | { reason: 'discovery-failed'; message: string }
   | { reason: 'unknown'; message: string };
 
-type _CreateNewReasonDriftPin =
-  | (CreateNewProjectFailureReason extends Exclude<CreateNewError['reason'], 'unknown'>
-      ? true
-      : false)
-  | (Exclude<CreateNewError['reason'], 'unknown'> extends CreateNewProjectFailureReason
-      ? true
-      : false);
-const _CREATE_NEW_REASON_DRIFT_PIN: _CreateNewReasonDriftPin = true;
+type _Equals<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+const _CREATE_NEW_REASON_DRIFT_PIN: _Equals<
+  CreateNewProjectFailureReason,
+  Exclude<CreateNewError['reason'], 'unknown'>
+> = true;
 void _CREATE_NEW_REASON_DRIFT_PIN;
 
 interface CreateProjectDialogProps {
@@ -91,19 +88,6 @@ export function basenamePreview(path: string): string {
   if (path === '') return '';
   const segments = path.split(/[/\\]/).filter(Boolean);
   return segments.length > 0 ? (segments[segments.length - 1] ?? path) : path;
-}
-
-export function dirnamePreview(path: string): string {
-  if (path === '') return '';
-  const trimmed = path.replace(/[/\\]+$/, '');
-  if (trimmed === '') return '';
-  const sepMatch = trimmed.match(/[/\\][^/\\]+$/);
-  if (sepMatch === null) return '';
-  const cutAt = trimmed.length - sepMatch[0].length;
-  if (cutAt === 0) {
-    return trimmed[0] ?? '';
-  }
-  return trimmed.slice(0, cutAt);
 }
 
 export function computeCascade(input: {
@@ -162,8 +146,12 @@ function errorCopy(err: CreateNewError): MessageDescriptor {
 export function CreateProjectDialog({ open, onOpenChange, bridge }: CreateProjectDialogProps) {
   const { t } = useLingui();
   const formId = useId();
-  const [picked, setPicked] = useState('');
-  const [defaultPath, setDefaultPath] = useState('');
+  const nameInputId = useId();
+  const captionId = useId();
+  const nameErrorId = useId();
+  const [location, setLocation] = useState('');
+  const [locationResolving, setLocationResolving] = useState(false);
+  const [name, setName] = useState('');
   const [editorIds, setEditorIds] = useState<ReadonlySet<OkMcpWiringEditorId>>(
     () => new Set(ALL_EDITOR_IDS),
   );
@@ -175,13 +163,11 @@ export function CreateProjectDialog({ open, onOpenChange, bridge }: CreateProjec
   const [submitError, setSubmitError] = useState<CreateNewError | null>(null);
   const [removeGitState, setRemoveGitState] = useState<RemoveGitState>({ kind: 'idle' });
   const [probeNonce, setProbeNonce] = useState(0);
-  const [needsSubfolder, setNeedsSubfolder] = useState(false);
-  const [subfolderName, setSubfolderName] = useState('');
 
   const firedBanners = useRef<Set<CreateNewBannerKind>>(new Set());
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const browseButtonRef = useRef<HTMLButtonElement | null>(null);
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
   const removeGitCallIdRef = useRef(0);
 
   useEffect(() => {
@@ -191,28 +177,30 @@ export function CreateProjectDialog({ open, onOpenChange, bridge }: CreateProjec
     setCascade({ kind: 'idle' });
     setProbeLifecycle('idle');
     setBusy(false);
-    setPicked('');
+    setName('');
     setEditorIds(new Set(ALL_EDITOR_IDS));
     setSharing('shared');
     setAdvancedOpen(false);
     setRemoveGitState({ kind: 'idle' });
-    setNeedsSubfolder(false);
-    setSubfolderName('');
     removeGitCallIdRef.current += 1;
 
     let cancelled = false;
-    setDefaultPath('');
+    setLocation('');
+    setLocationResolving(true);
     bridge.fs
       .defaultProjectsRoot()
       .then((root) => {
-        if (!cancelled) setDefaultPath(root);
+        if (!cancelled) setLocation(root);
       })
       .catch((err) => {
         console.warn('[CreateProjectDialog] defaultProjectsRoot probe failed:', err);
+      })
+      .finally(() => {
+        if (!cancelled) setLocationResolving(false);
       });
 
     const raf = requestAnimationFrame(() => {
-      browseButtonRef.current?.focus();
+      nameInputRef.current?.focus();
     });
 
     return () => {
@@ -227,22 +215,13 @@ export function CreateProjectDialog({ open, onOpenChange, bridge }: CreateProjec
     if (debounceRef.current !== null) clearTimeout(debounceRef.current);
     if (abortRef.current !== null) abortRef.current.abort();
 
-    if (picked === '') {
+    const sanitized = sanitizeFolderName(name);
+    if (location === '' || sanitized === '') {
       setCascade({ kind: 'idle' });
       setProbeLifecycle('idle');
       return;
     }
-    const subfolderTrimmed = subfolderName.trim();
-    const subfolderActive = needsSubfolder && subfolderTrimmed !== '';
-    const parent = subfolderActive ? picked : dirnamePreview(picked);
-    const sanitized = subfolderActive
-      ? sanitizeFolderName(subfolderTrimmed)
-      : sanitizeFolderName(basenamePreview(picked));
-    if (parent === '' || sanitized === '') {
-      setCascade({ kind: 'idle' });
-      setProbeLifecycle('idle');
-      return;
-    }
+    const parent = location;
     const target = joinPathPreview(parent, sanitized);
 
     const ctrl = new AbortController();
@@ -266,9 +245,6 @@ export function CreateProjectDialog({ open, onOpenChange, bridge }: CreateProjec
             targetState,
           });
           setCascade(nextCascade);
-          if (nextCascade.kind === 'block-nonempty') {
-            setNeedsSubfolder(true);
-          }
         })
         .catch((err) => {
           if (ctrl.signal.aborted) return;
@@ -282,7 +258,7 @@ export function CreateProjectDialog({ open, onOpenChange, bridge }: CreateProjec
       if (debounceRef.current !== null) clearTimeout(debounceRef.current);
       ctrl.abort();
     };
-  }, [open, picked, bridge, probeNonce, needsSubfolder, subfolderName]);
+  }, [open, location, name, bridge, probeNonce]);
 
   useEffect(() => {
     if (!open) return;
@@ -335,20 +311,21 @@ export function CreateProjectDialog({ open, onOpenChange, bridge }: CreateProjec
     bridge.project.recordCreateNewBannerShown(banner).catch(() => {});
   }, [open, cascade, bridge]);
 
-  const subfolderTrimmed = subfolderName.trim();
-  const subfolderActive = needsSubfolder && subfolderTrimmed !== '';
-  const rawName = picked === '' ? '' : subfolderActive ? subfolderTrimmed : basenamePreview(picked);
-  const sanitized = picked === '' ? '' : sanitizeFolderName(rawName);
-  const sanitizeDiverged = picked !== '' && sanitized !== rawName && sanitized !== '';
-  const sanitizeErased = picked !== '' && rawName !== '' && sanitized === '';
-  const previewPath = subfolderActive ? joinPathPreview(picked, sanitized) : picked;
+  const rawName = name;
+  const sanitized = rawName === '' ? '' : sanitizeFolderName(rawName);
+  const sanitizeDiverged = rawName !== '' && sanitized !== rawName && sanitized !== '';
+  const sanitizeErased = rawName !== '' && sanitized === '';
+  const nameTaken = cascade.kind === 'block-nonempty';
+  const targetPreview =
+    location !== '' && sanitized !== '' ? joinPathPreview(location, sanitized) : '';
   const canSubmit =
     !busy &&
-    picked !== '' &&
+    location !== '' &&
+    rawName !== '' &&
     sanitized !== '' &&
     probeLifecycle === 'idle' &&
     (cascade.kind === 'free' || cascade.kind === 'confirm-git');
-  const submitDisabled = busy || (picked !== '' && !canSubmit);
+  const submitDisabled = busy || (rawName !== '' && !canSubmit);
 
   function toggleEditor(id: OkMcpWiringEditorId) {
     setEditorIds((prev) => {
@@ -361,15 +338,13 @@ export function CreateProjectDialog({ open, onOpenChange, bridge }: CreateProjec
 
   async function onBrowse() {
     try {
-      const pickedNew = await bridge.dialog.openFolder(
-        defaultPath !== '' ? { defaultPath } : undefined,
+      const pickedParent = await bridge.dialog.openFolder(
+        location !== '' ? { defaultPath: location } : undefined,
       );
-      if (pickedNew === null) return;
-      setPicked(pickedNew);
+      if (pickedParent === null) return;
+      setLocation(pickedParent);
       setProbeNonce((n) => n + 1);
       setSubmitError(null);
-      setNeedsSubfolder(false);
-      setSubfolderName('');
     } catch (err) {
       console.warn('[CreateProjectDialog] dialog.openFolder failed:', err);
     }
@@ -378,8 +353,9 @@ export function CreateProjectDialog({ open, onOpenChange, bridge }: CreateProjec
   async function onSubmit(e: React.SyntheticEvent<HTMLFormElement, SubmitEvent>) {
     e.preventDefault();
     if (busy) return;
-    if (picked === '') {
-      toast.error(t`Please select a folder`);
+    if (rawName.trim() === '') {
+      toast.error(t`Enter a project name`);
+      nameInputRef.current?.focus();
       return;
     }
     if (!canSubmit) return;
@@ -387,7 +363,7 @@ export function CreateProjectDialog({ open, onOpenChange, bridge }: CreateProjec
     setSubmitError(null);
     try {
       await bridge.project.createNew({
-        parent: subfolderActive ? picked : dirnamePreview(picked),
+        parent: location,
         name: sanitized,
         editors: Array.from(editorIds),
         sharing,
@@ -442,6 +418,9 @@ export function CreateProjectDialog({ open, onOpenChange, bridge }: CreateProjec
     }
   }
 
+  const nameDescribedBy =
+    sanitizeErased || nameTaken || sanitizeDiverged ? `${captionId} ${nameErrorId}` : captionId;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChangeInternal}>
       <DialogContent className="sm:max-w-lg" data-testid="create-project-dialog">
@@ -461,129 +440,111 @@ export function CreateProjectDialog({ open, onOpenChange, bridge }: CreateProjec
             data-testid="create-project-form"
             className="space-y-6"
           >
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex min-w-0 flex-col gap-1">
-                <Label htmlFor="create-location">
-                  <Trans>Location</Trans>
-                </Label>
-                <p
-                  id="create-target-caption"
-                  className="text-1sm text-muted-foreground wrap-break-word"
-                  aria-live="polite"
-                  data-testid="create-target-caption"
-                >
-                  {previewPath === '' ? (
-                    <Trans>Select or create a folder for your new project</Trans>
-                  ) : (
-                    previewPath
-                  )}
-                </p>
-              </div>
-              <Button
-                id="create-location"
-                ref={browseButtonRef}
-                type="button"
-                variant="outline"
-                className="shrink-0"
+            <div className="flex flex-col gap-2">
+              <Label htmlFor={nameInputId}>
+                <Trans>Project name</Trans>
+              </Label>
+              <Input
+                id={nameInputId}
+                ref={nameInputRef}
+                value={name}
+                placeholder={t`Team Wiki`}
+                onChange={(e) => setName(e.target.value)}
                 disabled={busy}
-                onClick={() => void onBrowse()}
-                aria-describedby="create-target-caption"
-                data-testid="create-browse"
-              >
-                <Trans>Browse</Trans>
-              </Button>
+                autoComplete="off"
+                aria-invalid={sanitizeErased || nameTaken}
+                aria-describedby={nameDescribedBy}
+                data-testid="create-name"
+              />
+              {sanitizeErased ? (
+                <p
+                  id={nameErrorId}
+                  role="alert"
+                  className="text-1sm text-destructive"
+                  data-testid="create-name-error-erased"
+                >
+                  <Trans>Add at least one letter or number.</Trans>
+                </p>
+              ) : nameTaken ? (
+                <p
+                  id={nameErrorId}
+                  role="alert"
+                  className="text-1sm text-destructive"
+                  data-testid="create-name-error-taken"
+                >
+                  <Trans>
+                    A folder named <code className="font-mono break-all">{sanitized}</code> already
+                    has files here. Pick a different name.
+                  </Trans>
+                </p>
+              ) : sanitizeDiverged ? (
+                <p
+                  id={nameErrorId}
+                  role="status"
+                  aria-live="polite"
+                  className="text-1sm text-muted-foreground"
+                  data-testid="create-name-hint-diverged"
+                >
+                  <Trans>
+                    Will be saved as <code className="font-mono break-all">{sanitized}</code>.
+                  </Trans>
+                </p>
+              ) : null}
             </div>
 
-            {needsSubfolder ? (
-              <div className="flex flex-col gap-2" data-testid="create-subfolder-rescue">
-                <Label htmlFor="create-subfolder-name">
-                  <Trans>Subfolder name</Trans>
-                </Label>
-                <Input
-                  id="create-subfolder-name"
-                  value={subfolderName}
-                  placeholder="my-project"
-                  onChange={(e) => setSubfolderName(e.target.value)}
+            <div className="flex flex-col gap-2">
+              {/* "Location" is a visual label for the read-only path display.
+                  No htmlFor/association: the value sits in a non-labelable
+                  <div> (a label can only bind to a form control), so a binding
+                  here would be a dead attribute. AT reads the label then the
+                  path in document order. The display is a <div>, not a shadcn
+                  <Input readOnly>, because it renders three mutually exclusive
+                  inner states (resolved path / "Resolving" / "No location
+                  selected") that a single `value` string can't express. */}
+              <Label>
+                <Trans>Location</Trans>
+              </Label>
+              <div className="flex items-center gap-2">
+                <div
+                  className="min-w-0 flex-1 rounded-md border border-input bg-muted/50 px-2.5 py-1 text-sm text-foreground wrap-break-word"
+                  data-testid="create-location-display"
+                >
+                  {location !== '' ? (
+                    location
+                  ) : locationResolving ? (
+                    <span className="text-muted-foreground">
+                      <Trans>Resolving default location</Trans>
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">
+                      <Trans>No location selected. Use Browse to choose a folder.</Trans>
+                    </span>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="shrink-0"
                   disabled={busy}
-                  autoFocus
-                  aria-invalid={
-                    subfolderActive && (sanitizeErased || cascade.kind === 'block-nonempty')
-                  }
-                  data-testid="create-subfolder-input"
-                />
-                {subfolderTrimmed === '' ? (
-                  <p
-                    role="status"
-                    aria-live="polite"
-                    className="text-1sm text-muted-foreground"
-                    data-testid="create-subfolder-empty-error"
-                  >
-                    <Trans>
-                      This folder already has files. Add a name to create a new subfolder inside it.
-                    </Trans>
-                  </p>
-                ) : sanitizeErased ? (
-                  <p
-                    role="alert"
-                    className="text-1sm text-destructive"
-                    data-testid="create-subfolder-erased-error"
-                  >
-                    <Trans>
-                      This name has no characters that are safe for a folder identifier. Try a name
-                      with at least one letter or number.
-                    </Trans>
-                  </p>
-                ) : cascade.kind === 'block-nonempty' ? (
-                  <p
-                    role="alert"
-                    className="text-1sm text-destructive"
-                    data-testid="create-subfolder-taken-error"
-                  >
-                    <Trans>
-                      A folder named <code className="font-mono break-all">{sanitized}</code>{' '}
-                      already has files at this location. Pick a different name.
-                    </Trans>
-                  </p>
-                ) : sanitizeDiverged ? (
-                  <p className="text-1sm text-muted-foreground">
-                    <Trans>
-                      Will be saved as <code className="font-mono break-all">{sanitized}</code>.
-                    </Trans>
-                  </p>
+                  onClick={() => void onBrowse()}
+                  data-testid="create-browse"
+                >
+                  <Trans>Browse</Trans>
+                </Button>
+              </div>
+              <p
+                id={captionId}
+                className="text-1sm text-muted-foreground wrap-break-word"
+                aria-live="polite"
+                data-testid="create-target-caption"
+              >
+                {targetPreview !== '' ? (
+                  <Trans>
+                    Will be created at: <code className="font-mono break-all">{targetPreview}</code>
+                  </Trans>
                 ) : null}
-              </div>
-            ) : null}
-
-            {!needsSubfolder && sanitizeDiverged ? (
-              <div
-                role="status"
-                aria-live="polite"
-                className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200"
-                data-testid="create-banner-sanitize-diverged"
-              >
-                <Trans>
-                  <code className="font-mono break-all">{rawName}</code> has characters unsafe for
-                  the on-disk identifier, so the project will be created as{' '}
-                  <code className="font-mono break-all">{sanitized}</code>. Click Browse to pick a
-                  safer name.
-                </Trans>
-              </div>
-            ) : null}
-
-            {!needsSubfolder && sanitizeErased ? (
-              <div
-                role="status"
-                aria-live="polite"
-                className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200"
-                data-testid="create-banner-sanitize-erased"
-              >
-                <Trans>
-                  The folder name <code className="font-mono break-all">{rawName}</code> can't be
-                  used as a project identifier — it has no characters left after sanitization. Click
-                  Browse to pick a folder whose name contains at least one alphanumeric character.
-                </Trans>
-              </div>
-            ) : null}
+              </p>
+            </div>
 
             <CascadeBanner
               cascade={cascade}
@@ -810,5 +771,7 @@ function CascadeBanner({
       </div>
     );
   }
+  const _exhaustive: never = cascade;
+  void _exhaustive;
   return null;
 }

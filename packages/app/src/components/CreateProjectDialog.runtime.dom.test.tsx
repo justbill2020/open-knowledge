@@ -40,12 +40,14 @@ if (globalWithDomShims.ResizeObserver === undefined) {
 }
 
 const PARENT = '/Users/test/Projects';
-const TARGET = `${PARENT}/Runtime Project`;
-const SECOND_TARGET = `${PARENT}/Second Project`;
+const PROJECT_NAME = 'Runtime Project';
+const SECOND_PARENT = '/Users/test/OtherProjects';
 
 function makeBridge() {
-  let pickedPath: string | null = TARGET;
-  let folderStateImpl = async (): Promise<OkFolderState> => 'free';
+  let pickedParent: string | null = PARENT;
+  let defaultRootImpl = (): Promise<string> => Promise.resolve(PARENT);
+  let folderStateImpl = async (_path: string): Promise<OkFolderState> => 'free';
+  let createNewImpl = (): Promise<void> => Promise.resolve();
   const openFolderArgs: unknown[] = [];
   const folderStateCalls: string[] = [];
   const bannerCalls: string[] = [];
@@ -58,7 +60,7 @@ function makeBridge() {
 
   const bridge = {
     fs: {
-      defaultProjectsRoot: mock(() => Promise.resolve(PARENT)),
+      defaultProjectsRoot: mock(() => defaultRootImpl()),
       findEnclosingProjectRoot: mock(() => Promise.resolve(null)),
       findEnclosingGitRoot: mock(() => Promise.resolve(null)),
       folderState: mock((path: string) => {
@@ -70,7 +72,7 @@ function makeBridge() {
     dialog: {
       openFolder: mock((options?: unknown) => {
         openFolderArgs.push(options);
-        return Promise.resolve(pickedPath);
+        return Promise.resolve(pickedParent);
       }),
     },
     project: {
@@ -86,7 +88,7 @@ function makeBridge() {
           sharing: 'shared' | 'local-only';
         }) => {
           createNewCalls.push(payload);
-          return Promise.resolve();
+          return createNewImpl();
         },
       ),
       open: mock(() => Promise.resolve()),
@@ -99,11 +101,17 @@ function makeBridge() {
     createNewCalls,
     folderStateCalls,
     openFolderArgs,
-    setPickedPath: (next: string | null) => {
-      pickedPath = next;
+    setPickedParent: (next: string | null) => {
+      pickedParent = next;
+    },
+    setDefaultProjectsRootImpl: (next: () => Promise<string>) => {
+      defaultRootImpl = next;
     },
     setFolderStateImpl: (next: (path: string) => Promise<OkFolderState>) => {
       folderStateImpl = next;
+    },
+    setCreateNewImpl: (next: () => Promise<void>) => {
+      createNewImpl = next;
     },
   };
 }
@@ -115,14 +123,18 @@ async function renderDialog(stub = makeBridge()) {
   return { ...stub, onOpenChange };
 }
 
-async function browseAndWaitForTarget(target = TARGET) {
-  fireEvent.click(screen.getByTestId('create-browse'));
+async function waitForLocationHydrate(expected = PARENT) {
   await waitFor(
     () => {
-      expect(screen.getByTestId('create-target-caption').textContent).toBe(target);
+      expect(screen.getByTestId('create-location-display').textContent).toContain(expected);
     },
     { timeout: 2000 },
   );
+}
+
+async function typeProjectName(value: string) {
+  const input = screen.getByTestId('create-name') as HTMLInputElement;
+  fireEvent.change(input, { target: { value } });
 }
 
 async function waitForSubmitEnabled() {
@@ -143,18 +155,30 @@ describe('CreateProjectDialog runtime wiring', () => {
     cleanup();
   });
 
-  test('cancel, browse, editor labels, and submit are wired through the mounted form', async () => {
+  test('name input is first and submit posts {parent, name} derived from the two fields', async () => {
     const stub = await renderDialog();
 
     const form = screen.getByTestId('create-project-form') as HTMLFormElement;
     const cancel = screen.getByTestId('create-cancel') as HTMLButtonElement;
     const submit = screen.getByTestId('create-submit') as HTMLButtonElement;
     const browse = screen.getByTestId('create-browse') as HTMLButtonElement;
+    const nameInput = screen.getByTestId('create-name') as HTMLInputElement;
 
     expect(cancel.type).toBe('button');
     expect(submit.type).toBe('submit');
     expect(submit.getAttribute('form')).toBe(form.id);
     expect(browse.type).toBe('button');
+    expect(nameInput.tagName).toBe('INPUT');
+
+    const formInputs = Array.from(
+      form.querySelectorAll('input, button, [role="checkbox"], [role="radio"]'),
+    ) as HTMLElement[];
+    const nameIndex = formInputs.indexOf(nameInput);
+    const browseIndex = formInputs.indexOf(browse);
+    expect(nameIndex).toBeGreaterThanOrEqual(0);
+    expect(browseIndex).toBeGreaterThan(nameIndex);
+
+    await waitForLocationHydrate();
 
     expect(screen.getByTestId('create-sharing')).not.toBeNull();
     expect(screen.queryByTestId('create-editor-cursor')).toBeNull();
@@ -173,8 +197,7 @@ describe('CreateProjectDialog runtime wiring', () => {
     expect(stub.onOpenChange).toHaveBeenCalledWith(false);
     expect(stub.createNewCalls).toEqual([]);
 
-    await browseAndWaitForTarget();
-    expect(stub.openFolderArgs.at(-1)).toEqual({ defaultPath: PARENT });
+    await typeProjectName(PROJECT_NAME);
     await waitForSubmitEnabled();
 
     fireEvent.click(submit);
@@ -183,7 +206,7 @@ describe('CreateProjectDialog runtime wiring', () => {
       expect(stub.createNewCalls).toEqual([
         {
           parent: PARENT,
-          name: 'Runtime Project',
+          name: PROJECT_NAME,
           editors: ALL_EDITOR_IDS.filter((id) => id !== 'cursor'),
           sharing: 'shared',
         },
@@ -192,24 +215,73 @@ describe('CreateProjectDialog runtime wiring', () => {
     expect(stub.onOpenChange).toHaveBeenLastCalledWith(false);
   });
 
-  test('Create stays enabled with no folder picked; click toasts and does not submit', async () => {
+  test('Location hydrates from defaultProjectsRoot and Browse picks a fresh parent', async () => {
+    const stub = await renderDialog();
+
+    await waitForLocationHydrate();
+    const displayInitial = screen.getByTestId('create-location-display').textContent ?? '';
+    expect(displayInitial).toContain(PARENT);
+
+    stub.setPickedParent(SECOND_PARENT);
+    fireEvent.click(screen.getByTestId('create-browse'));
+    await waitFor(
+      () => {
+        expect(screen.getByTestId('create-location-display').textContent).toContain(SECOND_PARENT);
+      },
+      { timeout: 2000 },
+    );
+    expect((screen.getByTestId('create-name') as HTMLInputElement).value).toBe('');
+
+    expect(stub.openFolderArgs.at(-1)).toEqual({ defaultPath: PARENT });
+  });
+
+  test('live caption shows "Will be created at: <location>/<sanitized>" while name non-empty', async () => {
+    await renderDialog();
+    await waitForLocationHydrate();
+
+    const caption = screen.getByTestId('create-target-caption');
+    expect(caption.textContent ?? '').toBe('');
+
+    await typeProjectName('Plant Care');
+    await waitFor(
+      () => {
+        expect(screen.getByTestId('create-target-caption').textContent).toContain(
+          `${PARENT}/Plant Care`,
+        );
+      },
+      { timeout: 2000 },
+    );
+
+    await typeProjectName('');
+    await waitFor(
+      () => {
+        expect(screen.getByTestId('create-target-caption').textContent ?? '').toBe('');
+      },
+      { timeout: 2000 },
+    );
+  });
+
+  test('Create stays enabled with an empty name; click toasts hint and does not submit', async () => {
     toastErrorSpy.mockClear();
     const stub = await renderDialog();
+    await waitForLocationHydrate();
 
     const submit = screen.getByTestId('create-submit') as HTMLButtonElement;
     expect(submit.disabled).toBe(false);
 
     fireEvent.click(submit);
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(toastErrorSpy).toHaveBeenCalledWith('Please select a folder');
+
+    expect(toastErrorSpy).toHaveBeenCalledWith('Enter a project name');
     expect(stub.createNewCalls).toEqual([]);
     expect(stub.onOpenChange).not.toHaveBeenCalled();
   });
 
   test('selecting Local only carries through to the createNew payload', async () => {
     const stub = await renderDialog();
+    await waitForLocationHydrate();
 
-    await browseAndWaitForTarget();
+    await typeProjectName(PROJECT_NAME);
     await waitForSubmitEnabled();
 
     await userEvent.click(screen.getByTestId('create-sharing-local-only'));
@@ -222,8 +294,89 @@ describe('CreateProjectDialog runtime wiring', () => {
     expect(stub.createNewCalls[0]?.sharing).toBe('local-only');
   });
 
+  test('name resolving to a non-empty folder shows inline name-taken error and disables Create', async () => {
+    const stub = makeBridge();
+    const TAKEN_NAME = 'Existing Notes';
+    stub.setFolderStateImpl(async (path) =>
+      path === `${PARENT}/${TAKEN_NAME}` ? 'exists-nonempty' : 'free',
+    );
+    await renderDialog(stub);
+    await waitForLocationHydrate();
+
+    await typeProjectName(TAKEN_NAME);
+
+    await waitFor(
+      () => {
+        expect(screen.queryByTestId('create-name-error-taken')).not.toBeNull();
+        expect((screen.getByTestId('create-submit') as HTMLButtonElement).disabled).toBe(true);
+      },
+      { timeout: 2000 },
+    );
+    expect(screen.queryByTestId('create-subfolder-rescue')).toBeNull();
+    expect(stub.bannerCalls).toContain('nonempty');
+
+    await typeProjectName('Fresh Name');
+    await waitFor(
+      () => {
+        expect(screen.queryByTestId('create-name-error-taken')).toBeNull();
+      },
+      { timeout: 2000 },
+    );
+  });
+
+  test('name that sanitizes to empty shows inline sanitize-erased error and disables Create', async () => {
+    await renderDialog();
+    await waitForLocationHydrate();
+
+    await typeProjectName('....');
+    await waitFor(
+      () => {
+        expect(screen.queryByTestId('create-name-error-erased')).not.toBeNull();
+        expect((screen.getByTestId('create-submit') as HTMLButtonElement).disabled).toBe(true);
+      },
+      { timeout: 2000 },
+    );
+  });
+
+  test('name field a11y: aria-invalid and aria-describedby compose the validation announcement', async () => {
+    const stub = makeBridge();
+    const TAKEN = 'Existing Notes';
+    stub.setFolderStateImpl(async (path) =>
+      path === `${PARENT}/${TAKEN}` ? 'exists-nonempty' : 'free',
+    );
+    await renderDialog(stub);
+    await waitForLocationHydrate();
+
+    const nameInput = screen.getByTestId('create-name') as HTMLInputElement;
+
+    await typeProjectName('Fresh Name');
+    await waitFor(() => {
+      expect(nameInput.getAttribute('aria-invalid')).toBe('false');
+    });
+    const captionId = screen.getByTestId('create-target-caption').id;
+    expect(captionId).not.toBe('');
+    expect(nameInput.getAttribute('aria-describedby')).toBe(captionId);
+
+    await typeProjectName(TAKEN);
+    await waitFor(() => {
+      expect(nameInput.getAttribute('aria-invalid')).toBe('true');
+    });
+    const takenError = screen.getByTestId('create-name-error-taken');
+    expect(takenError.getAttribute('role')).toBe('alert');
+    const describedBy = (nameInput.getAttribute('aria-describedby') ?? '').split(' ');
+    expect(describedBy).toContain(captionId);
+    expect(describedBy).toContain(takenError.id);
+
+    await typeProjectName('....');
+    await waitFor(() => {
+      expect(nameInput.getAttribute('aria-invalid')).toBe('true');
+    });
+    expect(screen.getByTestId('create-name-error-erased').getAttribute('role')).toBe('alert');
+  });
+
   test('clicking the config-sharing info tooltip does not submit the form', async () => {
     const stub = await renderDialog();
+    await waitForLocationHydrate();
 
     const info = screen.getByTestId('config-sharing-info') as HTMLButtonElement;
     expect(info.type).toBe('button');
@@ -234,45 +387,121 @@ describe('CreateProjectDialog runtime wiring', () => {
     expect(stub.onOpenChange).not.toHaveBeenCalled();
   });
 
-  test('subfolder rescue sticks through a free re-probe and resets on a fresh Browse pick', async () => {
+  test('a diverging name shows the non-blocking "Will be saved as" hint and keeps Create enabled', async () => {
+    await renderDialog();
+    await waitForLocationHydrate();
+
+    await typeProjectName('Plant/Care');
+
+    await waitFor(
+      () => {
+        const hint = screen.queryByTestId('create-name-hint-diverged');
+        expect(hint).not.toBeNull();
+        expect(hint?.textContent).toContain('Plant-Care');
+      },
+      { timeout: 2000 },
+    );
+    expect(screen.getByTestId('create-target-caption').textContent).toContain(
+      `${PARENT}/Plant-Care`,
+    );
+    await waitForSubmitEnabled();
+
+    const divergedHint = screen.getByTestId('create-name-hint-diverged');
+    expect(divergedHint.getAttribute('role')).toBe('status');
+    const divergedNameInput = screen.getByTestId('create-name') as HTMLInputElement;
+    expect(divergedNameInput.getAttribute('aria-invalid')).toBe('false');
+    const divergedDescribedBy = (divergedNameInput.getAttribute('aria-describedby') ?? '').split(
+      ' ',
+    );
+    expect(divergedDescribedBy).toContain(divergedHint.id);
+    expect(divergedDescribedBy).toContain(screen.getByTestId('create-target-caption').id);
+
+    await typeProjectName('');
+    await waitFor(
+      () => {
+        expect(screen.queryByTestId('create-name-hint-diverged')).toBeNull();
+      },
+      { timeout: 2000 },
+    );
+  });
+
+  test('Location shows actionable copy (not a stuck spinner) when defaultProjectsRoot rejects; Browse still works', async () => {
     const stub = makeBridge();
-    stub.setFolderStateImpl(async (path) => (path === TARGET ? 'exists-nonempty' : 'free'));
+    stub.setDefaultProjectsRootImpl(() => Promise.reject(new Error('no default root')));
     await renderDialog(stub);
 
-    await browseAndWaitForTarget();
-
     await waitFor(
       () => {
-        expect(screen.getByTestId('create-subfolder-rescue')).not.toBeNull();
+        const display = screen.getByTestId('create-location-display').textContent ?? '';
+        expect(display).not.toContain('Resolving default location');
+        expect(display).toContain('No location selected');
       },
       { timeout: 2000 },
     );
-    expect(stub.bannerCalls).toContain('nonempty');
 
-    fireEvent.change(screen.getByTestId('create-subfolder-input'), {
-      target: { value: 'Nested Notes' },
+    stub.setPickedParent(SECOND_PARENT);
+    fireEvent.click(screen.getByTestId('create-browse'));
+    await waitFor(
+      () => {
+        expect(screen.getByTestId('create-location-display').textContent).toContain(SECOND_PARENT);
+      },
+      { timeout: 2000 },
+    );
+  });
+
+  test('createNew failure surfaces the inline error strip, keeps the dialog open, and re-enables Create', async () => {
+    const stub = makeBridge();
+    stub.setCreateNewImpl(() =>
+      Promise.reject(
+        new Error(`target-not-empty: Target folder is not empty: ${PARENT}/${PROJECT_NAME}`),
+      ),
+    );
+    const { onOpenChange } = await renderDialog(stub);
+    await waitForLocationHydrate();
+
+    await typeProjectName(PROJECT_NAME);
+    await waitForSubmitEnabled();
+    fireEvent.click(screen.getByTestId('create-submit'));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('create-submit-error')).not.toBeNull();
+    });
+    expect(screen.getByTestId('create-submit-error').getAttribute('role')).toBe('alert');
+    expect(stub.createNewCalls).toHaveLength(1);
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+
+    await waitFor(() => {
+      expect((screen.getByTestId('create-submit') as HTMLButtonElement).disabled).toBe(false);
+    });
+  });
+
+  test('while createNew is in-flight the busy guard blocks dialog dismissal until it settles', async () => {
+    const stub = makeBridge();
+    let releaseCreate: () => void = () => {};
+    stub.setCreateNewImpl(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseCreate = resolve;
+        }),
+    );
+    const { onOpenChange } = await renderDialog(stub);
+    await waitForLocationHydrate();
+
+    await typeProjectName(PROJECT_NAME);
+    await waitForSubmitEnabled();
+    fireEvent.click(screen.getByTestId('create-submit'));
+
+    await waitFor(() => {
+      expect((screen.getByTestId('create-submit') as HTMLButtonElement).disabled).toBe(true);
     });
 
-    await waitFor(
-      () => {
-        expect((screen.getByTestId('create-subfolder-input') as HTMLInputElement).value).toBe(
-          'Nested Notes',
-        );
-        expect((screen.getByTestId('create-submit') as HTMLButtonElement).disabled).toBe(false);
-      },
-      { timeout: 2000 },
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
 
-    stub.setPickedPath(SECOND_TARGET);
-    stub.setFolderStateImpl(async () => 'free');
-    fireEvent.click(screen.getByTestId('create-browse'));
-
-    await waitFor(
-      () => {
-        expect(screen.getByTestId('create-target-caption').textContent).toBe(SECOND_TARGET);
-        expect(screen.queryByTestId('create-subfolder-rescue')).toBeNull();
-      },
-      { timeout: 2000 },
-    );
+    releaseCreate();
+    await waitFor(() => {
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
   });
 });

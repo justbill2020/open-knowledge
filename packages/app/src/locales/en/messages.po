@@ -387,10 +387,6 @@ msgstr "<{componentName}> isn't a known component. Copy the source to use it els
 msgid "<{descriptorLabel}> failed to render (likely a bad prop). Copy the source to see what went wrong, or delete the block."
 msgstr "<{descriptorLabel}> failed to render (likely a bad prop). Copy the source to see what went wrong, or delete the block."
 
-#: src/components/CreateProjectDialog.tsx
-msgid "<0>{rawName}</0> has characters unsafe for the on-disk identifier, so the project will be created as <1>{sanitized}</1>. Click Browse to pick a safer name."
-msgstr "<0>{rawName}</0> has characters unsafe for the on-disk identifier, so the project will be created as <1>{sanitized}</1>. Click Browse to pick a safer name."
-
 #: src/editor/components/Mirror.tsx
 msgid "<0>Mirror — pick a source.</0> Set <1>src</1> + <2>anchor</2> via the property panel to point at a <3><MirrorSource></3> elsewhere."
 msgstr "<0>Mirror — pick a source.</0> Set <1>src</1> + <2>anchor</2> via the property panel to point at a <3><MirrorSource></3> elsewhere."
@@ -408,8 +404,8 @@ msgid "📝 or assets/icon.png"
 msgstr "📝 or assets/icon.png"
 
 #: src/components/CreateProjectDialog.tsx
-msgid "A folder named <0>{sanitized}</0> already has files at this location. Pick a different name."
-msgstr "A folder named <0>{sanitized}</0> already has files at this location. Pick a different name."
+msgid "A folder named <0>{sanitized}</0> already has files here. Pick a different name."
+msgstr "A folder named <0>{sanitized}</0> already has files here. Pick a different name."
 
 #: src/components/settings/SearchSection.tsx
 msgid "A key is set, but the embeddings provider rejected it or was unreachable — search fell back to keyword matching. Check the key in <0>Settings → Account</0> and your provider settings."
@@ -524,6 +520,10 @@ msgstr "Add a starter pack"
 #: src/components/settings/OkignoreSection.tsx
 msgid "Add another pattern"
 msgstr "Add another pattern"
+
+#: src/components/CreateProjectDialog.tsx
+msgid "Add at least one letter or number."
+msgstr "Add at least one letter or number."
 
 #: src/lib/keyboard-shortcuts.ts
 msgid "Add cursors or select matching occurrences through CodeMirror."
@@ -2154,6 +2154,10 @@ msgstr "Enter a folder name (e.g. brain)."
 msgid "Enter a name for this template."
 msgstr "Enter a name for this template."
 
+#: src/components/CreateProjectDialog.tsx
+msgid "Enter a project name"
+msgstr "Enter a project name"
+
 #: src/components/CloneDialog.tsx
 msgid "Enter a repository URL or owner/repo"
 msgstr "Enter a repository URL or owner/repo"
@@ -3619,6 +3623,10 @@ msgstr "No language match."
 msgid "No links yet. Add wiki links or markdown links to build a graph."
 msgstr "No links yet. Add wiki links or markdown links to build a graph."
 
+#: src/components/CreateProjectDialog.tsx
+msgid "No location selected. Use Browse to choose a folder."
+msgstr "No location selected. Use Browse to choose a folder."
+
 #: src/components/CommandPalette.tsx
 msgid "No matching commands."
 msgstr "No matching commands."
@@ -4281,10 +4289,6 @@ msgstr "Pin tab"
 msgid "Plain"
 msgstr "Plain"
 
-#: src/components/CreateProjectDialog.tsx
-msgid "Please select a folder"
-msgstr "Please select a folder"
-
 #: src/components/settings/SettingsDialogBody.tsx
 #: src/components/settings/SettingsDialogShell.tsx
 msgid "Preferences"
@@ -4329,6 +4333,10 @@ msgstr "Project"
 #: src/components/CreateProjectDialog.tsx
 msgid "Project folder created, but git init failed. Try again."
 msgstr "Project folder created, but git init failed. Try again."
+
+#: src/components/CreateProjectDialog.tsx
+msgid "Project name"
+msgstr "Project name"
 
 #: src/components/FileTree.tsx
 #: src/components/SeedDialog.tsx
@@ -4657,6 +4665,10 @@ msgstr "Resize {handleKey}"
 msgid "Resolve conflict in your terminal"
 msgstr "Resolve conflict in your terminal"
 
+#: src/components/CreateProjectDialog.tsx
+msgid "Resolving default location"
+msgstr "Resolving default location"
+
 #: src/components/CloneDialog.tsx
 msgid "Resolving deltas"
 msgstr "Resolving deltas"
@@ -4925,10 +4937,6 @@ msgstr "Select every visible file-tree row when focus is in the Files sidebar."
 #: src/lib/keyboard-shortcuts.ts
 msgid "Select next occurrence"
 msgstr "Select next occurrence"
-
-#: src/components/CreateProjectDialog.tsx
-msgid "Select or create a folder for your new project"
-msgstr "Select or create a folder for your new project"
 
 #: src/lib/keyboard-shortcuts.ts
 msgid "Select the full source document."
@@ -5318,10 +5326,6 @@ msgstr "Stored on this machine."
 msgid "Strikethrough"
 msgstr "Strikethrough"
 
-#: src/components/CreateProjectDialog.tsx
-msgid "Subfolder name"
-msgstr "Subfolder name"
-
 #: src/lib/keyboard-shortcuts.ts
 msgid "Suggestion menu navigation"
 msgstr "Suggestion menu navigation"
@@ -5463,6 +5467,10 @@ msgstr "Task list"
 msgid "Task List"
 msgstr "Task List"
 
+#: src/components/CreateProjectDialog.tsx
+msgid "Team Wiki"
+msgstr "Team Wiki"
+
 #: src/components/TemplateEditDialog.tsx
 msgid "Template"
 msgstr "Template"
@@ -5554,10 +5562,6 @@ msgstr "The file is in your Trash; the file-watcher will reconcile."
 msgid "The file on disk, and the id agents use. It can't be changed later."
 msgstr "The file on disk, and the id agents use. It can't be changed later."
 
-#: src/components/CreateProjectDialog.tsx
-msgid "The folder name <0>{rawName}</0> can't be used as a project identifier — it has no characters left after sanitization. Click Browse to pick a folder whose name contains at least one alphanumeric character."
-msgstr "The folder name <0>{rawName}</0> can't be used as a project identifier — it has no characters left after sanitization. Click Browse to pick a folder whose name contains at least one alphanumeric character."
-
 #: src/components/SeedDialog.tsx
 msgid "The folders and templates are in place; there's nothing left to scaffold."
 msgstr "The folders and templates are in place; there's nothing left to scaffold."
@@ -5644,10 +5648,6 @@ msgstr "This file could not be found."
 msgid "This file is too large to open in the built-in text editor (1 MB limit). Use Open file below to open it in another app."
 msgstr "This file is too large to open in the built-in text editor (1 MB limit). Use Open file below to open it in another app."
 
-#: src/components/CreateProjectDialog.tsx
-msgid "This folder already has files. Add a name to create a new subfolder inside it."
-msgstr "This folder already has files. Add a name to create a new subfolder inside it."
-
 #: src/components/FolderOverview.tsx
 msgid "This folder is empty."
 msgstr "This folder is empty."
@@ -5659,10 +5659,6 @@ msgstr "this item"
 #: src/components/ConsentDialogBody.tsx
 msgid "This looks like a drive root (e.g., C:\\). Scaffolding here will scan an entire drive."
 msgstr "This looks like a drive root (e.g., C:\\). Scaffolding here will scan an entire drive."
-
-#: src/components/CreateProjectDialog.tsx
-msgid "This name has no characters that are safe for a folder identifier. Try a name with at least one letter or number."
-msgstr "This name has no characters that are safe for a folder identifier. Try a name with at least one letter or number."
 
 #: src/components/SeedDialog.tsx
 msgid "This pack is already set up here."
@@ -6149,6 +6145,10 @@ msgstr "Wiki link suggestions"
 #: src/components/PublishToGitHubDialog.tsx
 msgid "Will be created as <0>{sanitizedName}</0>"
 msgstr "Will be created as <0>{sanitizedName}</0>"
+
+#: src/components/CreateProjectDialog.tsx
+msgid "Will be created at: <0>{targetPreview}</0>"
+msgstr "Will be created at: <0>{targetPreview}</0>"
 
 #: src/components/CreateProjectDialog.tsx
 msgid "Will be saved as <0>{sanitized}</0>."

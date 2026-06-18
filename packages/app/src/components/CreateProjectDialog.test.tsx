@@ -3,7 +3,6 @@ import {
   basenamePreview,
   CreateProjectDialog,
   computeCascade,
-  dirnamePreview,
   joinPathPreview,
   parseCreateNewError,
 } from './CreateProjectDialog';
@@ -49,49 +48,6 @@ describe('basenamePreview', () => {
 
   test('returns empty string for empty input', () => {
     expect(basenamePreview('')).toBe('');
-  });
-});
-
-describe('dirnamePreview', () => {
-  test('extracts the parent directory from a POSIX path', () => {
-    expect(dirnamePreview('/Users/me/Projects/Foo')).toBe('/Users/me/Projects');
-  });
-
-  test('extracts the parent directory from a Windows path', () => {
-    expect(dirnamePreview('C:\\Users\\me\\Projects\\Foo')).toBe('C:\\Users\\me\\Projects');
-  });
-
-  test('tolerates trailing separators', () => {
-    expect(dirnamePreview('/Users/me/Projects/Foo/')).toBe('/Users/me/Projects');
-    expect(dirnamePreview('C:\\Users\\me\\Foo\\')).toBe('C:\\Users\\me');
-  });
-
-  test('returns empty string when there is no parent (single segment)', () => {
-    expect(dirnamePreview('Foo')).toBe('');
-  });
-
-  test('returns the root separator when path is one segment under root', () => {
-    expect(dirnamePreview('/foo')).toBe('/');
-    expect(dirnamePreview('\\foo')).toBe('\\');
-  });
-
-  test('returns empty string for empty input', () => {
-    expect(dirnamePreview('')).toBe('');
-  });
-
-  test('round-trips with basenamePreview at the submit-time decomposition site', () => {
-    const inputs = [
-      '/Users/me/Projects/MyNotes',
-      '/Users/me/Projects/MyNotes/',
-      'C:\\Users\\me\\Projects\\MyNotes',
-    ];
-    for (const picked of inputs) {
-      const parent = dirnamePreview(picked);
-      const basename = basenamePreview(picked);
-      expect(parent).not.toBe('');
-      expect(basename).not.toBe('');
-      expect(joinPathPreview(parent, basename)).toBe(picked.replace(/[/\\]+$/, ''));
-    }
   });
 });
 
@@ -226,6 +182,7 @@ describe('CreateProjectDialog module', () => {
     expect(typeof mod.CreateProjectDialog).toBe('function');
     expect(typeof mod.computeCascade).toBe('function');
     expect(typeof mod.joinPathPreview).toBe('function');
+    expect(typeof mod.basenamePreview).toBe('function');
     expect(typeof mod.parseCreateNewError).toBe('function');
   });
 });
