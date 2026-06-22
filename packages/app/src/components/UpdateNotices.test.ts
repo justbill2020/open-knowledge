@@ -4,6 +4,9 @@ import {
   addSchemaIncompatibilityNotice,
   appendErrorDetail,
   attachUpdateSubscribers,
+  INSTALL_FAILED_DOWNLOAD_ACTION,
+  INSTALL_FAILED_RETRY_ACTION,
+  installFailedBody,
   pickActiveNotice,
   TOAST_A_ACTION,
   TOAST_A_ERROR_BODY,
@@ -22,7 +25,7 @@ import {
 
 type UpdateDownloadedCb = (info: { version: string }) => void;
 type RelaunchingCb = (info: { version: string }) => void;
-type RelaunchFailedCb = (info: { version: string; message?: string }) => void;
+type RelaunchFailedCb = (info: { version: string; message?: string; downloadUrl?: string }) => void;
 type WhatsNewCb = (info: { version: string; releaseUrl: string }) => void;
 type WhatsNewDismissedCb = (info: { version: string }) => void;
 type StuckHintCb = (info: { downloadUrl: string }) => void;
@@ -245,6 +248,46 @@ describe('Notice A cross-window relaunch — ok:update:relaunching', () => {
     bridge._relaunchFailed?.({ version: '0.1.1' });
     const errorNotice = addNotice.mock.calls.at(-1)?.[0] as UpdateNotice;
     expect(errorNotice.body).toBe(TOAST_A_ERROR_BODY);
+  });
+
+  test('boot-detected failed install (downloadUrl present) → richer two-action card', () => {
+    const bridge = makeFakeBridge();
+    const addNotice = mock<(notice: UpdateNotice) => void>(() => {});
+    attachUpdateSubscribers(castBridge(bridge), addNotice);
+    bridge._relaunchFailed?.({
+      version: '0.16.0-beta.3',
+      downloadUrl: 'https://inkeep.com/open-knowledge/download',
+    });
+    const notice = addNotice.mock.calls.at(-1)?.[0] as UpdateNotice;
+    expect(notice.id).toBe('install-failed-0.16.0-beta.3');
+    expect(notice.body).toBe(installFailedBody('0.16.0-beta.3'));
+    expect(notice.variant).toBe('error');
+    expect(notice.action?.label).toBe(INSTALL_FAILED_RETRY_ACTION);
+    expect(notice.secondaryAction?.label).toBe(INSTALL_FAILED_DOWNLOAD_ACTION);
+  });
+
+  test('failed-install Retry invokes relaunchNow; Download manually opens the URL', () => {
+    const bridge = makeFakeBridge();
+    const addNotice = mock<(notice: UpdateNotice) => void>(() => {});
+    attachUpdateSubscribers(castBridge(bridge), addNotice);
+    const url = 'https://inkeep.com/open-knowledge/download';
+    bridge._relaunchFailed?.({ version: '0.16.0-beta.3', downloadUrl: url });
+    const notice = addNotice.mock.calls.at(-1)?.[0] as UpdateNotice;
+    notice.action?.onClick();
+    expect(bridge.update.relaunchNow).toHaveBeenCalledTimes(1);
+    notice.secondaryAction?.onClick();
+    expect(bridge.shell.openExternal).toHaveBeenCalledWith(url);
+  });
+
+  test('relaunch-failed WITHOUT downloadUrl keeps the plain error notice (no actions)', () => {
+    const bridge = makeFakeBridge();
+    const addNotice = mock<(notice: UpdateNotice) => void>(() => {});
+    attachUpdateSubscribers(castBridge(bridge), addNotice);
+    bridge._relaunchFailed?.({ version: '0.16.0-beta.3' });
+    const notice = addNotice.mock.calls.at(-1)?.[0] as UpdateNotice;
+    expect(notice.id).toBe('relaunch-error-0.16.0-beta.3');
+    expect(notice.action).toBeUndefined();
+    expect(notice.secondaryAction).toBeUndefined();
   });
 
   test('a downloaded re-broadcast after a failed relaunch replaces the stuck in-progress card in place', () => {

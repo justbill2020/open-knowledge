@@ -5,6 +5,7 @@ import {
   buildCheckNowResultFromError,
   type DispatchKind,
   type IpcMainLike,
+  installReached,
   isClassifiedUpdaterError,
   RELAUNCH_WATCHDOG_MS,
   releaseUrlFor,
@@ -774,6 +775,208 @@ describe('boot-time stale versionPendingInstall reconciliation', () => {
     });
     expect(state.versionPendingInstall).toBe('0.4.0');
     expect(dispatches).not.toContain('stale-pending-cleared' as DispatchKind);
+  });
+});
+
+describe('boot-time failed-install detection', () => {
+  test('attempted not reached (same-MMP beta) → relaunch-failed w/ downloadUrl, re-arm, stays armed', () => {
+    const { rig } = makeRig({
+      attemptedInstall: '0.16.0-beta.3',
+      appVersion: '0.16.0-beta.1',
+    });
+    const failed = rig.captured.filter((c) => c.channel === 'ok:update:relaunch-failed');
+    expect(failed).toHaveLength(1);
+    expect(failed[0]?.payload).toEqual({
+      version: '0.16.0-beta.3',
+      downloadUrl: STUCK_HINT_DOWNLOAD_URL,
+    });
+    expect(rig.state.attemptedInstall).toBe('0.16.0-beta.3');
+    expect(rig.state.versionPendingInstall).toBe('0.16.0-beta.3');
+    expect(rig.dispatches).toContain('install-failed-on-boot' as DispatchKind);
+    expect(rig.dispatches).not.toContain('attempted-install-reconciled' as DispatchKind);
+  });
+
+  test('persistent failure across reboots keeps re-surfacing (attemptedInstall not consumed)', () => {
+    const state: AppState = {
+      ...emptyState(),
+      lastSeenVersion: '0.16.0-beta.1',
+      attemptedInstall: '0.16.0-beta.3',
+    };
+    const boot = () => {
+      const captured: CapturedSend[] = [];
+      const dispatches: DispatchKind[] = [];
+      startAutoUpdater({
+        updater: new FakeUpdater(),
+        ipcMain: makeFakeIpc(),
+        readState: () => state,
+        writeState: (next) => {
+          Object.assign(state, next);
+        },
+        getPrimaryWindow: () => makeFakeWindow(captured),
+        getAppVersion: () => '0.16.0-beta.1',
+        isPackaged: true,
+        clock: makeFakeClock(),
+        now: () => new Date(),
+        onDispatch: (k) => dispatches.push(k),
+        logger: {
+          info: mock(() => {}),
+          warn: mock(() => {}),
+          error: mock(() => {}),
+          debug: mock(() => {}),
+        },
+      });
+      return { captured, dispatches };
+    };
+    const first = boot();
+    expect(first.dispatches).toContain('install-failed-on-boot' as DispatchKind);
+    const second = boot();
+    expect(second.captured.filter((c) => c.channel === 'ok:update:relaunch-failed')).toHaveLength(
+      1,
+    );
+    expect(second.dispatches).toContain('install-failed-on-boot' as DispatchKind);
+  });
+
+  test('attempted reached (running == attempted) → silently cleared, no failure notice', () => {
+    const { rig } = makeRig({
+      attemptedInstall: '0.16.0-beta.3',
+      appVersion: '0.16.0-beta.3',
+    });
+    const failed = rig.captured.filter((c) => c.channel === 'ok:update:relaunch-failed');
+    expect(failed).toHaveLength(0);
+    expect(rig.state.attemptedInstall).toBeNull();
+    expect(rig.dispatches).toContain('attempted-install-reconciled' as DispatchKind);
+    expect(rig.dispatches).not.toContain('install-failed-on-boot' as DispatchKind);
+  });
+
+  test('attempted reached (running past attempted, stable over beta) → silently cleared', () => {
+    const { rig } = makeRig({
+      attemptedInstall: '0.16.0-beta.3',
+      appVersion: '0.16.0',
+    });
+    expect(rig.captured.filter((c) => c.channel === 'ok:update:relaunch-failed')).toHaveLength(0);
+    expect(rig.state.attemptedInstall).toBeNull();
+    expect(rig.dispatches).toContain('attempted-install-reconciled' as DispatchKind);
+  });
+
+  test('no attemptedInstall → no-op (nothing to reconcile)', () => {
+    const { rig } = makeRig({ attemptedInstall: null, appVersion: '0.16.0-beta.1' });
+    expect(rig.captured.filter((c) => c.channel === 'ok:update:relaunch-failed')).toHaveLength(0);
+    expect(rig.dispatches).not.toContain('install-failed-on-boot' as DispatchKind);
+    expect(rig.dispatches).not.toContain('attempted-install-reconciled' as DispatchKind);
+  });
+
+  test('update-downloaded arms attemptedInstall alongside versionPendingInstall', () => {
+    const { rig } = makeRig();
+    rig.updater.emit('update-downloaded', { version: '0.16.0-beta.3' });
+    expect(rig.state.versionPendingInstall).toBe('0.16.0-beta.3');
+    expect(rig.state.attemptedInstall).toBe('0.16.0-beta.3');
+  });
+
+  test('persist failure on the failure branch → no broadcast, no dispatch', () => {
+    const updater = new FakeUpdater();
+    const ipc = makeFakeIpc();
+    const clock = makeFakeClock();
+    const captured: CapturedSend[] = [];
+    const primaryWindow = makeFakeWindow(captured);
+    const state: AppState = {
+      ...emptyState(),
+      lastSeenVersion: '0.16.0-beta.1',
+      attemptedInstall: '0.16.0-beta.3',
+    };
+    const dispatches: DispatchKind[] = [];
+    startAutoUpdater({
+      updater,
+      ipcMain: ipc,
+      readState: () => state,
+      writeState: () => {
+        throw new Error('EACCES');
+      },
+      getPrimaryWindow: () => primaryWindow,
+      getAppVersion: () => '0.16.0-beta.1',
+      isPackaged: true,
+      clock,
+      now: () => new Date(),
+      onDispatch: (k) => dispatches.push(k),
+      logger: {
+        info: mock(() => {}),
+        warn: mock(() => {}),
+        error: mock(() => {}),
+        debug: mock(() => {}),
+      },
+    });
+    expect(captured.filter((c) => c.channel === 'ok:update:relaunch-failed')).toHaveLength(0);
+    expect(dispatches).not.toContain('install-failed-on-boot' as DispatchKind);
+    expect(state.attemptedInstall).toBe('0.16.0-beta.3');
+  });
+
+  test('persist failure on the success branch → attemptedInstall stays armed, no dispatch', () => {
+    const state: AppState = {
+      ...emptyState(),
+      lastSeenVersion: '0.16.0-beta.3',
+      attemptedInstall: '0.16.0-beta.3',
+    };
+    const dispatches: DispatchKind[] = [];
+    startAutoUpdater({
+      updater: new FakeUpdater(),
+      ipcMain: makeFakeIpc(),
+      readState: () => state,
+      writeState: () => {
+        throw new Error('EACCES');
+      },
+      getPrimaryWindow: () => makeFakeWindow([]),
+      getAppVersion: () => '0.16.0-beta.3',
+      isPackaged: true,
+      clock: makeFakeClock(),
+      now: () => new Date(),
+      onDispatch: (k) => dispatches.push(k),
+      logger: {
+        info: mock(() => {}),
+        warn: mock(() => {}),
+        error: mock(() => {}),
+        debug: mock(() => {}),
+      },
+    });
+    expect(state.attemptedInstall).toBe('0.16.0-beta.3');
+    expect(dispatches).not.toContain('attempted-install-reconciled' as DispatchKind);
+  });
+});
+
+describe('installReached (prerelease-aware compare)', () => {
+  test('equal versions → true', () => {
+    expect(installReached('0.16.0-beta.3', '0.16.0-beta.3')).toBe(true);
+    expect(installReached('1.2.3', '1.2.3')).toBe(true);
+  });
+  test('same MMP, running beta is behind attempted beta → false (the PRD-7149 case)', () => {
+    expect(installReached('0.16.0-beta.1', '0.16.0-beta.3')).toBe(false);
+    expect(installReached('0.16.0-beta.2', '0.16.0-beta.10')).toBe(false);
+  });
+  test('same MMP, running beta is ahead → true', () => {
+    expect(installReached('0.16.0-beta.5', '0.16.0-beta.3')).toBe(true);
+  });
+  test('stable outranks a prerelease of the same MMP', () => {
+    expect(installReached('0.16.0', '0.16.0-beta.3')).toBe(true);
+    expect(installReached('0.16.0-beta.3', '0.16.0')).toBe(false);
+  });
+  test('MMP dominates prerelease', () => {
+    expect(installReached('0.17.0-beta.1', '0.16.0-beta.3')).toBe(true);
+    expect(installReached('0.15.9', '0.16.0-beta.1')).toBe(false);
+    expect(installReached('1.0.0', '0.16.0')).toBe(true);
+  });
+  test('unparseable input → true (conservative: assume success, never cry wolf)', () => {
+    expect(installReached('garbage', '0.16.0-beta.3')).toBe(true);
+    expect(installReached('0.16.0-beta.3', 'garbage')).toBe(true);
+  });
+  test('non-numeric prerelease identifiers compare in ASCII order', () => {
+    expect(installReached('1.0.0-beta', '1.0.0-alpha')).toBe(true);
+    expect(installReached('1.0.0-alpha', '1.0.0-beta')).toBe(false);
+  });
+  test('a numeric identifier ranks below a non-numeric one (semver §11.4.3)', () => {
+    expect(installReached('1.0.0-alpha', '1.0.0-1')).toBe(true);
+    expect(installReached('1.0.0-1', '1.0.0-alpha')).toBe(false);
+  });
+  test('length tie-break: more identifiers outrank fewer when all preceding are equal', () => {
+    expect(installReached('1.0.0-beta.1', '1.0.0-beta')).toBe(true);
+    expect(installReached('1.0.0-beta', '1.0.0-beta.1')).toBe(false);
   });
 });
 

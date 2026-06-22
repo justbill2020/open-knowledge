@@ -193,6 +193,7 @@ interface OkUpdateRelaunchingInfo {
 interface OkUpdateRelaunchFailedInfo {
   readonly version: string;
   readonly message?: string;
+  readonly downloadUrl?: string;
 }
 
 interface OkWhatsNewInfo {

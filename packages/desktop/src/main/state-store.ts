@@ -27,6 +27,7 @@ export interface AppState {
   recentProjects: RecentProject[];
   lastOpenedProject: string | null;
   versionPendingInstall: string | null;
+  attemptedInstall: string | null;
   lastSeenVersion: string | null;
   lastSuccessfulCheckAt: string | null;
   stuckHintShown: boolean;
@@ -45,6 +46,7 @@ export function emptyState(): AppState {
     recentProjects: [],
     lastOpenedProject: null,
     versionPendingInstall: null,
+    attemptedInstall: null,
     lastSeenVersion: null,
     lastSuccessfulCheckAt: null,
     stuckHintShown: false,
@@ -291,6 +293,7 @@ export function parseAppState(raw: unknown): AppState | null {
     typeof obj.lastOpenedProject === 'string' ? obj.lastOpenedProject : null;
   const versionPendingInstall =
     typeof obj.versionPendingInstall === 'string' ? obj.versionPendingInstall : null;
+  const attemptedInstall = typeof obj.attemptedInstall === 'string' ? obj.attemptedInstall : null;
   const lastSeenVersion = typeof obj.lastSeenVersion === 'string' ? obj.lastSeenVersion : null;
   const lastSuccessfulCheckAt =
     typeof obj.lastSuccessfulCheckAt === 'string' ? obj.lastSuccessfulCheckAt : null;
@@ -315,6 +318,7 @@ export function parseAppState(raw: unknown): AppState | null {
     recentProjects,
     lastOpenedProject,
     versionPendingInstall,
+    attemptedInstall,
     lastSeenVersion,
     lastSuccessfulCheckAt,
     stuckHintShown,

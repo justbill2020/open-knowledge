@@ -10,6 +10,12 @@ export const TOAST_A_PROGRESS_BODY = 'Relaunching to install the update…';
 
 export const TOAST_A_ERROR_BODY = 'Relaunch failed — please restart manually';
 
+export function installFailedBody(version: string): string {
+  return `Update to ${version} didn't install.`;
+}
+export const INSTALL_FAILED_RETRY_ACTION = 'Retry';
+export const INSTALL_FAILED_DOWNLOAD_ACTION = 'Download manually';
+
 export const TOAST_E_ERROR_BODY = 'Recovery action failed — please try again';
 
 export function appendErrorDetail(base: string, err: unknown): string {
@@ -116,7 +122,40 @@ export function attachUpdateSubscribers(
   );
 
   unsubscribers.push(
-    bridge.onUpdateRelaunchFailed(({ version, message }) => {
+    bridge.onUpdateRelaunchFailed(({ version, message, downloadUrl }) => {
+      if (downloadUrl) {
+        const failedId = `install-failed-${version}`;
+        const armFailedNotice = (): void => {
+          addNotice({
+            id: failedId,
+            body: installFailedBody(version),
+            variant: 'error',
+            priority: PRIORITY_RELAUNCH_ERROR,
+            action: {
+              label: INSTALL_FAILED_RETRY_ACTION,
+              onClick: () => {
+                bridge.update.relaunchNow().then(
+                  () => {
+                    dismissNotice(failedId);
+                  },
+                  (err: unknown) => {
+                    console.warn('[update-notice] install-failed retry rejected', err);
+                    armFailedNotice();
+                  },
+                );
+              },
+            },
+            secondaryAction: {
+              label: INSTALL_FAILED_DOWNLOAD_ACTION,
+              onClick: () => {
+                void bridge.shell.openExternal(downloadUrl);
+              },
+            },
+          });
+        };
+        armFailedNotice();
+        return;
+      }
       addNotice({
         id: `relaunch-error-${version}`,
         body: message ? `${TOAST_A_ERROR_BODY}: ${message}` : TOAST_A_ERROR_BODY,

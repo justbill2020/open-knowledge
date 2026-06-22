@@ -51,6 +51,8 @@ export type DispatchKind =
   | 'relaunch-watchdog-fired'
   | 'skipped-dev-mode'
   | 'stale-pending-cleared'
+  | 'attempted-install-reconciled'
+  | 'install-failed-on-boot'
   | 'cross-channel-blocked';
 
 interface StartAutoUpdaterOpts {
@@ -174,6 +176,39 @@ export function versionAtLeast(running: string, pending: string): boolean {
   if (r[0] !== p[0]) return r[0] > p[0];
   if (r[1] !== p[1]) return r[1] > p[1];
   return r[2] >= p[2];
+}
+
+export function installReached(running: string, attempted: string): boolean {
+  const parse = (v: string): { mmp: [number, number, number]; pre: string[] } | null => {
+    if (typeof v !== 'string') return null;
+    const m = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/.exec(v);
+    if (!m) return null;
+    return {
+      mmp: [Number(m[1]), Number(m[2]), Number(m[3])],
+      pre: m[4] ? m[4].split('.') : [],
+    };
+  };
+  const r = parse(running);
+  const a = parse(attempted);
+  if (!r || !a) return true;
+  for (let i = 0; i < 3; i++) {
+    if (r.mmp[i] !== a.mmp[i]) return (r.mmp[i] as number) > (a.mmp[i] as number);
+  }
+  if (r.pre.length === 0 && a.pre.length === 0) return true;
+  if (r.pre.length === 0) return true; // running is stable, attempted is a prerelease
+  if (a.pre.length === 0) return false; // running is a prerelease, attempted is stable
+  const len = Math.min(r.pre.length, a.pre.length);
+  for (let i = 0; i < len; i++) {
+    const ri = r.pre[i] as string;
+    const ai = a.pre[i] as string;
+    if (ri === ai) continue;
+    const rNum = /^\d+$/.test(ri);
+    const aNum = /^\d+$/.test(ai);
+    if (rNum && aNum) return Number(ri) > Number(ai);
+    if (rNum !== aNum) return aNum; // numeric identifiers rank below non-numeric
+    return ri > ai; // both non-numeric — ASCII order
+  }
+  return r.pre.length >= a.pre.length;
 }
 
 export function startAutoUpdater(opts: StartAutoUpdaterOpts): StartAutoUpdaterHandle {
@@ -434,7 +469,13 @@ export function startAutoUpdater(opts: StartAutoUpdaterOpts): StartAutoUpdaterHa
       onDispatch?.('update-downloaded-deduped');
       return;
     }
-    if (!persistSafely({ ...state, versionPendingInstall: version }, 'update-downloaded')) return;
+    if (
+      !persistSafely(
+        { ...state, versionPendingInstall: version, attemptedInstall: version },
+        'update-downloaded',
+      )
+    )
+      return;
     const fireToastA = () => {
       broadcastToAllWindows('ok:update:downloaded', { version });
       logger.info('update-downloaded dispatched Toast A (all windows)', { version });
@@ -556,6 +597,40 @@ export function startAutoUpdater(opts: StartAutoUpdaterOpts): StartAutoUpdaterHa
         running: currentVersion,
       });
       onDispatch?.('stale-pending-cleared');
+    }
+  }
+
+  if (state.attemptedInstall) {
+    const attempted = state.attemptedInstall;
+    if (installReached(currentVersion, attempted)) {
+      const next = { ...state, attemptedInstall: null };
+      if (persistSafely(next, 'attempted-install-reconciled')) {
+        state = next;
+        onDispatch?.('attempted-install-reconciled');
+      } else {
+        logger.warn('failed to persist attempted-install-reconciled', {
+          attempted,
+          running: currentVersion,
+        });
+      }
+    } else {
+      const next = { ...state, versionPendingInstall: attempted };
+      if (persistSafely(next, 'install-failed-on-boot')) {
+        state = next;
+        logger.warn('attempted install did not take — surfacing failure notice', {
+          attempted,
+          running: currentVersion,
+        });
+        const fireInstallFailed = (): void => {
+          broadcastToAllWindows('ok:update:relaunch-failed', {
+            version: attempted,
+            downloadUrl: STUCK_HINT_DOWNLOAD_URL,
+          });
+        };
+        if (whenRendererReady) whenRendererReady(fireInstallFailed);
+        else fireInstallFailed();
+        onDispatch?.('install-failed-on-boot');
+      }
     }
   }
 
