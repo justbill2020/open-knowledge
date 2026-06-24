@@ -38,6 +38,7 @@
         "src/**/*.ts",
         "src/**/*.tsx",
         "tests/dom/**/*.ts",
+        "tests/dom/**/*.tsx",
         "scripts/run-test-dom.sh",
         "../core/src/**/*.ts",
         "../server/src/**/*.ts"
@@ -47,15 +48,14 @@
       "dependsOn": ["^build"],
       "cache": true,
       "inputs": [
-        "src/editor/**/*.ts",
-        "src/editor/**/*.tsx",
-        "tests/integration/**/*.ts",
-        "tests/stress/**/*.e2e.ts",
-        "tests/visual/**/*.e2e.ts",
-        "tests/a11y/**/*.e2e.ts",
-        "tests/stress/_helpers/**/*.ts",
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "tests/**/*.ts",
+        "tests/**/*.tsx",
         "../server/src/**/*.ts",
-        "../core/src/**/*.ts"
+        "../core/src/**/*.ts",
+        "../../biome.jsonc",
+        "../../biome-plugins/**"
       ]
     },
     "test:conversion": {
@@ -64,8 +64,8 @@
       "inputs": [
         "src/editor/**/*.ts",
         "src/editor/**/*.tsx",
-        "tests/integration/conversion-fidelity.test.ts",
-        "tests/integration/test-harness.ts",
+        "tests/conversion/**/*.ts",
+        "tests/integration/**/*.ts",
         "../core/src/**/*.ts",
         "../server/src/**/*.ts"
       ]
@@ -76,9 +76,11 @@
       "inputs": [
         "tests/fidelity/**/*.ts",
         "tests/fidelity/**/*.json",
+        "tests/fixtures/**",
         "src/editor/**/*.ts",
         "../core/src/**/*.ts",
         "../core/src/markdown/fixtures/**/*.json",
+        "../md-conformance/src/**/*.ts",
         "../../patches/@handlewithcare%2Fremark-prosemirror@0.1.5.patch"
       ],
       "env": ["STRESS_FIDELITY"]
