@@ -520,6 +520,7 @@ const bridge: OkDesktopBridge = {
       return () => ipcRenderer.removeListener('ok:pty:exit', listener);
     },
     claudePreflight: () => invoke('ok:terminal:claude-assist', { action: 'preflight' }),
+    cliPreflight: (cli) => invoke('ok:terminal:cli-preflight', { cli }),
     rewireClaudeMcp: () => invoke('ok:terminal:claude-assist', { action: 'rewire' }),
   },
 

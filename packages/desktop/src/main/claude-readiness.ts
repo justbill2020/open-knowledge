@@ -1,10 +1,16 @@
-import type { ClaudeReadiness } from '../shared/bridge-contract.ts';
+import type { ClaudeReadiness, CliReadiness } from '../shared/bridge-contract.ts';
 import { getLogger } from './desktop-logger.ts';
 
 export type ClaudeOnPath = ClaudeReadiness['claude'];
 export type McpWiringStatus = ClaudeReadiness['mcp'];
 
-export const CLAUDE_PROBE_ARGS: readonly string[] = ['-l', '-i', '-c', 'command -v claude'];
+export function cliProbeArgs(bin: string): readonly string[] {
+  return ['-l', '-i', '-c', `command -v ${bin}`];
+}
+
+/** The `claude` probe argv — `cliProbeArgs('claude')`, named for the legacy
+ *  readiness path + its unit tests. */
+export const CLAUDE_PROBE_ARGS: readonly string[] = cliProbeArgs('claude');
 
 const PROBE_TIMEOUT_MS = 5000;
 
@@ -30,11 +36,12 @@ export function runLoginShellProbe(
   shell: string,
   timers: ProbeTimers,
   timeoutMs: number = PROBE_TIMEOUT_MS,
+  args: readonly string[] = CLAUDE_PROBE_ARGS,
 ): Promise<number | null> {
   return new Promise<number | null>((resolve) => {
     let child: ProbeChild;
     try {
-      child = spawn(shell, CLAUDE_PROBE_ARGS);
+      child = spawn(shell, args);
     } catch {
       resolve(null);
       return;
@@ -92,4 +99,21 @@ export async function resolveClaudeReadiness(
     kind = 'absent';
   }
   return { claude: interpretClaudeProbe(code), mcp: mcpStatusFromClassification(kind) };
+}
+
+export interface ResolveCliOnPathDeps {
+  /** Runs the login-shell PATH probe for the CLI's binary; resolves the exit
+   *  code or `null` (probe failed → UNKNOWN). */
+  probe(): Promise<number | null>;
+}
+
+export async function resolveCliOnPath(deps: ResolveCliOnPathDeps): Promise<CliReadiness> {
+  const code = await deps.probe().catch((err) => {
+    getLogger('cli-readiness').warn(
+      { err: err instanceof Error ? err.message : String(err) },
+      'cli PATH probe rejected; treating cli presence as unknown',
+    );
+    return null;
+  });
+  return { onPath: interpretClaudeProbe(code) };
 }

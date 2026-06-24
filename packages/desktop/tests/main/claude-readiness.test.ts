@@ -1,11 +1,13 @@
 import { describe, expect, test } from 'bun:test';
 import {
   CLAUDE_PROBE_ARGS,
+  cliProbeArgs,
   interpretClaudeProbe,
   mcpStatusFromClassification,
   type ProbeChild,
   type ProbeTimers,
   resolveClaudeReadiness,
+  resolveCliOnPath,
   runLoginShellProbe,
 } from '../../src/main/claude-readiness.ts';
 
@@ -71,6 +73,14 @@ describe('mcpStatusFromClassification', () => {
   });
 });
 
+describe('cliProbeArgs', () => {
+  test('builds the login-interactive `command -v <bin>` argv for any binary', () => {
+    expect(cliProbeArgs('codex')).toEqual(['-l', '-i', '-c', 'command -v codex']);
+    expect(cliProbeArgs('cursor-agent')).toEqual(['-l', '-i', '-c', 'command -v cursor-agent']);
+    expect(CLAUDE_PROBE_ARGS).toEqual(cliProbeArgs('claude'));
+  });
+});
+
 describe('runLoginShellProbe', () => {
   test('spawns the supplied shell with the login-interactive command -v argv', async () => {
     const { child, emitExit } = makeFakeChild();
@@ -90,6 +100,25 @@ describe('runLoginShellProbe', () => {
     await p;
     expect(spawnedFile).toBe('/bin/zsh');
     expect(spawnedArgs).toEqual(CLAUDE_PROBE_ARGS);
+  });
+
+  test('honors a custom probe argv (per-CLI binary)', async () => {
+    const { child, emitExit } = makeFakeChild();
+    const { timers } = makeFakeTimers();
+    let spawnedArgs: readonly string[] = [];
+    const p = runLoginShellProbe(
+      (_file, args) => {
+        spawnedArgs = args;
+        return child;
+      },
+      'zsh',
+      timers,
+      undefined,
+      cliProbeArgs('cursor-agent'),
+    );
+    emitExit(0);
+    await p;
+    expect(spawnedArgs).toEqual(['-l', '-i', '-c', 'command -v cursor-agent']);
   });
 
   test('resolves the child exit code and clears the timeout', async () => {
@@ -190,5 +219,31 @@ describe('resolveClaudeReadiness', () => {
       },
     });
     expect(r).toEqual({ claude: 'present', mcp: 'needs-rewire' });
+  });
+});
+
+describe('resolveCliOnPath', () => {
+  test('exit 0 → on-PATH present', async () => {
+    expect(await resolveCliOnPath({ probe: () => Promise.resolve(0) })).toEqual({
+      onPath: 'present',
+    });
+  });
+
+  test('non-zero exit → not-found', async () => {
+    expect(await resolveCliOnPath({ probe: () => Promise.resolve(127) })).toEqual({
+      onPath: 'not-found',
+    });
+  });
+
+  test('probe-null → unknown (flaky probe is not a definitive not-found)', async () => {
+    expect(await resolveCliOnPath({ probe: () => Promise.resolve(null) })).toEqual({
+      onPath: 'unknown',
+    });
+  });
+
+  test('a rejected probe degrades to unknown, never crashes', async () => {
+    expect(await resolveCliOnPath({ probe: () => Promise.reject(new Error('boom')) })).toEqual({
+      onPath: 'unknown',
+    });
   });
 });

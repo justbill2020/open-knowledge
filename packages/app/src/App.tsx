@@ -325,8 +325,8 @@ function AppBody() {
 
   const terminalLaunch: TerminalLaunchContextValue | null = desktopBridge
     ? {
-        launchInTerminal: (input) => {
-          requestTerminalLaunch(composeTerminalLaunchPrompt(input));
+        launchInTerminal: (input, cli) => {
+          requestTerminalLaunch(composeTerminalLaunchPrompt(input, cli), cli);
         },
       }
     : null;

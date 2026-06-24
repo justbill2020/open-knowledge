@@ -228,6 +228,22 @@ msgstr "{diffHrs}h ago"
 msgid "{diffMin}m ago"
 msgstr "{diffMin}m ago"
 
+#: src/components/TerminalCliMissingBanner.tsx
+msgid "{displayName} ({bin}) isn't installed or on your PATH."
+msgstr "{displayName} ({bin}) isn't installed or on your PATH."
+
+#: src/components/empty-state/CreatePromptComposer.tsx
+#: src/components/handoff/OpenInAgentContextSubmenu.tsx
+#: src/components/handoff/OpenInAgentEmptySpaceSubmenu.tsx
+#: src/components/handoff/OpenInAgentMenu.tsx
+msgid "{displayName} CLI"
+msgstr "{displayName} CLI"
+
+#: src/components/handoff/OpenInAgentContextSubmenu.tsx
+#: src/components/handoff/OpenInAgentEmptySpaceSubmenu.tsx
+msgid "{displayName} CLI, {hint}"
+msgstr "{displayName} CLI, {hint}"
+
 #. placeholder {0}: formatFileSize(size)
 #. placeholder {1}: formatFileSize(limit)
 #: src/components/LargeFileEditorState.tsx
@@ -956,25 +972,6 @@ msgstr "Choose agent"
 msgid "Choose whether this project's Open Knowledge setup, including its AI-tool connections, is saved with the project so teammates get it too, or kept only on your computer."
 msgstr "Choose whether this project's Open Knowledge setup, including its AI-tool connections, is saved with the project so teammates get it too, or kept only on your computer."
 
-#: src/components/empty-state/CreatePromptComposer.tsx
-#: src/components/handoff/OpenInAgentContextSubmenu.tsx
-#: src/components/handoff/OpenInAgentEmptySpaceSubmenu.tsx
-#: src/components/handoff/OpenInAgentMenu.tsx
-msgid "Claude"
-msgstr "Claude"
-
-#: src/components/empty-state/CreatePromptComposer.tsx
-#: src/components/handoff/OpenInAgentContextSubmenu.tsx
-#: src/components/handoff/OpenInAgentEmptySpaceSubmenu.tsx
-#: src/components/handoff/OpenInAgentMenu.tsx
-msgid "Claude CLI"
-msgstr "Claude CLI"
-
-#: src/components/handoff/OpenInAgentContextSubmenu.tsx
-#: src/components/handoff/OpenInAgentEmptySpaceSubmenu.tsx
-msgid "Claude CLI, {hint}"
-msgstr "Claude CLI, {hint}"
-
 #: src/components/ClaudeReadinessBanner.tsx
 msgid "Claude Code (claude) isn't installed or on your PATH."
 msgstr "Claude Code (claude) isn't installed or on your PATH."
@@ -1693,9 +1690,10 @@ msgstr "Create template"
 msgid "Create with {0}"
 msgstr "Create with {0}"
 
+#. placeholder {0}: TERMINAL_CLIS[selectedCli].displayName
 #: src/components/empty-state/CreatePromptComposer.tsx
-msgid "Create with Claude CLI"
-msgstr "Create with Claude CLI"
+msgid "Create with {0} CLI"
+msgstr "Create with {0} CLI"
 
 #: src/components/FileTree.tsx
 msgid "Create your first file"
@@ -1890,6 +1888,7 @@ msgstr "Disconnecting"
 #: src/components/ClaudeReadinessBanner.tsx
 #: src/components/NavigatorApp.tsx
 #: src/components/settings/SharingSection.tsx
+#: src/components/TerminalCliMissingBanner.tsx
 msgid "Dismiss"
 msgstr "Dismiss"
 
@@ -2640,6 +2639,10 @@ msgstr "Full path"
 #: src/lib/keyboard-shortcuts.ts
 msgid "General"
 msgstr "General"
+
+#: src/components/TerminalCliMissingBanner.tsx
+msgid "Get {displayName}"
+msgstr "Get {displayName}"
 
 #: src/components/ClaudeReadinessBanner.tsx
 msgid "Get Claude Code"

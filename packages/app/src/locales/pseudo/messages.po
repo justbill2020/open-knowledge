@@ -228,6 +228,22 @@ msgstr ""
 msgid "{diffMin}m ago"
 msgstr ""
 
+#: src/components/TerminalCliMissingBanner.tsx
+msgid "{displayName} ({bin}) isn't installed or on your PATH."
+msgstr ""
+
+#: src/components/empty-state/CreatePromptComposer.tsx
+#: src/components/handoff/OpenInAgentContextSubmenu.tsx
+#: src/components/handoff/OpenInAgentEmptySpaceSubmenu.tsx
+#: src/components/handoff/OpenInAgentMenu.tsx
+msgid "{displayName} CLI"
+msgstr ""
+
+#: src/components/handoff/OpenInAgentContextSubmenu.tsx
+#: src/components/handoff/OpenInAgentEmptySpaceSubmenu.tsx
+msgid "{displayName} CLI, {hint}"
+msgstr ""
+
 #. placeholder {0}: formatFileSize(size)
 #. placeholder {1}: formatFileSize(limit)
 #: src/components/LargeFileEditorState.tsx
@@ -951,25 +967,6 @@ msgstr ""
 msgid "Choose whether this project's Open Knowledge setup, including its AI-tool connections, is saved with the project so teammates get it too, or kept only on your computer."
 msgstr ""
 
-#: src/components/empty-state/CreatePromptComposer.tsx
-#: src/components/handoff/OpenInAgentContextSubmenu.tsx
-#: src/components/handoff/OpenInAgentEmptySpaceSubmenu.tsx
-#: src/components/handoff/OpenInAgentMenu.tsx
-msgid "Claude"
-msgstr ""
-
-#: src/components/empty-state/CreatePromptComposer.tsx
-#: src/components/handoff/OpenInAgentContextSubmenu.tsx
-#: src/components/handoff/OpenInAgentEmptySpaceSubmenu.tsx
-#: src/components/handoff/OpenInAgentMenu.tsx
-msgid "Claude CLI"
-msgstr ""
-
-#: src/components/handoff/OpenInAgentContextSubmenu.tsx
-#: src/components/handoff/OpenInAgentEmptySpaceSubmenu.tsx
-msgid "Claude CLI, {hint}"
-msgstr ""
-
 #: src/components/ClaudeReadinessBanner.tsx
 msgid "Claude Code (claude) isn't installed or on your PATH."
 msgstr ""
@@ -1688,8 +1685,9 @@ msgstr ""
 msgid "Create with {0}"
 msgstr ""
 
+#. placeholder {0}: TERMINAL_CLIS[selectedCli].displayName
 #: src/components/empty-state/CreatePromptComposer.tsx
-msgid "Create with Claude CLI"
+msgid "Create with {0} CLI"
 msgstr ""
 
 #: src/components/FileTree.tsx
@@ -1885,6 +1883,7 @@ msgstr ""
 #: src/components/ClaudeReadinessBanner.tsx
 #: src/components/NavigatorApp.tsx
 #: src/components/settings/SharingSection.tsx
+#: src/components/TerminalCliMissingBanner.tsx
 msgid "Dismiss"
 msgstr ""
 
@@ -2634,6 +2633,10 @@ msgstr ""
 
 #: src/lib/keyboard-shortcuts.ts
 msgid "General"
+msgstr ""
+
+#: src/components/TerminalCliMissingBanner.tsx
+msgid "Get {displayName}"
 msgstr ""
 
 #: src/components/ClaudeReadinessBanner.tsx

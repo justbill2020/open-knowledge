@@ -101,6 +101,7 @@ function makeBridge(createResult: CreateResult, preflight: ClaudeReadiness = WIR
       return unsubExit;
     }),
     claudePreflight: mock(async () => preflight),
+    cliPreflight: mock(async () => ({ onPath: 'present' as const })),
     rewireClaudeMcp,
   };
   return {
@@ -443,6 +444,7 @@ describe('TerminalPanel', () => {
       onData: mock(() => mock(() => {})),
       onExit: mock(() => mock(() => {})),
       claudePreflight: mock(async () => WIRED),
+      cliPreflight: mock(async () => ({ onPath: 'present' as const })),
       rewireClaudeMcp: mock(async () => WIRED),
     };
     const bridge = {

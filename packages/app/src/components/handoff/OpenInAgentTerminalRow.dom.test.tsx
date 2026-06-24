@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, mock, test } from 'bun:test';
+import type { TerminalCli } from '@inkeep/open-knowledge-core';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
@@ -44,8 +45,10 @@ mock.module('./OpenInAgentMenuItem', () => ({ TargetIcon: () => null }));
 const { OpenInAgentMenu } = await import('./OpenInAgentMenu');
 const { TerminalLaunchProvider } = await import('./TerminalLaunchContext');
 
+type LaunchCall = { input: HandoffDispatchInput; cli: TerminalCli };
+
 async function renderMenu(opts: {
-  launcher: ((input: HandoffDispatchInput) => void) | null;
+  launcher: ((input: HandoffDispatchInput, cli: TerminalCli) => void) | null;
   menuInput?: HandoffDispatchInput | null;
 }) {
   const menuInput = 'menuInput' in opts ? opts.menuInput : input;
@@ -63,38 +66,43 @@ async function openMenu() {
   });
 }
 
-describe('Open-with-AI "Claude CLI" row', () => {
+describe('Open-with-AI Terminal CLI rows', () => {
   afterEach(() => {
     cleanup();
   });
 
-  test('renders the terminal row when the launcher is available (desktop)', async () => {
+  test('renders a row per CLI when the launcher is available (desktop)', async () => {
     await renderMenu({ launcher: () => {} });
     await openMenu();
-    expect(screen.getByTestId('open-in-agent-terminal')).toBeTruthy();
+    expect(screen.getByTestId('open-in-agent-terminal-claude')).toBeTruthy();
+    expect(screen.getByTestId('open-in-agent-terminal-codex')).toBeTruthy();
+    expect(screen.getByTestId('open-in-agent-terminal-cursor')).toBeTruthy();
   });
 
-  test('hides the terminal row when no launcher is available (web host)', async () => {
+  test('hides the terminal section when no launcher is available (web host)', async () => {
     await renderMenu({ launcher: null });
     await openMenu();
-    expect(screen.queryByTestId('open-in-agent-terminal')).toBeNull();
+    expect(screen.queryByTestId('open-in-agent-terminal-claude')).toBeNull();
+    expect(screen.queryByTestId('open-in-agent-terminal-codex')).toBeNull();
   });
 
-  test('clicking the row hands the bare handoff input to the launcher', async () => {
-    const calls: HandoffDispatchInput[] = [];
-    await renderMenu({ launcher: (i) => calls.push(i) });
+  test('clicking a row hands the bare handoff input + chosen CLI to the launcher', async () => {
+    const calls: LaunchCall[] = [];
+    await renderMenu({ launcher: (i, cli) => calls.push({ input: i, cli }) });
     await openMenu();
-    await userEvent.click(screen.getByTestId('open-in-agent-terminal'));
-    expect(calls).toStrictEqual([input]);
+    await userEvent.click(screen.getByTestId('open-in-agent-terminal-codex'));
+    expect(calls).toStrictEqual([{ input, cli: 'codex' }]);
   });
 
   test('typing an instruction threads it onto the launched input', async () => {
-    const calls: HandoffDispatchInput[] = [];
-    await renderMenu({ launcher: (i) => calls.push(i) });
+    const calls: LaunchCall[] = [];
+    await renderMenu({ launcher: (i, cli) => calls.push({ input: i, cli }) });
     await openMenu();
     await userEvent.type(screen.getByTestId('open-in-agent-instruction'), 'Add error handling');
-    await userEvent.click(screen.getByTestId('open-in-agent-terminal'));
-    expect(calls).toStrictEqual([{ ...input, instruction: 'Add error handling' }]);
+    await userEvent.click(screen.getByTestId('open-in-agent-terminal-cursor'));
+    expect(calls).toStrictEqual([
+      { input: { ...input, instruction: 'Add error handling' }, cli: 'cursor' },
+    ]);
   });
 
   test('the trigger is disabled when there is no handoff input', async () => {

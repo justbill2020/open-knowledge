@@ -16,7 +16,7 @@ mock.module('@lingui/react/macro', () => ({
 
 const refreshCalls: string[] = [];
 const dispatchCalls: Array<{ target: string; input: HandoffDispatchInput }> = [];
-const launchCalls: HandoffDispatchInput[] = [];
+const launchCalls: Array<{ input: HandoffDispatchInput; cli: string }> = [];
 let states: Record<string, { installed: boolean | null; lastChecked?: number }> = {};
 
 mock.module('./useInstalledAgents', () => ({
@@ -71,7 +71,9 @@ async function renderMenuWithTerminal(menuInput: HandoffDispatchInput | null = i
   const { OpenInAgentMenu } = await import('./OpenInAgentMenu');
   render(
     <TooltipProvider>
-      <TerminalLaunchProvider value={{ launchInTerminal: (i) => launchCalls.push(i) }}>
+      <TerminalLaunchProvider
+        value={{ launchInTerminal: (i, cli) => launchCalls.push({ input: i, cli }) }}
+      >
         <OpenInAgentMenu input={menuInput} />
       </TerminalLaunchProvider>
     </TooltipProvider>,
@@ -230,7 +232,9 @@ describe('OpenInAgentMenu runtime behavior', () => {
 
     expect(screen.getByText('Desktop')).toBeTruthy();
     expect(screen.getByText('Terminal')).toBeTruthy();
-    expect(screen.getByTestId('open-in-agent-terminal')).toBeTruthy();
+    expect(screen.getByTestId('open-in-agent-terminal-claude')).toBeTruthy();
+    expect(screen.getByTestId('open-in-agent-terminal-codex')).toBeTruthy();
+    expect(screen.getByTestId('open-in-agent-terminal-cursor')).toBeTruthy();
     expect(screen.getByRole('group', { name: 'Desktop' })).toBeTruthy();
     expect(screen.getByRole('group', { name: 'Terminal' })).toBeTruthy();
   });
@@ -240,8 +244,8 @@ describe('OpenInAgentMenu runtime behavior', () => {
     await renderMenuWithTerminal();
     await openMenu();
 
-    await userEvent.click(screen.getByTestId('open-in-agent-terminal'));
-    expect(launchCalls).toEqual([input]);
+    await userEvent.click(screen.getByTestId('open-in-agent-terminal-claude'));
+    expect(launchCalls).toEqual([{ input, cli: 'claude' }]);
     expect(dispatchCalls).toEqual([]);
   });
 
@@ -252,6 +256,6 @@ describe('OpenInAgentMenu runtime behavior', () => {
 
     expect(screen.getByText('Desktop')).toBeTruthy();
     expect(screen.queryByText('Terminal')).toBeNull();
-    expect(screen.queryByTestId('open-in-agent-terminal')).toBeNull();
+    expect(screen.queryByTestId('open-in-agent-terminal-claude')).toBeNull();
   });
 });

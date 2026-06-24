@@ -301,7 +301,7 @@ describe('EditorPane terminal dock wiring', () => {
     const dock = () => screen.getByTestId('terminal-dock');
     expect(dock().getAttribute('data-launch-nonce')).toBe('none');
 
-    act(() => requestTerminalLaunch('work on docs/notes'));
+    act(() => requestTerminalLaunch('work on docs/notes', 'claude'));
     expect(dock().getAttribute('data-visible')).toBe('true');
     expect(dock().getAttribute('data-launch-nonce')).toBe('1');
 
@@ -322,13 +322,13 @@ describe('EditorPane terminal dock wiring', () => {
 
     const dock = () => screen.getByTestId('terminal-dock');
 
-    act(() => requestTerminalLaunch('first'));
+    act(() => requestTerminalLaunch('first', 'claude'));
     expect(dock().getAttribute('data-launch-nonce')).toBe('1');
 
     act(() => desk.dispatchMenuAction('toggle-terminal'));
     expect(dock().getAttribute('data-launch-nonce')).toBe('none');
 
-    act(() => requestTerminalLaunch('second'));
+    act(() => requestTerminalLaunch('second', 'codex'));
     expect(dock().getAttribute('data-launch-nonce')).toBe('2');
   });
 

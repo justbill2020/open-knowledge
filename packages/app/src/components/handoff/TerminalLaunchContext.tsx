@@ -1,8 +1,9 @@
+import type { TerminalCli } from '@inkeep/open-knowledge-core';
 import { createContext, type ReactNode, use } from 'react';
 import type { HandoffDispatchInput } from './useHandoffDispatch';
 
 export interface TerminalLaunchContextValue {
-  readonly launchInTerminal: (input: HandoffDispatchInput) => void;
+  readonly launchInTerminal: (input: HandoffDispatchInput, cli: TerminalCli) => void;
 }
 
 const TerminalLaunchContext = createContext<TerminalLaunchContextValue | null>(null);

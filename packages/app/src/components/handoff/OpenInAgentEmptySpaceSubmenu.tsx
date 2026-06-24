@@ -1,7 +1,12 @@
-import type { HandoffOutcome, HandoffTarget, InstallState } from '@inkeep/open-knowledge-core';
+import {
+  type HandoffOutcome,
+  type HandoffTarget,
+  type InstallState,
+  TERMINAL_CLIS,
+} from '@inkeep/open-knowledge-core';
 import { t } from '@lingui/core/macro';
 import { Trans, useLingui } from '@lingui/react/macro';
-import { Sparkles, SquareTerminal } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
 import {
   ContextMenuGroup,
@@ -16,6 +21,7 @@ import { useIsEmbedded } from '@/hooks/use-is-embedded';
 import { VISIBLE_TARGETS } from '@/lib/handoff/targets';
 import { TargetIcon } from './OpenInAgentMenuItem';
 import { useTerminalLaunch } from './TerminalLaunchContext';
+import { cliIconTargetId, VISIBLE_CLIS } from './terminal-cli-display';
 import type { HandoffDispatchInput } from './useHandoffDispatch';
 
 /** Status hint shown alongside per-target rows when the input is not ready
@@ -110,31 +116,35 @@ export function OpenInAgentEmptySpaceSubmenu(props: OpenInAgentEmptySpaceSubmenu
               <ContextMenuLabel>
                 <Trans>Terminal</Trans>
               </ContextMenuLabel>
-              {/* Launches `claude` in the docked terminal with the project-scope
-                  prompt. Visible text is "Claude"; the accessible name is
-                  "Claude CLI" (plus the "No workspace" hint when input is
-                  missing), so it contains the visible label and AT users can tell
-                  it apart from a Desktop "Claude" row (WCAG 2.5.3 — name contains
-                  visible label). */}
-              <ContextMenuItem
-                onSelect={() => {
-                  if (input === null) return;
-                  terminalLaunch.launchInTerminal(input);
-                }}
-                disabled={inputMissing}
-                data-testid="empty-space-open-in-terminal"
-                aria-label={hint ? t`Claude CLI, ${hint}` : t`Claude CLI`}
-              >
-                <SquareTerminal className="size-4" aria-hidden="true" />
-                <span className="flex-1">
-                  <Trans>Claude</Trans>
-                </span>
-                {hint ? (
-                  <span aria-hidden="true" className="ml-2 text-muted-foreground text-xs">
-                    {hint}
-                  </span>
-                ) : null}
-              </ContextMenuItem>
+              {/* Launches `claude` / `codex` / `cursor-agent` in the docked
+                  terminal with the project-scope prompt. Visible text is the
+                  brand name; the accessible name is "<Brand> CLI" (plus the "No
+                  workspace" hint when input is missing), so it contains the
+                  visible label and AT users can tell it apart from a Desktop row
+                  (WCAG 2.5.3 — name contains visible label). */}
+              {VISIBLE_CLIS.map((cli) => {
+                const { displayName } = TERMINAL_CLIS[cli];
+                return (
+                  <ContextMenuItem
+                    key={cli}
+                    onSelect={() => {
+                      if (input === null) return;
+                      terminalLaunch.launchInTerminal(input, cli);
+                    }}
+                    disabled={inputMissing}
+                    data-testid={`empty-space-open-in-terminal-${cli}`}
+                    aria-label={hint ? t`${displayName} CLI, ${hint}` : t`${displayName} CLI`}
+                  >
+                    <TargetIcon id={cliIconTargetId(cli)} aria-hidden="true" />
+                    <span className="flex-1">{displayName}</span>
+                    {hint ? (
+                      <span aria-hidden="true" className="ml-2 text-muted-foreground text-xs">
+                        {hint}
+                      </span>
+                    ) : null}
+                  </ContextMenuItem>
+                );
+              })}
             </ContextMenuGroup>
           </>
         ) : null}

@@ -6,6 +6,7 @@ import type {
   LocalOpOkInitResponse,
   OkFolderState,
   RecentProjectEntry,
+  TerminalCli,
 } from '@inkeep/open-knowledge-core';
 
 export type { OkFolderState, RecentProjectEntry };
@@ -454,6 +455,13 @@ export interface ClaudeReadiness {
   readonly rewireError?: string;
 }
 
+/** On-PATH readiness for a non-Claude agent CLI (codex / cursor-agent) in the
+ *  docked terminal. Canonical shape in `desktop/src/shared/bridge-contract.ts`;
+ *  mirrored verbatim here (drift-tested). */
+export interface CliReadiness {
+  readonly onPath: 'present' | 'not-found' | 'unknown';
+}
+
 export interface OkDesktopBridge {
   readonly config: OkDesktopConfig;
   onProjectSwitched(cb: (next: OkDesktopConfig) => void): OkUnsubscribe;
@@ -712,6 +720,7 @@ export interface OkDesktopBridge {
     onData(cb: (msg: OkPtyData) => void): OkUnsubscribe;
     onExit(cb: (msg: OkPtyExit) => void): OkUnsubscribe;
     claudePreflight(): Promise<ClaudeReadiness>;
+    cliPreflight(cli: TerminalCli): Promise<CliReadiness>;
     rewireClaudeMcp(): Promise<ClaudeReadiness>;
   };
 

@@ -1,6 +1,12 @@
-import type { HandoffTarget, InstallState, TargetData } from '@inkeep/open-knowledge-core';
+import {
+  type HandoffTarget,
+  type InstallState,
+  type TargetData,
+  TERMINAL_CLIS,
+  type TerminalCli,
+} from '@inkeep/open-knowledge-core';
 import { Trans, useLingui } from '@lingui/react/macro';
-import { Sparkles, SquareTerminal } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { type ReactNode, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +16,7 @@ import { useIsEmbedded } from '@/hooks/use-is-embedded';
 import { VISIBLE_TARGETS } from '@/lib/handoff/targets';
 import { TargetIcon } from './OpenInAgentMenuItem';
 import { type TerminalLaunchContextValue, useTerminalLaunch } from './TerminalLaunchContext';
+import { cliIconTargetId, VISIBLE_CLIS } from './terminal-cli-display';
 import { type HandoffDispatchInput, useHandoffDispatch } from './useHandoffDispatch';
 import { useInstalledAgents } from './useInstalledAgents';
 
@@ -31,7 +38,7 @@ interface OpenWithAiPanelProps {
   /** Fired when the user picks an agent; carries the typed instruction — the
    *  empty string when the user dispatched without typing one. */
   readonly onPick: (target: TargetData, instruction: string) => void;
-  readonly onLaunchTerminal: (instruction: string) => void;
+  readonly onLaunchTerminal: (cli: TerminalCli, instruction: string) => void;
 }
 
 function OpenWithAiPanel({
@@ -106,20 +113,24 @@ function OpenWithAiPanel({
                 >
                   <Trans>Terminal</Trans>
                 </legend>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="h-auto w-full justify-start gap-1.5 rounded-md px-1.5 py-1 font-normal text-foreground"
-                  disabled={disabled}
-                  data-testid="open-in-agent-terminal"
-                  aria-label={t`Claude CLI`}
-                  onClick={() => onLaunchTerminal(instruction)}
-                >
-                  <SquareTerminal className="size-4" aria-hidden="true" />
-                  <span>
-                    <Trans>Claude</Trans>
-                  </span>
-                </Button>
+                {VISIBLE_CLIS.map((cli) => {
+                  const { displayName } = TERMINAL_CLIS[cli];
+                  return (
+                    <Button
+                      key={cli}
+                      type="button"
+                      variant="ghost"
+                      className="h-auto w-full justify-start gap-1.5 rounded-md px-1.5 py-1 font-normal text-foreground"
+                      disabled={disabled}
+                      data-testid={`open-in-agent-terminal-${cli}`}
+                      aria-label={t`${displayName} CLI`}
+                      onClick={() => onLaunchTerminal(cli, instruction)}
+                    >
+                      <TargetIcon id={cliIconTargetId(cli)} aria-hidden="true" />
+                      <span>{displayName}</span>
+                    </Button>
+                  );
+                })}
               </fieldset>
             </>
           ) : null}
@@ -183,10 +194,10 @@ export function OpenInAgentMenu({ input, open, onOpenChange }: OpenInAgentMenuPr
     handleOpenChange(false);
   };
 
-  const handleLaunchTerminal = (instruction: string): void => {
+  const handleLaunchTerminal = (cli: TerminalCli, instruction: string): void => {
     const next = inputWith(instruction);
     if (next === null || terminalLaunch === null) return;
-    terminalLaunch.launchInTerminal(next);
+    terminalLaunch.launchInTerminal(next, cli);
     handleOpenChange(false);
   };
 

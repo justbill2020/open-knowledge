@@ -11,7 +11,15 @@ export {
   OK_PROJECT_SKILL_POINTER,
   withSkillPointer,
 } from './prompt-composer.ts';
-export { buildClaudeLaunchCommand, shellSingleQuote } from './terminal-launch.ts';
+export {
+  buildClaudeLaunchCommand,
+  buildCliLaunchCommand,
+  shellSingleQuote,
+  TERMINAL_CLI_IDS,
+  TERMINAL_CLIS,
+  type TerminalCli,
+  type TerminalCliInfo,
+} from './terminal-launch.ts';
 export type {
   DocContext,
   HandoffFailureReason,

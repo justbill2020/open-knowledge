@@ -11,6 +11,8 @@ import {
   type HandoffScope,
   type HandoffTarget,
   type TargetData,
+  TERMINAL_CLIS,
+  type TerminalCli,
   withSkillPointer,
 } from '@inkeep/open-knowledge-core';
 import { toast as sonnerToast } from 'sonner';
@@ -240,8 +242,8 @@ export function selectScopedPrompt(
   return withSkillPointer(directive);
 }
 
-export function composeTerminalLaunchPrompt(input: HandoffDispatchInput): string {
-  return selectScopedPrompt(input, 'claude-code', false);
+export function composeTerminalLaunchPrompt(input: HandoffDispatchInput, cli: TerminalCli): string {
+  return selectScopedPrompt(input, TERMINAL_CLIS[cli].handoffTarget, false);
 }
 
 export async function runHandoffDispatch(

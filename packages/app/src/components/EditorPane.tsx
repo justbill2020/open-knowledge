@@ -1,3 +1,4 @@
+import type { TerminalCli } from '@inkeep/open-knowledge-core';
 import { useLingui } from '@lingui/react/macro';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -27,6 +28,7 @@ import {
 
 export interface TerminalLaunchIntent {
   readonly prompt: string;
+  readonly cli: TerminalCli;
   readonly nonce: number;
 }
 
@@ -107,10 +109,10 @@ export function EditorPane({ onOpenSearch }: EditorPaneProps = {}) {
   }, []);
 
   useEffect(() => {
-    return subscribeToTerminalLaunchRequests((prompt) => {
+    return subscribeToTerminalLaunchRequests((prompt, cli) => {
       setTerminalVisible(true);
       launchNonceRef.current += 1;
-      setTerminalLaunch({ prompt, nonce: launchNonceRef.current });
+      setTerminalLaunch({ prompt, cli, nonce: launchNonceRef.current });
     });
   }, []);
 

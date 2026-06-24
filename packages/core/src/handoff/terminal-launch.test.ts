@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'bun:test';
-import { buildClaudeLaunchCommand, shellSingleQuote } from './terminal-launch.ts';
+import {
+  buildClaudeLaunchCommand,
+  buildCliLaunchCommand,
+  shellSingleQuote,
+  TERMINAL_CLI_IDS,
+  TERMINAL_CLIS,
+} from './terminal-launch.ts';
 
 describe('shellSingleQuote', () => {
   it('wraps a plain string in single quotes', () => {
@@ -51,5 +57,25 @@ describe('buildClaudeLaunchCommand', () => {
     expect(cmd).toBe("claude ''\\''; rm -rf / #'\r");
     expect(cmd.startsWith('claude ')).toBe(true);
     expect(cmd.endsWith('\r')).toBe(true);
+  });
+});
+
+describe('buildCliLaunchCommand', () => {
+  it('uses the registry binary per CLI, with a positional single-quoted prompt', () => {
+    expect(buildCliLaunchCommand('claude', 'hi')).toBe("claude 'hi'\r");
+    expect(buildCliLaunchCommand('codex', 'hi')).toBe("codex 'hi'\r");
+    expect(buildCliLaunchCommand('cursor', 'hi')).toBe("cursor-agent 'hi'\r");
+  });
+
+  it('escapes injection payloads identically for every CLI', () => {
+    for (const cli of TERMINAL_CLI_IDS) {
+      const cmd = buildCliLaunchCommand(cli, "'; rm -rf / #");
+      expect(cmd).toBe(`${TERMINAL_CLIS[cli].bin} ''\\''; rm -rf / #'\r`);
+      expect(cmd.endsWith('\r')).toBe(true);
+    }
+  });
+
+  it('buildClaudeLaunchCommand is the claude specialization', () => {
+    expect(buildClaudeLaunchCommand('hi')).toBe(buildCliLaunchCommand('claude', 'hi'));
   });
 });

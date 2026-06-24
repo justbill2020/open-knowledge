@@ -1,17 +1,23 @@
 import { describe, expect, test } from 'bun:test';
+import type { TerminalCli } from '@inkeep/open-knowledge-core';
 import { requestTerminalLaunch, subscribeToTerminalLaunchRequests } from './terminal-launch-events';
 
 describe('terminal-launch-events', () => {
-  test('delivers the composed prompt from request to subscriber', () => {
+  test('delivers the composed prompt + chosen CLI from request to subscriber', () => {
     const target = new EventTarget();
-    const received: string[] = [];
-    const unsub = subscribeToTerminalLaunchRequests((p) => received.push(p), target);
+    const received: Array<{ prompt: string; cli: TerminalCli }> = [];
+    const unsub = subscribeToTerminalLaunchRequests(
+      (prompt, cli) => received.push({ prompt, cli }),
+      target,
+    );
 
-    requestTerminalLaunch("Let's work on `foo.md` using Open Knowledge.", target);
-    expect(received).toEqual(["Let's work on `foo.md` using Open Knowledge."]);
+    requestTerminalLaunch("Let's work on `foo.md` using Open Knowledge.", 'codex', target);
+    expect(received).toEqual([
+      { prompt: "Let's work on `foo.md` using Open Knowledge.", cli: 'codex' },
+    ]);
 
     unsub();
-    requestTerminalLaunch('after unsubscribe', target);
+    requestTerminalLaunch('after unsubscribe', 'cursor', target);
     expect(received).toHaveLength(1);
   });
 });

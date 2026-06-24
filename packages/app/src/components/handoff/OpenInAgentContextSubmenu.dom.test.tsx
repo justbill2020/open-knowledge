@@ -46,7 +46,7 @@ const readyInput: HandoffDispatchInput = {
   projectDir: '/project',
 };
 
-const launchCalls: HandoffDispatchInput[] = [];
+const launchCalls: Array<{ input: HandoffDispatchInput; cli: string }> = [];
 
 function installStates(
   overrides: Partial<Record<HandoffTarget, InstallState>> = {},
@@ -91,7 +91,9 @@ async function renderSubmenu({
 
   render(
     withTerminal ? (
-      <TerminalLaunchProvider value={{ launchInTerminal: (i) => launchCalls.push(i) }}>
+      <TerminalLaunchProvider
+        value={{ launchInTerminal: (i, cli) => launchCalls.push({ input: i, cli }) }}
+      >
         {submenu}
       </TerminalLaunchProvider>
     ) : (
@@ -184,25 +186,31 @@ describe('OpenInAgentContextSubmenu runtime behavior', () => {
     expect(screen.getByText('Terminal')).toBeTruthy();
     expect(document.querySelector('[data-slot="dropdown-menu-separator"]')).toBeTruthy();
 
-    const terminalRow = screen.getByTestId('file-tree-open-in-terminal');
+    const terminalRow = screen.getByTestId('file-tree-open-in-terminal-claude');
     expect(terminalRow.textContent).toContain('Claude');
     expect(terminalRow.textContent).not.toContain('CLI');
     expect(terminalRow.getAttribute('aria-label')).toBe('Claude CLI');
+    expect(screen.getByTestId('file-tree-open-in-terminal-codex').getAttribute('aria-label')).toBe(
+      'Codex CLI',
+    );
+    expect(screen.getByTestId('file-tree-open-in-terminal-cursor').getAttribute('aria-label')).toBe(
+      'Cursor CLI',
+    );
   });
 
   test('terminal row launches via the terminal launcher and does not app-dispatch', async () => {
     const { dispatch } = await renderSubmenu({ withTerminal: true });
 
-    await userEvent.click(screen.getByTestId('file-tree-open-in-terminal'));
+    await userEvent.click(screen.getByTestId('file-tree-open-in-terminal-codex'));
 
-    expect(launchCalls).toEqual([readyInput]);
+    expect(launchCalls).toEqual([{ input: readyInput, cli: 'codex' }]);
     expect(dispatch).not.toHaveBeenCalled();
   });
 
   test('terminal row appends the No workspace hint to its accessible name and stays inert while input is missing', async () => {
     await renderSubmenu({ input: null, withTerminal: true });
 
-    const terminalRow = screen.getByTestId('file-tree-open-in-terminal');
+    const terminalRow = screen.getByTestId('file-tree-open-in-terminal-claude');
     expect(terminalRow.getAttribute('aria-label')).toBe('Claude CLI, No workspace');
     expect(terminalRow.getAttribute('data-disabled')).toBe('');
 
@@ -215,7 +223,7 @@ describe('OpenInAgentContextSubmenu runtime behavior', () => {
 
     expect(screen.getByText('Desktop')).toBeTruthy();
     expect(screen.queryByText('Terminal')).toBeNull();
-    expect(screen.queryByTestId('file-tree-open-in-terminal')).toBeNull();
+    expect(screen.queryByTestId('file-tree-open-in-terminal-claude')).toBeNull();
   });
 
   test('renders only the Terminal section (no Desktop label, no separator) when no agents are installed', async () => {
@@ -231,7 +239,7 @@ describe('OpenInAgentContextSubmenu runtime behavior', () => {
 
     expect(screen.getByText('Terminal')).toBeTruthy();
     expect(screen.queryByText('Desktop')).toBeNull();
-    expect(screen.getByTestId('file-tree-open-in-terminal')).toBeTruthy();
+    expect(screen.getByTestId('file-tree-open-in-terminal-claude')).toBeTruthy();
     expect(document.querySelector('[data-slot="dropdown-menu-separator"]')).toBeNull();
   });
 });

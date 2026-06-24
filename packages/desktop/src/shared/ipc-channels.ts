@@ -5,6 +5,7 @@ import type {
   EditorId,
   LocalOpOkInitResponse,
   OkFolderState,
+  TerminalCli,
 } from '@inkeep/open-knowledge-core';
 import type {
   FindEnclosingGitRootResult,
@@ -17,6 +18,7 @@ import type { KeyringSmokeResult } from '../utility/keyring-smoke.ts';
 import type {
   CheckTargetExistsResult,
   ClaudeReadiness,
+  CliReadiness,
   HeadBranchInfo,
   OkDesktopConfig,
   OkLocalOpAuthReposResponse,
@@ -494,5 +496,9 @@ export interface RequestChannels {
   'ok:terminal:claude-assist': {
     args: [req: { action: 'preflight' | 'rewire' }];
     result: ClaudeReadiness;
+  };
+  'ok:terminal:cli-preflight': {
+    args: [req: { cli: TerminalCli }];
+    result: CliReadiness;
   };
 }

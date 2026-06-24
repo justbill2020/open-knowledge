@@ -1,6 +1,6 @@
-import type { HandoffTarget } from '@inkeep/open-knowledge-core';
+import { type HandoffTarget, TERMINAL_CLIS, type TerminalCli } from '@inkeep/open-knowledge-core';
 import { Trans, useLingui } from '@lingui/react/macro';
-import { ArrowUpRight, Check, ChevronDown, Sparkles, SquareTerminal } from 'lucide-react';
+import { ArrowUpRight, Check, ChevronDown, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import {
   type CreateScenario,
@@ -8,6 +8,7 @@ import {
 } from '@/components/empty-state/use-create-suggestions';
 import { TargetIcon } from '@/components/handoff/OpenInAgentMenuItem';
 import { useTerminalLaunch } from '@/components/handoff/TerminalLaunchContext';
+import { cliIconTargetId, VISIBLE_CLIS } from '@/components/handoff/terminal-cli-display';
 import {
   buildCreateHandoffInput,
   getDisplayNameDefault,
@@ -53,8 +54,8 @@ export function CreatePromptComposer({ scenario, className }: CreatePromptCompos
     readPreferredAgent(),
   );
   const userPickedRef = useRef(false);
-  const [cliMode, setCliMode] = useState(false);
-  const cliSelected = cliMode && terminalLaunch !== null;
+  const [selectedCli, setSelectedCli] = useState<TerminalCli | null>(null);
+  const cliSelected = selectedCli !== null && terminalLaunch !== null;
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -74,21 +75,21 @@ export function CreatePromptComposer({ scenario, className }: CreatePromptCompos
 
   function chooseAgent(targetId: HandoffTarget) {
     userPickedRef.current = true;
-    setCliMode(false);
+    setSelectedCli(null);
     setSelectedAgentId(targetId);
     writePreferredAgent(targetId);
   }
 
-  function chooseCli() {
+  function chooseCli(cli: TerminalCli) {
     userPickedRef.current = true;
-    setCliMode(true);
+    setSelectedCli(cli);
   }
 
   function launchCli() {
-    if (terminalLaunch === null) return;
+    if (terminalLaunch === null || selectedCli === null) return;
     const input = buildCreateHandoffInput({ workspace, description: description.trim(), scenario });
     if (input === null) return; // Workspace not resolved yet — disabled-trigger contract.
-    terminalLaunch.launchInTerminal(input);
+    terminalLaunch.launchInTerminal(input, selectedCli);
   }
 
   function handleCreate(targetId: HandoffTarget) {
@@ -191,10 +192,14 @@ export function CreatePromptComposer({ scenario, className }: CreatePromptCompos
                 className="gap-1.5"
                 data-testid="create-with-agent"
               >
-                {cliSelected ? (
+                {cliSelected && selectedCli !== null ? (
                   <>
-                    <SquareTerminal aria-hidden="true" className="size-3.5" />
-                    <Trans>Create with Claude CLI</Trans>
+                    <TargetIcon
+                      id={cliIconTargetId(selectedCli)}
+                      aria-hidden="true"
+                      className="size-3.5"
+                    />
+                    <Trans>Create with {TERMINAL_CLIS[selectedCli].displayName} CLI</Trans>
                   </>
                 ) : (
                   <>
@@ -247,24 +252,35 @@ export function CreatePromptComposer({ scenario, className }: CreatePromptCompos
                         <DropdownMenuLabel>
                           <Trans>Terminal</Trans>
                         </DropdownMenuLabel>
-                        {/* Selects the docked-terminal Claude CLI as the create target
-                          (the Create button performs the launch). Visible text is
-                          "Claude" while the accessible name stays "Claude CLI" so AT
-                          users can tell it apart from the Desktop "Claude" (WCAG
+                        {/* Selects a docked-terminal CLI as the create target (the
+                          Create button performs the launch). Visible text is the
+                          brand name while the accessible name is "<Brand> CLI" so AT
+                          users can tell it apart from the matching Desktop row (WCAG
                           2.5.3 — the name contains the visible label). */}
-                        <DropdownMenuItem
-                          onSelect={() => chooseCli()}
-                          data-testid="create-with-claude-cli"
-                          aria-label={t`Claude CLI`}
-                        >
-                          <SquareTerminal className="size-4" aria-hidden="true" />
-                          <span className="flex-1">
-                            <Trans>Claude</Trans>
-                          </span>
-                          {cliSelected ? (
-                            <Check aria-hidden="true" className="size-4 text-muted-foreground" />
-                          ) : null}
-                        </DropdownMenuItem>
+                        {VISIBLE_CLIS.map((cli) => {
+                          const { displayName } = TERMINAL_CLIS[cli];
+                          return (
+                            <DropdownMenuItem
+                              key={cli}
+                              onSelect={() => chooseCli(cli)}
+                              data-testid={`create-with-cli-${cli}`}
+                              aria-label={t`${displayName} CLI`}
+                            >
+                              <TargetIcon
+                                id={cliIconTargetId(cli)}
+                                aria-hidden="true"
+                                className="size-4"
+                              />
+                              <span className="flex-1">{displayName}</span>
+                              {selectedCli === cli ? (
+                                <Check
+                                  aria-hidden="true"
+                                  className="size-4 text-muted-foreground"
+                                />
+                              ) : null}
+                            </DropdownMenuItem>
+                          );
+                        })}
                       </DropdownMenuGroup>
                     </>
                   ) : null}

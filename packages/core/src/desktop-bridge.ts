@@ -1,6 +1,7 @@
 import type { CreateNewBannerKind } from './constants/create-new-banner.ts';
 import type { EditorId } from './constants/editors.ts';
 import type { OkFolderState } from './constants/folder-state.ts';
+import type { TerminalCli } from './handoff/terminal-launch.ts';
 import type { LocalOpOkInitResponse } from './schemas/api/local-op.ts';
 import type { BranchInfoResponse, CheckoutResponse } from './schemas/api/share.ts';
 import type { RecentProjectEntry } from './sharing/index.ts';
@@ -446,6 +447,13 @@ export interface ClaudeReadiness {
   readonly rewireError?: string;
 }
 
+/** On-PATH readiness for a non-Claude agent CLI (codex / cursor-agent) launched
+ *  in the docked terminal. Mirror of the same interface in the desktop bridge
+ *  contract + the app renderer copy (drift-tested). */
+export interface CliReadiness {
+  readonly onPath: 'present' | 'not-found' | 'unknown';
+}
+
 export interface OkDesktopBridge {
   readonly config: OkDesktopConfig;
 
@@ -705,6 +713,7 @@ export interface OkDesktopBridge {
     onData(cb: (msg: OkPtyData) => void): OkUnsubscribe;
     onExit(cb: (msg: OkPtyExit) => void): OkUnsubscribe;
     claudePreflight(): Promise<ClaudeReadiness>;
+    cliPreflight(cli: TerminalCli): Promise<CliReadiness>;
     rewireClaudeMcp(): Promise<ClaudeReadiness>;
   };
 

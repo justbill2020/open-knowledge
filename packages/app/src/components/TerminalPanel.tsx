@@ -1,6 +1,6 @@
 import '@xterm/xterm/css/xterm.css';
 
-import { buildClaudeLaunchCommand } from '@inkeep/open-knowledge-core';
+import { buildCliLaunchCommand, type TerminalCli } from '@inkeep/open-knowledge-core';
 import { useLingui } from '@lingui/react/macro';
 import { FitAddon } from '@xterm/addon-fit';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
@@ -13,6 +13,7 @@ import type { ClaudeReadiness, OkDesktopBridge } from '@/lib/desktop-bridge-type
 import { cn } from '@/lib/utils';
 import { ClaudeReadinessBanner } from './ClaudeReadinessBanner';
 import type { TerminalLaunchIntent } from './EditorPane';
+import { TerminalCliMissingBanner } from './TerminalCliMissingBanner';
 import { type TerminalExitInfo, TerminalExitNotice } from './TerminalExitNotice';
 import { TerminalRefusalNotice } from './TerminalRefusalNotice';
 import { xtermThemeForMode } from './terminal-theme';
@@ -88,6 +89,7 @@ function TerminalSession({
   const ptyIdRef = useRef<string | null>(null);
   const [firstOutputSeen, setFirstOutputSeen] = useState(false);
   const lastLaunchedNonceRef = useRef<number | null>(null);
+  const [missingCli, setMissingCli] = useState<TerminalCli | null>(null);
 
   useEffect(() => {
     onExitRef.current = onExit;
@@ -248,16 +250,45 @@ function TerminalSession({
     if (launch === null) return;
     if (status !== 'running') return;
     if (!firstOutputSeen) return;
-    if (!preflightDone) return;
     if (lastLaunchedNonceRef.current === launch.nonce) return;
     const ptyId = ptyIdRef.current;
     if (ptyId === null) return;
-    if (readiness?.claude === 'not-found') {
+
+    if (launch.cli === 'claude') {
+      if (!preflightDone) return;
       lastLaunchedNonceRef.current = launch.nonce;
+      setMissingCli(null);
+      if (readiness?.claude === 'not-found') return; // banner handles remediation
+      bridge.terminal.input(ptyId, buildCliLaunchCommand('claude', launch.prompt));
       return;
     }
+
     lastLaunchedNonceRef.current = launch.nonce;
-    bridge.terminal.input(ptyId, buildClaudeLaunchCommand(launch.prompt));
+    setMissingCli(null);
+    const { cli, prompt } = launch;
+    let cancelled = false;
+    const writeLaunch = () => {
+      const livePtyId = ptyIdRef.current;
+      if (livePtyId !== null) bridge.terminal.input(livePtyId, buildCliLaunchCommand(cli, prompt));
+    };
+    void bridge.terminal
+      .cliPreflight(cli)
+      .then((res) => {
+        if (cancelled) return;
+        if (res.onPath === 'not-found') {
+          setMissingCli(cli);
+          return;
+        }
+        writeLaunch();
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.warn('[terminal] cliPreflight failed', { cli, err });
+        writeLaunch();
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [bridge, launch, status, firstOutputSeen, preflightDone, readiness]);
 
   return (
@@ -267,6 +298,13 @@ function TerminalSession({
           readiness={readiness}
           bridge={bridge}
           onDismiss={() => setReadiness(null)}
+        />
+      ) : null}
+      {status === 'running' && missingCli ? (
+        <TerminalCliMissingBanner
+          cli={missingCli}
+          bridge={bridge}
+          onDismiss={() => setMissingCli(null)}
         />
       ) : null}
       <div ref={containerRef} data-terminal-status={status} className="min-h-0 flex-1 px-1.5" />

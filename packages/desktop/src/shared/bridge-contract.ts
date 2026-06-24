@@ -6,6 +6,7 @@ import type {
   EditorId,
   LocalOpOkInitResponse,
   OkFolderState,
+  TerminalCli,
 } from '@inkeep/open-knowledge-core';
 
 export type { BridgeWorktreeEntry };
@@ -429,6 +430,10 @@ export interface ClaudeReadiness {
   readonly rewireError?: string;
 }
 
+export interface CliReadiness {
+  readonly onPath: 'present' | 'not-found' | 'unknown';
+}
+
 export interface OkDesktopBridge {
   readonly config: OkDesktopConfig;
 
@@ -716,6 +721,7 @@ export interface OkDesktopBridge {
     onData(cb: (msg: OkPtyData) => void): OkUnsubscribe;
     onExit(cb: (msg: OkPtyExit) => void): OkUnsubscribe;
     claudePreflight(): Promise<ClaudeReadiness>;
+    cliPreflight(cli: TerminalCli): Promise<CliReadiness>;
     rewireClaudeMcp(): Promise<ClaudeReadiness>;
   };
 

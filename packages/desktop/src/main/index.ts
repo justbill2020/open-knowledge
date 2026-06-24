@@ -35,6 +35,8 @@ import {
   CLIENT_VERSION_HEADER,
   PROTOCOL_VERSION,
   SPAWN_ERROR_LOG,
+  TERMINAL_CLIS,
+  type TerminalCli,
 } from '@inkeep/open-knowledge-core';
 import {
   assertGitAvailable,
@@ -74,7 +76,7 @@ import {
   shell,
   utilityProcess,
 } from 'electron';
-import type { ClaudeReadiness, OkMenuAction } from '../shared/bridge-contract.ts';
+import type { ClaudeReadiness, CliReadiness, OkMenuAction } from '../shared/bridge-contract.ts';
 import { type EntryPoint, isEntryPoint } from '../shared/entry-point.ts';
 import type {
   EditorActiveTargetSnapshot,
@@ -111,7 +113,12 @@ import {
 } from './bundle-replace-detector.ts';
 import { cascadePosition } from './cascade-position.ts';
 import { checkTargetExists as checkTargetExistsImpl } from './check-target-exists.ts';
-import { resolveClaudeReadiness, runLoginShellProbe } from './claude-readiness.ts';
+import {
+  cliProbeArgs,
+  resolveClaudeReadiness,
+  resolveCliOnPath,
+  runLoginShellProbe,
+} from './claude-readiness.ts';
 import { requestUserConsent, walkExceedsCap } from './consent-dialog.ts';
 import {
   CreateNewProjectError,
@@ -1353,32 +1360,43 @@ function formatUnknownError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+function probeLoginShellOnPath(args?: readonly string[]): Promise<number | null> {
+  return runLoginShellProbe(
+    (file, spawnArgs) => {
+      const child = spawn(file, [...spawnArgs], { stdio: 'ignore', shell: false });
+      return {
+        onExit: (cb) => {
+          child.on('exit', (code) => cb(code));
+        },
+        onError: (cb) => {
+          child.on('error', (err) => cb(err));
+        },
+        kill: () => {
+          child.kill('SIGKILL');
+        },
+      };
+    },
+    resolveShell(process.env),
+    {
+      setTimer: (cb, ms) => setTimeout(cb, ms),
+      clearTimer: (token) => clearTimeout(token as ReturnType<typeof setTimeout>),
+    },
+    undefined,
+    args,
+  );
+}
+
 function resolveTerminalClaudeReadiness(): Promise<ClaudeReadiness> {
   return resolveClaudeReadiness({
-    probeClaude: () =>
-      runLoginShellProbe(
-        (file, args) => {
-          const child = spawn(file, [...args], { stdio: 'ignore', shell: false });
-          return {
-            onExit: (cb) => {
-              child.on('exit', (code) => cb(code));
-            },
-            onError: (cb) => {
-              child.on('error', (err) => cb(err));
-            },
-            kill: () => {
-              child.kill('SIGKILL');
-            },
-          };
-        },
-        resolveShell(process.env),
-        {
-          setTimer: (cb, ms) => setTimeout(cb, ms),
-          clearTimer: (token) => clearTimeout(token as ReturnType<typeof setTimeout>),
-        },
-      ),
+    probeClaude: () => probeLoginShellOnPath(),
     classifyMcpEntry: () =>
       createMcpWiringCliSurface().classifyExistingMcpEntry('claude', osHomedir()).kind,
+  });
+}
+
+function resolveTerminalCliOnPath(cli: TerminalCli): Promise<CliReadiness> {
+  return resolveCliOnPath({
+    probe: () => probeLoginShellOnPath(cliProbeArgs(TERMINAL_CLIS[cli].bin)),
   });
 }
 
@@ -1574,6 +1592,14 @@ function registerIpcHandlers() {
     }
     const readiness = await resolveTerminalClaudeReadiness();
     return rewireError === undefined ? readiness : { ...readiness, rewireError };
+  });
+
+  handle('ok:terminal:cli-preflight', async (_event, req): Promise<CliReadiness> => {
+    if (!(req.cli in TERMINAL_CLIS)) {
+      getLogger('terminal').warn({ cli: req.cli }, 'cli-preflight: unknown cli discriminant');
+      return { onPath: 'unknown' };
+    }
+    return resolveTerminalCliOnPath(req.cli);
   });
 
   handle('ok:dialog:open-folder', async (_event, opts) => {

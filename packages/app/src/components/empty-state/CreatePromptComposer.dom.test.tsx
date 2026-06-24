@@ -99,7 +99,7 @@ describe('CreatePromptComposer Desktop / Terminal sections', () => {
 
     expect(screen.getByText('Desktop')).toBeTruthy();
     expect(screen.getByText('Terminal')).toBeTruthy();
-    expect(screen.getByTestId('create-with-claude-cli')).toBeTruthy();
+    expect(screen.getByTestId('create-with-cli-claude')).toBeTruthy();
     expect(screen.queryByTestId('menu-separator')).not.toBeNull();
   });
 
@@ -110,7 +110,7 @@ describe('CreatePromptComposer Desktop / Terminal sections', () => {
 
     expect(screen.getByText('Desktop')).toBeTruthy();
     expect(screen.queryByText('Terminal')).toBeNull();
-    expect(screen.queryByTestId('create-with-claude-cli')).toBeNull();
+    expect(screen.queryByTestId('create-with-cli-claude')).toBeNull();
     expect(screen.queryByTestId('menu-separator')).toBeNull();
   });
 
@@ -123,7 +123,7 @@ describe('CreatePromptComposer Desktop / Terminal sections', () => {
       target: { value: 'Build a competitor wiki' },
     });
 
-    fireEvent.click(screen.getByTestId('create-with-claude-cli'));
+    fireEvent.click(screen.getByTestId('create-with-cli-claude'));
     await waitFor(() => {
       expect(screen.getByTestId('create-with-agent').textContent).toContain(
         'Create with Claude CLI',
@@ -148,7 +148,7 @@ describe('CreatePromptComposer Desktop / Terminal sections', () => {
     workspaceValue = null; // buildCreateHandoffInput returns null until the workspace resolves.
     await renderComposer({ withTerminal: true });
 
-    fireEvent.click(screen.getByTestId('create-with-claude-cli'));
+    fireEvent.click(screen.getByTestId('create-with-cli-claude'));
     await waitFor(() => {
       expect(screen.getByTestId('create-with-agent').textContent).toContain(
         'Create with Claude CLI',
@@ -176,7 +176,7 @@ describe('CreatePromptComposer Desktop / Terminal sections', () => {
     workspaceValue = { contentDir: '/tmp/project', pathSeparator: '/' };
     await renderComposer({ withTerminal: true });
 
-    const row = screen.getByTestId('create-with-claude-cli');
+    const row = screen.getByTestId('create-with-cli-claude');
     expect(row.textContent).toBe('Claude');
     expect(row.getAttribute('aria-label')).toBe('Claude CLI');
   });
@@ -188,7 +188,7 @@ describe('CreatePromptComposer Desktop / Terminal sections', () => {
 
     const textarea = screen.getByLabelText('Describe the project you want to create');
     fireEvent.change(textarea, { target: { value: 'Build a wiki' } });
-    fireEvent.click(screen.getByTestId('create-with-claude-cli')); // enter CLI mode
+    fireEvent.click(screen.getByTestId('create-with-cli-claude')); // enter CLI mode
     await waitFor(() => {
       expect(screen.getByTestId('create-with-agent').textContent).toContain(
         'Create with Claude CLI',
@@ -212,7 +212,7 @@ describe('CreatePromptComposer Desktop / Terminal sections', () => {
     workspaceValue = { contentDir: '/tmp/project', pathSeparator: '/' };
     await renderComposer({ withTerminal: true });
 
-    fireEvent.click(screen.getByTestId('create-with-claude-cli')); // enter CLI mode
+    fireEvent.click(screen.getByTestId('create-with-cli-claude')); // enter CLI mode
     await waitFor(() => {
       expect(screen.getByTestId('create-with-agent').textContent).toContain(
         'Create with Claude CLI',
