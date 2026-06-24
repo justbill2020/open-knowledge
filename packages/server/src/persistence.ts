@@ -1,6 +1,6 @@
 import { existsSync, lstatSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { realpath } from 'node:fs/promises';
-import { dirname, relative, resolve, sep } from 'node:path';
+import { dirname, relative, resolve } from 'node:path';
 import type { Extension } from '@hocuspocus/server';
 import type { MarkdownManager } from '@inkeep/open-knowledge-core';
 import {
@@ -54,6 +54,7 @@ import {
   incrementPersistenceSanityCheckSerializeFailures,
   incrementPersistenceSkipNonQuiescent,
 } from './metrics.ts';
+import { isWithinDir, toPosix } from './path-utils.ts';
 import { classifyDuplication } from './persistence-tripwire.ts';
 import { backfillRenameLogCommitSha, getOrLoadRenameLogIndex } from './rename-log.ts';
 import { OBSERVER_SYNC_ORIGIN } from './server-observers.ts';
@@ -224,14 +225,14 @@ export function safeContentPath(documentName: string, contentDir: string): strin
   }
   const ext = getDocExtension(documentName);
   const filePath = resolve(contentDir, `${documentName}${ext}`);
-  if (!filePath.startsWith(`${contentDir}/`)) {
+  if (!isWithinDir(filePath, contentDir)) {
     throw new Error(`Invalid document name: ${documentName}`);
   }
   return filePath;
 }
 
 export function isWithinContentDir(p: string, contentDir: string): boolean {
-  return p === contentDir || p.startsWith(contentDir + sep);
+  return isWithinDir(p, contentDir);
 }
 
 const reconciledBaseByBranch = new Map<string, Map<string, string>>();
@@ -290,11 +291,13 @@ function toStoreFailure(err: unknown): StoreFailure {
   try {
     const c = (err as NodeJS.ErrnoException | null)?.code;
     if (typeof c === 'string') code = c;
-  } catch {}
+  } catch {
+  }
   let message = 'unknown store error';
   try {
     message = err instanceof Error ? err.message : String(err);
-  } catch {}
+  } catch {
+  }
   return { code, message };
 }
 
@@ -320,7 +323,7 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
   }
   const projectDir = options?.projectDir ?? process.cwd();
   const shadowRef = options?.shadowRef;
-  const contentRoot = options?.contentRoot ?? (relative(projectDir, contentDir) || '.');
+  const contentRoot = options?.contentRoot ?? (toPosix(relative(projectDir, contentDir)) || '.');
   const backlinkIndex = options?.backlinkIndex;
   const getPrincipal = options?.getPrincipal;
   const onAgentCommit = options?.onAgentCommit;
@@ -352,10 +355,12 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
 
   const agentWriteStores = new Set<string>();
 
+
   const gitEnabled = options?.gitEnabled ?? true;
   const commitDebounceMs = options?.commitDebounceMs ?? 15_000;
   const wipRef = options?.wipRef ?? 'refs/wip/main';
   const getCurrentBranch = options?.getCurrentBranch;
+
 
   let gitCommitTimer: ReturnType<typeof setTimeout> | null = null;
   let consecutiveGitFailures = 0;
@@ -591,7 +596,8 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
     } finally {
       try {
         tracedUnlinkSync(tmpIndex);
-      } catch {}
+      } catch {
+      }
     }
   }
 
@@ -1035,7 +1041,8 @@ export function createPersistenceExtension(options?: PersistenceOptions): Persis
         } catch (e) {
           try {
             tracedUnlinkSync(tmpPath);
-          } catch {}
+          } catch {
+          }
           persistenceDeferCounts.delete(documentName);
           storeFailures.set(documentName, toStoreFailure(e));
           log.error({ err: e, documentName }, `[persistence] Failed to save ${documentName}`);

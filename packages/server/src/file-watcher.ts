@@ -1,3 +1,4 @@
+
 import { createHash } from 'node:crypto';
 import { type Dirent, lstatSync, readdirSync, realpathSync, type Stats, statSync } from 'node:fs';
 import { lstat, readdir, readFile, realpath, stat } from 'node:fs/promises';
@@ -14,6 +15,7 @@ import {
 } from './doc-extensions.ts';
 import { classifyFsPath, normalizeFsPath } from './fs-traced.ts';
 import { getLogger } from './logger.ts';
+import { toPosix } from './path-utils.ts';
 import { isWithinContentDir } from './persistence.ts';
 import { containsConflictMarkers } from './reconciliation.ts';
 import { getMeter, withSpan } from './telemetry.ts';
@@ -23,6 +25,7 @@ export interface AsyncSubscription {
 }
 
 type WatcherBackend = 'parcel' | 'chokidar';
+
 
 type MarkdownDiskEvent =
   | { kind: 'create'; path: string; docName: string; content: string }
@@ -71,6 +74,7 @@ export function assertNeverDiskEvent(event: never): never {
   throw new Error(`[DiskEvent] unhandled variant: ${JSON.stringify(event)}`);
 }
 
+
 export interface FileIndexEntry {
   size: number;
   modified: string;
@@ -110,6 +114,7 @@ export interface WatcherHandle {
   pruneFolderIndexNowExcluded: () => number;
   rescanFromDisk: () => Promise<void>;
 }
+
 
 export const writeTracker = new Map<string, Array<{ hash: string; timestamp: number }>>();
 const WRITE_TRACKER_TTL_MS = 10_000;
@@ -165,7 +170,7 @@ function eventEscapesContentDir(rawPath: string, contentDir: string): boolean {
 }
 
 export function pathToDocName(absPath: string, contentDir: string): string {
-  const rel = relative(contentDir, absPath);
+  const rel = toPosix(relative(contentDir, absPath));
   return stripDocExtension(rel);
 }
 
@@ -215,6 +220,7 @@ function extractDocExtension(path: string): string | null {
   return null;
 }
 
+
 export const lastKnownHash = new Map<string, string>();
 
 export function updateLastKnownHash(filePath: string, hash: string): void {
@@ -226,6 +232,7 @@ export function removeLastKnownHash(filePath: string): string | undefined {
   lastKnownHash.delete(filePath);
   return hash;
 }
+
 
 interface RawFileEvent {
   type: 'create' | 'update' | 'delete';
@@ -246,7 +253,7 @@ export async function classifyEvents(
     if (!isSupportedDocFile(event.path)) continue;
 
     if (contentFilter) {
-      const relPath = relative(contentDir, event.path);
+      const relPath = toPosix(relative(contentDir, event.path));
       if (contentFilter.isExcluded(relPath)) continue;
     }
 
@@ -425,6 +432,7 @@ export async function classifyEvents(
   return results;
 }
 
+
 export function isSelfWrite(filePath: string, hash: string): boolean {
   const queue = writeTracker.get(filePath);
   if (!queue) return false;
@@ -434,6 +442,7 @@ export function isSelfWrite(filePath: string, hash: string): boolean {
   if (queue.length === 0) writeTracker.delete(filePath);
   return true;
 }
+
 
 async function seedLastKnownHashes(
   dir: string,
@@ -525,7 +534,7 @@ async function seedLastKnownHashes(
             );
           } else if (canonStat.isFile() && isSupportedDocFile(entry.name)) {
             if (contentFilter) {
-              const relPath = relative(contentDir, canonical);
+              const relPath = toPosix(relative(contentDir, canonical));
               if (contentFilter.isExcluded(relPath)) continue;
             }
             const aliasDocName = pathToDocName(fullPath, contentDir);
@@ -562,7 +571,7 @@ async function seedLastKnownHashes(
             }
           } else if (canonStat.isFile()) {
             if (contentFilter) {
-              const relPath = relative(contentDir, canonical);
+              const relPath = toPosix(relative(contentDir, canonical));
               if (contentFilter.isPathIgnored(relPath)) continue;
             }
             const docName = pathToDocName(fullPath, contentDir);
@@ -600,7 +609,7 @@ async function seedLastKnownHashes(
         visited.add(lst.ino);
 
         if (contentFilter) {
-          const relPath = relative(contentDir, fullPath);
+          const relPath = toPosix(relative(contentDir, fullPath));
           if (contentFilter.isExcluded(relPath)) continue;
         }
         try {
@@ -641,7 +650,7 @@ async function seedLastKnownHashes(
         visited.add(lst.ino);
 
         if (contentFilter) {
-          const relPath = relative(contentDir, fullPath);
+          const relPath = toPosix(relative(contentDir, fullPath));
           if (contentFilter.isPathIgnored(relPath)) continue;
         }
         const docName = pathToDocName(fullPath, contentDir);
@@ -869,6 +878,7 @@ function scanForUntrackedSubfolders(
   }
 }
 
+
 export async function handleRawEvents(
   rawEvents: Array<{ type: 'create' | 'update' | 'delete'; path: string }>,
   contentDir: string,
@@ -1018,10 +1028,10 @@ export async function handleRawEvents(
 
   for (const raw of assetEvents) {
     if (contentFilter) {
-      const relPath = relative(contentDir, raw.path);
+      const relPath = toPosix(relative(contentDir, raw.path));
       if (contentFilter.isExcluded(relPath)) continue;
     }
-    const relativePath = relative(contentDir, raw.path);
+    const relativePath = toPosix(relative(contentDir, raw.path));
     const event: DiskEvent =
       raw.type === 'delete'
         ? { kind: 'asset-delete', path: raw.path, relativePath }
@@ -1030,7 +1040,7 @@ export async function handleRawEvents(
   }
 
   for (const raw of nonMdRawEvents) {
-    const relativePath = relative(contentDir, raw.path);
+    const relativePath = toPosix(relative(contentDir, raw.path));
     if (contentFilter?.isPathIgnored(relativePath)) continue;
     if (isSystemDoc(relativePath) || isConfigDoc(relativePath)) continue;
 
@@ -1084,6 +1094,7 @@ function _fileWatcherEventsCounter() {
   });
   return _fwEventsCounterCache;
 }
+
 
 async function startParcelWatcher(
   contentDir: string,
@@ -1142,6 +1153,7 @@ async function startParcelWatcher(
   }
 }
 
+
 async function startChokidarWatcher(
   contentDir: string,
   contentFilter: ContentFilter | undefined,
@@ -1158,7 +1170,7 @@ async function startChokidarWatcher(
     followSymlinks: false,
     ignored: contentFilter
       ? (filePath: string, stats?: import('node:fs').Stats) => {
-          const rel = relative(contentDir, filePath);
+          const rel = toPosix(relative(contentDir, filePath));
           if (rel === '' || rel === '.') return false;
           if (stats?.isDirectory()) return contentFilter.isDirExcluded(rel);
           return contentFilter.isExcluded(rel);
@@ -1209,6 +1221,7 @@ async function startChokidarWatcher(
     },
   };
 }
+
 
 export async function startWatcher(
   contentDirRaw: string,
@@ -1321,7 +1334,7 @@ export async function startWatcher(
       if (!contentFilter) return 0;
       let pruned = 0;
       for (const [docName, entry] of fileIndex) {
-        const relPath = relative(contentDir, entry.canonicalPath);
+        const relPath = toPosix(relative(contentDir, entry.canonicalPath));
         const excluded =
           entry.kind === 'file'
             ? contentFilter.isPathIgnored(relPath)

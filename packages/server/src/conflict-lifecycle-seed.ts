@@ -1,8 +1,10 @@
+
 import { join, relative } from 'node:path';
 import type { Extension } from '@hocuspocus/server';
 import { isConfigDoc, isSystemDoc } from './cc1-broadcast.ts';
 import type { ConflictEntry } from './conflict-storage.ts';
 import { stripDocExtension } from './doc-extensions.ts';
+import { toPosix } from './path-utils.ts';
 import type { SyncEngine } from './sync-engine.ts';
 
 interface ConflictLifecycleSeedOptions {
@@ -18,7 +20,7 @@ function entryMatchesDocName(
   contentDir: string,
 ): boolean {
   const absPath = join(projectDir, entry.file);
-  const contentRelPath = relative(contentDir, absPath);
+  const contentRelPath = toPosix(relative(contentDir, absPath));
   if (contentRelPath.startsWith('..')) return false;
   return stripDocExtension(contentRelPath) === docName;
 }

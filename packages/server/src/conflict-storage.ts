@@ -1,9 +1,12 @@
+
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { getLocalDir } from './config/paths.ts';
 import { getLogger } from './logger.ts';
+import { isWithinDir } from './path-utils.ts';
 
 const log = getLogger('conflict-storage');
+
 
 export interface ConflictEntry {
   file: string;
@@ -21,6 +24,7 @@ interface ConflictsJson {
   conflicts: ConflictEntry[];
 }
 
+
 export class ConflictStore {
   private readonly storePath: string;
   private readonly projectDir: string;
@@ -33,6 +37,7 @@ export class ConflictStore {
     this.branch = branch;
     this.load();
   }
+
 
   load(): void {
     if (!existsSync(this.storePath)) {
@@ -108,6 +113,7 @@ export class ConflictStore {
     this.branch = branch;
   }
 
+
   async resolveConflict(
     file: string,
     strategy: ResolveStrategy,
@@ -143,7 +149,7 @@ export class ConflictStore {
         }
         const projectRoot = resolve(this.projectDir);
         const absPath = resolve(projectRoot, file);
-        if (absPath !== projectRoot && !absPath.startsWith(`${projectRoot}/`)) {
+        if (!isWithinDir(absPath, projectRoot)) {
           throw new Error(`[conflicts] file path escapes project directory: ${file}`);
         }
         writeFileSync(absPath, content, 'utf-8');

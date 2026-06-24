@@ -97,6 +97,7 @@ import {
   incrementUpstreamImport,
   setRecentlyRemovedDocsSize,
 } from './metrics.ts';
+import { isWithinDir, toPosix } from './path-utils.ts';
 import {
   createPersistenceExtension,
   deleteReconciledBase,
@@ -305,7 +306,7 @@ export function createServer(options: ServerOptions): ServerInstance {
     if (!candidatePath) return null;
     const fullPath = resolve(contentDir, candidatePath);
     const contentDirAbs = resolve(contentDir);
-    if (fullPath !== contentDirAbs && !fullPath.startsWith(`${contentDirAbs}/`)) {
+    if (!isWithinDir(fullPath, contentDirAbs)) {
       return null;
     }
     try {
@@ -593,7 +594,8 @@ export function createServer(options: ServerOptions): ServerInstance {
                 loaded: loadedPrincipal.id,
               }),
             );
-          } else {
+          }
+          else {
             ctx.principalId = parsed.principalId;
           }
         }
@@ -637,7 +639,7 @@ export function createServer(options: ServerOptions): ServerInstance {
     function resolveDocFilePath(docName: string): string | null {
       if (!isSafeDocName(docName)) return null;
       const filePath = resolve(resolvedContentDir, `${docName}${getDocExtension(docName)}`);
-      if (!filePath.startsWith(`${resolvedContentDir}/`) && filePath !== resolvedContentDir) {
+      if (!isWithinDir(filePath, resolvedContentDir)) {
         return null;
       }
       return filePath;
@@ -770,7 +772,7 @@ export function createServer(options: ServerOptions): ServerInstance {
   function safeRescuePath(shadowGitDir: string, docName: string): string | null {
     const rescueBase = resolve(shadowGitDir, 'rescue');
     const filePath = resolve(rescueBase, `${docName}${getDocExtension(docName)}`);
-    if (!filePath.startsWith(`${rescueBase}/`)) return null;
+    if (!isWithinDir(filePath, rescueBase)) return null;
     return filePath;
   }
 
@@ -1158,6 +1160,7 @@ export function createServer(options: ServerOptions): ServerInstance {
     }
   }
 
+
   const eventBuffer: DiskEvent[] = [];
 
   async function onDiskEvent(event: DiskEvent): Promise<void> {
@@ -1174,6 +1177,7 @@ export function createServer(options: ServerOptions): ServerInstance {
       await handleDiskEvent(event);
     }
   }
+
 
   let watcher: WatcherHandle | null = null;
   let headWatcher: HeadWatcherHandle | null = null;
@@ -1445,7 +1449,8 @@ export function createServer(options: ServerOptions): ServerInstance {
                   'utf-8',
                 );
               }
-            } catch {}
+            } catch {
+            }
 
             try {
               destroyShadowRepo(shadowRef.current);
@@ -1589,13 +1594,15 @@ export function createServer(options: ServerOptions): ServerInstance {
         let lastKnownHead: string | null = null;
         try {
           lastKnownHead = readFileSync(lastKnownHeadPath, 'utf-8').trim() || null;
-        } catch {}
+        } catch {
+        }
 
         let currentHead: string | null = null;
         try {
           const projectGit = simpleGit({ baseDir: projectDir, timeout: { block: 10_000 } });
           currentHead = (await projectGit.revparse('HEAD')).trim() || null;
-        } catch {}
+        } catch {
+        }
 
         if (currentHead !== null) {
           if (currentHead !== lastKnownHead) {
@@ -1604,7 +1611,8 @@ export function createServer(options: ServerOptions): ServerInstance {
               const projectGit = simpleGit({ baseDir: projectDir, timeout: { block: 10_000 } });
               const b = (await projectGit.raw('rev-parse', '--abbrev-ref', 'HEAD')).trim();
               if (b && b !== 'HEAD') branch = b;
-            } catch {}
+            } catch {
+            }
 
             log.info(
               { lastKnownHead, currentHead, branch },
@@ -1781,7 +1789,8 @@ export function createServer(options: ServerOptions): ServerInstance {
           const candidate = join(commonDir, 'info', 'exclude');
           if (existsSync(dirname(candidate))) gitInfoExcludePath = candidate;
         }
-      } catch {}
+      } catch {
+      }
       const ignorePaths = gitInfoExcludePath
         ? [okignorePath, gitignorePath, gitInfoExcludePath]
         : [okignorePath, gitignorePath];
@@ -2260,7 +2269,7 @@ export function createServer(options: ServerOptions): ServerInstance {
       for (const file of files) {
         try {
           const absPath = join(projectDir, file);
-          const contentRelPath = relative(contentDir, absPath);
+          const contentRelPath = toPosix(relative(contentDir, absPath));
           if (contentRelPath.startsWith('..')) continue;
           const docName = stripDocExtension(contentRelPath);
           const document = hocuspocus.documents.get(docName);

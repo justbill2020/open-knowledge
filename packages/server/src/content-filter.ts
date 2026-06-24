@@ -1,3 +1,4 @@
+
 import { execFile as execFileCb, spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { readdir, readFile as readFileAsync } from 'node:fs/promises';
@@ -9,6 +10,7 @@ import ignore, { type Ignore } from 'ignore';
 import { isConfigDoc, isSystemDoc } from './cc1-broadcast.ts';
 import { isSupportedDocFile, stripDocExtension } from './doc-extensions.ts';
 import { getLogger } from './logger.ts';
+import { toPosix } from './path-utils.ts';
 import { withSpan } from './telemetry.ts';
 
 const execFileAsync = promisify(execFileCb);
@@ -227,7 +229,8 @@ async function resolveGlobalExcludesfileAsync(projectDir: string): Promise<strin
     );
     const raw = stdout.trim();
     if (raw) return raw;
-  } catch {}
+  } catch {
+  }
   return xdgGlobalIgnoreDefault();
 }
 
@@ -307,7 +310,7 @@ export interface ContentFilter {
 export function createContentFilter(opts: ContentFilterOptions): ContentFilter {
   const { projectDir, contentDir, onAfterRebuild, singleDocRelPath } = opts;
 
-  const contentRelPrefix = relative(projectDir, contentDir);
+  const contentRelPrefix = toPosix(relative(projectDir, contentDir));
   const contentOutsideProject = contentRelPrefix.startsWith('..');
 
   let ig: Ignore;
@@ -657,7 +660,7 @@ function loadNestedIgnoreFiles(
     if (BUILTIN_SKIP_DIRS.has(entry.name)) continue;
 
     const dirPath = join(dir, entry.name);
-    const relToProject = relative(projectDir, dirPath);
+    const relToProject = toPosix(relative(projectDir, dirPath));
 
     if (relToProject.startsWith('..')) continue;
 
@@ -710,7 +713,7 @@ async function initContentDirStateAsync(
       const dirPath = join(dir, entry.name);
 
       if (!contentOutsideProject) {
-        const relToProject = relative(projectDir, dirPath);
+        const relToProject = toPosix(relative(projectDir, dirPath));
         if (relToProject.startsWith('..')) continue;
         if (ig.ignores(relToProject) || ig.ignores(`${relToProject}/`)) continue;
 
@@ -748,7 +751,7 @@ async function initContentDirStateAsync(
 export async function createContentFilterAsync(opts: ContentFilterOptions): Promise<ContentFilter> {
   const { projectDir, contentDir, onAfterRebuild, singleDocRelPath } = opts;
 
-  const contentRelPrefix = relative(projectDir, contentDir);
+  const contentRelPrefix = toPosix(relative(projectDir, contentDir));
   const contentOutsideProject = contentRelPrefix.startsWith('..');
 
   let ig = ignore();

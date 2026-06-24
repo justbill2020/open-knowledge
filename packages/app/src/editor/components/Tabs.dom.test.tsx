@@ -1,3 +1,4 @@
+
 import { afterEach, describe, expect, test } from 'bun:test';
 import { cleanup } from '@testing-library/react';
 import { readTabSlots } from './Tabs.tsx';
