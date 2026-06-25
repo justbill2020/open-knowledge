@@ -82,7 +82,7 @@ interface Path {
 const PATHS: Path[] = [
   {
     href: '/docs/get-started/quickstart',
-    title: 'New to Open Knowledge? Run the Quickstart',
+    title: 'New to OpenKnowledge? Run the Quickstart',
     desc: 'Install the desktop app and get your first agent-driven edit in under five minutes.',
   },
   {

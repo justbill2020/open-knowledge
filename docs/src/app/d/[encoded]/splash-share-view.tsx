@@ -110,7 +110,7 @@ function SplashChrome() {
       />
       <header className="relative z-10 px-6">
         <div className="container mx-auto flex pt-8 md:pt-10">
-          <Link href="/" aria-label="Open Knowledge home" className="inline-flex items-center">
+          <Link href="/" aria-label="OpenKnowledge home" className="inline-flex items-center">
             {/* Link already names the control; hide the wordmark's own label to
                 avoid a doubled "Open Knowledge" announcement. */}
             <OkWordmark aria-hidden="true" className="h-8 w-auto text-slide-text" />

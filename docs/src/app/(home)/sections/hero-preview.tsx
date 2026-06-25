@@ -25,7 +25,7 @@ export type HeroPreviewAgentId = keyof typeof AGENT_META;
 const PAUSED = false;
 
 const USER_MESSAGE = 'Help me write up our launch week';
-const AGENT_STATUS = 'Drafting your launch recap in Open Knowledge.';
+const AGENT_STATUS = 'Drafting your launch recap in OpenKnowledge.';
 const DOC_PATH = 'retros/launch-week';
 const TOOL_NAME = 'open-knowledge · write';
 const TOOL_SUMMARY = 'Create recap + add daily activity chart';
@@ -523,7 +523,7 @@ function EditorPanel({
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
           <span className="flex items-center gap-1.5 truncate text-[11px] text-slide-muted">
             <OkIcon className="size-[18px] shrink-0" aria-hidden="true" />
-            <span className="hidden sm:inline">Open Knowledge</span>
+            <span className="hidden sm:inline">OpenKnowledge</span>
           </span>
           <div className="justify-self-center">
             <ModeTogglePreview />

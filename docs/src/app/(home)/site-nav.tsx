@@ -32,6 +32,7 @@ const navLinks: NavLink[] = [
     label: 'Discord',
     external: true,
     icon: DiscordIcon,
+    iconOnly: true,
   },
   {
     href: 'https://x.com/OpenKnowledgeAI',
@@ -91,8 +92,8 @@ export function SiteNav() {
   return (
     <header className="sticky top-0 z-50 bg-fd-background/80 backdrop-blur supports-backdrop-filter:bg-fd-background/70">
       <div className="container mx-auto flex h-16 items-center justify-between px-6">
-        <Link href="/" aria-label="Open Knowledge home" className="inline-flex items-center">
-          <OkWordmark aria-label="Open Knowledge" className="h-8 w-auto text-slide-text" />
+        <Link href="/" aria-label="OpenKnowledge home" className="inline-flex items-center">
+          <OkWordmark aria-label="OpenKnowledge" className="h-8 w-auto text-slide-text" />
         </Link>
 
         <nav className="hidden items-center gap-6 text-sm text-slide-muted md:flex uppercase font-mono">

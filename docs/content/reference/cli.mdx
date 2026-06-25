@@ -1,18 +1,18 @@
 ---
 title: CLI & web app
-description: Install the ok CLI and run the Open Knowledge web app in your browser — on Linux or an Intel Mac.
+description: Install the ok CLI and run the OpenKnowledge web app in your browser — on Linux or an Intel Mac.
 ---
 On macOS, use the [desktop app](/docs/get-started/quickstart) for the smoothest experience. On **Linux** or an **Intel Mac**, install the `ok` CLI from npm and run the **same editor as a local web app** in your browser.
 
 <Callout type="info" title="Prerequisites">
-  - **Node.js 24+.** Open Knowledge requires [Node.js](https://nodejs.org) 24 or higher.
-  - **`git`.** Open Knowledge initializes a git repo for your project (used for the timeline and recovery features). On macOS it comes with the Xcode Command Line Tools (`xcode-select --install`); on Linux, install it from [git-scm.com](https://git-scm.com) or your package manager.
+  - **Node.js 24+.** OpenKnowledge requires [Node.js](https://nodejs.org) 24 or higher.
+  - **`git`.** OpenKnowledge initializes a git repo for your project (used for the timeline and recovery features). On macOS it comes with the Xcode Command Line Tools (`xcode-select --install`); on Linux, install it from [git-scm.com](https://git-scm.com) or your package manager.
 </Callout>
 
 
 ## Install
 
-Install the Open Knowledge CLI globally to put `ok` on your `PATH`:
+Install the OpenKnowledge CLI globally to put `ok` on your `PATH`:
 
 ```bash
 npm install -g @inkeep/open-knowledge
@@ -20,7 +20,7 @@ npm install -g @inkeep/open-knowledge
 
 ## Set up a project
 
-Run `ok init` in any folder to turn it into an Open Knowledge project. It scaffolds a `.ok/` directory and registers the Open Knowledge MCP server with the AI editors it detects on your machine (Claude Code, Cursor, Codex).
+Run `ok init` in any folder to turn it into an OpenKnowledge project. It scaffolds a `.ok/` directory and registers the OpenKnowledge MCP server with the AI editors it detects on your machine (Claude Code, Cursor, Codex).
 
 ```bash
 cd my-project
@@ -45,13 +45,13 @@ This opens your file directly in the WYSIWYG/source editor without any of the ve
 
 ## Clone from GitHub
 
-You can pull repositories directly from GitHub and open them with Open Knowledge:
+You can pull repositories directly from GitHub and open them with OpenKnowledge:
 
 ```bash
 ok clone <owner/repo>
 ```
 
-`ok clone` accepts a full `https://github.com/...` URL or the `owner/repo` shorthand. It clones the repository, initializes Open Knowledge if it isn't already, and opens the editor.
+`ok clone` accepts a full `https://github.com/...` URL or the `owner/repo` shorthand. It clones the repository, initializes OpenKnowledge if it isn't already, and opens the editor.
 
 Pin a branch with `-b <branch>`:
 
@@ -76,7 +76,7 @@ Each project runs its own local server. These commands let you see and stop them
 | Command | What it does |
 | --- | --- |
 | `ok status` | Show whether a server and UI are running for the current project |
-| `ok ps` | List every running Open Knowledge server on your machine |
+| `ok ps` | List every running OpenKnowledge server on your machine |
 | `ok stop` | Stop the server for the current directory (or pass a port, a path, pid or `all` to stop all servers). |
 | `ok clean` | Remove stale lock files left behind by a crash (never touches live servers) |
 

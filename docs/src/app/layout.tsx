@@ -47,7 +47,7 @@ const siteLd = {
   '@context': 'https://schema.org',
   '@type': 'WebSite',
   name: SITE_NAME,
-  alternateName: 'Open Knowledge Docs',
+  alternateName: 'OpenKnowledge Docs',
   url: SITE_URL,
   description: SITE_DESCRIPTION,
 } satisfies WithContext<WebSite>;
@@ -58,7 +58,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     default: `${SITE_NAME} — ${SITE_HEADLINE}`,
-    template: '%s · Open Knowledge',
+    template: '%s · OpenKnowledge',
   },
   description: SITE_DESCRIPTION,
   applicationName: SITE_NAME,

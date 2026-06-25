@@ -1,8 +1,10 @@
-# Open Knowledge
+# OpenKnowledge
 
-Open Knowledge is a local-first knowledge base for teams that want docs, help-center content, SOPs, and agent-facing knowledge to live in one structured editing system.
+OpenKnowledge is a beautiful, local-first markdown editor and LLM wiki with integrations for Claude, Codex, and Cursor. 
 
-The project includes a desktop app, web app, server, CLI, shared core packages, and docs site. It uses Bun workspaces and Turbo for builds.
+The editor has full WYSWIG so that editing markdown feels like editing a Google Doc or Notion page. 
+
+Sharing and auto-sync are available for team-based collaboration are powered by git.
 
 ## Install
 
@@ -17,17 +19,13 @@ ok init          # scaffold the project + wire up Claude Code, Cursor, and Codex
 ok start --open  # serve the editor and open it in your browser
 ```
 
-Full documentation: <https://openknowledge.ai/docs>.
+Docs for general usage: <https://openknowledge.ai/docs>.
 
-The sections below are for **contributing to** Open Knowledge.
+## Contributions
 
-## Repository Model
+Public pull requests are welcome. When a public PR opens here, automation mirrors it into the internal monorepo for review and merge. 
 
-This public repository is mirrored from Inkeep's internal monorepo with Copybara. The internal source path is `public/open-knowledge/` in `inkeep/agents-private`.
-
-Public pull requests are welcome. When a public PR opens here, automation mirrors it into the internal monorepo for review and merge. After the internal PR lands, Copybara syncs the accepted change back to this repository.
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full contribution flow and [AGENTS.md](./AGENTS.md) for agent-facing development guidance.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
 
 ## Prerequisites
 
@@ -79,4 +77,4 @@ bun run build
 
 ## License
 
-Open Knowledge is licensed under the [GNU General Public License v3.0 or later](./LICENSE) (`GPL-3.0-or-later`).
+OpenKnowledge is licensed under the [GNU General Public License v3.0 or later](./LICENSE) (`GPL-3.0-or-later`).

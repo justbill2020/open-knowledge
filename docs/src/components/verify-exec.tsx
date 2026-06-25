@@ -5,8 +5,8 @@ export function VerifyExec({ subject = 'The agent' }: { subject?: string }) {
     <>
       <CopyPrompt>List the first 5 documents you come across in this project.</CopyPrompt>
       <p>
-        {subject} should call the Open Knowledge <code>exec</code> tool and respond with some of
-        your documents.
+        {subject} should call the OpenKnowledge <code>exec</code> tool and respond with some of your
+        documents.
       </p>
     </>
   );

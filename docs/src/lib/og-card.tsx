@@ -91,7 +91,7 @@ function Wordmark() {
         src={wordmarkDataUrl}
         width={WORDMARK_WIDTH}
         height={WORDMARK_HEIGHT}
-        alt="Open Knowledge"
+        alt="OpenKnowledge"
       />
     </div>
   );

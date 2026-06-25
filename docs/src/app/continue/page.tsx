@@ -50,7 +50,7 @@ export default async function ContinuePage({ searchParams }: ContinuePageProps) 
       <section className="px-6 pt-32 pb-16 md:pt-44 md:pb-20">
         <div className="mx-auto max-w-3xl">
           <p className="mb-6 text-sm font-medium italic text-[var(--slide-accent-strong)]">
-            Welcome to Open Knowledge
+            Welcome to OpenKnowledge
           </p>
 
           <h1 className="text-3xl font-light tracking-tight text-[var(--slide-text)] sm:text-4xl lg:text-[3.25rem] lg:leading-[1.1]">
@@ -58,7 +58,7 @@ export default async function ContinuePage({ searchParams }: ContinuePageProps) 
           </h1>
 
           <p className="mt-8 text-lg leading-relaxed text-[var(--slide-muted)]">
-            Open Knowledge is a local-first, markdown-native knowledge base where you and your AI
+            OpenKnowledge is a local-first, markdown-native knowledge base where you and your AI
             agents co-create. Open the app to create your first project, or connect an existing
             GitHub repository.
           </p>
@@ -82,8 +82,8 @@ export default async function ContinuePage({ searchParams }: ContinuePageProps) 
               Were you sent a share link?
             </p>
             <p className="mt-2 text-sm leading-relaxed text-[var(--slide-muted)]">
-              If you opened Open Knowledge from a shared document, click that link again and choose{' '}
-              <span className="font-medium">Open in Open Knowledge</span> to jump straight to it. If
+              If you opened OpenKnowledge from a shared document, click that link again and choose{' '}
+              <span className="font-medium">Open in OpenKnowledge</span> to jump straight to it. If
               you don&rsquo;t have the app yet,{' '}
               <a
                 href={SPLASH_DOWNLOAD_URL}
@@ -95,7 +95,7 @@ export default async function ContinuePage({ searchParams }: ContinuePageProps) 
             </p>
             <p className="mt-3 inline-flex items-center gap-2 text-sm text-[var(--slide-muted)]">
               <DownloadIcon className="size-4" aria-hidden="true" />
-              <span>Open Knowledge is macOS-only in v1.</span>
+              <span>OpenKnowledge is macOS-only in v1.</span>
             </p>
           </div>
         </div>
