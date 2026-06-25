@@ -2,7 +2,6 @@ import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
 import { Card, Cards } from 'fumadocs-ui/components/card';
 import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
 import { Step, Steps } from 'fumadocs-ui/components/steps';
-import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 import { TypeTable } from 'fumadocs-ui/components/type-table';
 import defaultMdxComponents from 'fumadocs-ui/mdx';
 import type { MDXComponents } from 'mdx/types';
@@ -13,6 +12,7 @@ import { DownloadButton } from '@/components/download-button';
 import { McpInstall } from '@/components/mcp-install';
 import { Mermaid } from '@/components/mermaid';
 import { LayerStack, WhereToStart } from '@/components/overview-blocks';
+import { Tab, Tabs } from '@/components/tabs';
 import { VerifyExec } from '@/components/verify-exec';
 
 export function getMDXComponents(): MDXComponents {
