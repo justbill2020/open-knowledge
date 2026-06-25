@@ -9,14 +9,14 @@ OpenKnowledge is a beautiful, local-first markdown editor and LLM wiki with inte
   style="border-radius: 10px"
 />
 
-Available as [macOS app](https://github.com/inkeep/open-knowledge/releases/latest/download/Open-Knowledge-arm64.dmg) or [Web app/CLI](https://openknowledge.ai/docs/get-started/quickstart#ok-install-web-app-linux-intel-mac) for Windows and Linux.
+Available as [macOS app](https://github.com/inkeep/open-knowledge/releases/latest/download/Open-Knowledge-arm64.dmg) or [Web app/CLI](https://openknowledge.ai/docs/get-started/quickstart#ok-install-web-app-linux-intel-mac) for Linux, Windows, Intel Mac.
 
 # Features
 
 Key highlights:
 - Full **WYSIWYG** so that editing markdown files feels like editing a Google Doc or Notion page. 
 - Collaborative **AI-editing** with **Claude, Codex, and Cursor desktop apps**. Can be used with any harness/agent via MCP/CLI.
-- Out-of-the-box **MCP**, **skills**, and **agentic search** for LLM Wikis, Agent Second brains, and spec-driven development.
+- Out-of-the-box **MCP**, **skills**, and **agentic search** for LLM Wikis, agent second brains, and spec-driven development.
 - No-code **Team Sharing** and **Auto-sync** powered by git/GitHub under the hood.
 
 Docs for general usage: <https://openknowledge.ai/docs>.
@@ -25,7 +25,7 @@ Docs for general usage: <https://openknowledge.ai/docs>.
 
 **macOS:** download the desktop app — open the DMG, drag **Open Knowledge** to **Applications**, and launch it. [Latest release](https://github.com/inkeep/open-knowledge/releases/latest).
 
-**Linux, Windows, or Intel Mac:** run the same editor as a local web app via the CLI ([Node.js 24+](https://nodejs.org) required):
+**Linux, Windows, Intel Mac:** run the same editor as a local web app via the CLI ([Node.js 24+](https://nodejs.org) required):
 
 ```bash
 npm install -g @inkeep/open-knowledge
