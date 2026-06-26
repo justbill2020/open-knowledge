@@ -329,6 +329,10 @@ export const ListItemNode = Node.create({
       let checkbox: HTMLInputElement | null = null;
       const contentDiv = document.createElement('div');
 
+      const syncDisabled = () => {
+        if (checkbox) checkbox.disabled = !editor.isEditable;
+      };
+
       if (node.attrs.checked !== null) {
         checkboxLabel = document.createElement('label');
         checkboxLabel.contentEditable = 'false';
@@ -336,10 +340,8 @@ export const ListItemNode = Node.create({
         checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.checked = !!node.attrs.checked;
-
-        if (!editor.isEditable) {
-          checkbox.disabled = true;
-        }
+        syncDisabled();
+        editor.on('update', syncDisabled);
 
         checkbox.addEventListener('change', () => {
           const pos = getPos();
@@ -368,10 +370,14 @@ export const ListItemNode = Node.create({
           }
           if (checkbox && updatedNode.attrs.checked !== null) {
             checkbox.checked = !!updatedNode.attrs.checked;
+            checkbox.disabled = !editor.isEditable;
             li.setAttribute('data-checked', String(!!updatedNode.attrs.checked));
           }
           node = updatedNode;
           return true;
+        },
+        destroy() {
+          editor.off('update', syncDisabled);
         },
       };
     };
