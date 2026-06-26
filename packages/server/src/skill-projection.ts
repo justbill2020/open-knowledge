@@ -233,7 +233,8 @@ export function readSkillBundledFiles(
       if (buf.length <= MAX_BUNDLED_FILE_BYTES && !buf.includes(0)) {
         text = buf.toString('utf-8');
       }
-    } catch {
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') throw err;
       text = null;
     }
     out.push({ path: rel, text });

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import {
+  chmodSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -171,6 +172,20 @@ describe('readSkillBundledFiles', () => {
 
   test('absent skill dir returns empty', () => {
     expect(readSkillBundledFiles(join(root, 'nope'))).toEqual([]);
+  });
+
+  const isRoot = typeof process.getuid === 'function' && process.getuid() === 0;
+  test.skipIf(isRoot)('a genuine IO error THROWS rather than masquerading as binary', () => {
+    const dir = makeSkill('locked', '# Body');
+    mkdirSync(join(dir, 'reference'), { recursive: true });
+    const secret = join(dir, 'reference', 'secret.md');
+    writeFileSync(secret, '# Secret', 'utf-8');
+    chmodSync(secret, 0o000);
+    try {
+      expect(() => readSkillBundledFiles(dir)).toThrow();
+    } finally {
+      chmodSync(secret, 0o644); // restore so afterEach can clean up
+    }
   });
 });
 

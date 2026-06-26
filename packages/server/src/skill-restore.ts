@@ -16,6 +16,12 @@ export type RestoreSkillResult =
       error: string;
     };
 
+export function isGitObjectNotFound(message: string): boolean {
+  return /not a valid object name|not a tree object|bad revision|unknown revision|invalid object name/i.test(
+    message,
+  );
+}
+
 export async function restoreSkillVersion(opts: {
   shadow: ShadowHandle;
   contentDir: string;
@@ -33,12 +39,15 @@ export async function restoreSkillVersion(opts: {
   let fileList: string;
   try {
     fileList = await sg.raw('ls-tree', '-r', '--name-only', version, '--', shadowPath);
-  } catch {
-    return {
-      ok: false,
-      code: 'version-not-found',
-      error: `Version ${version.slice(0, 8)} not found.`,
-    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return isGitObjectNotFound(msg)
+      ? { ok: false, code: 'version-not-found', error: `Version ${version.slice(0, 8)} not found.` }
+      : {
+          ok: false,
+          code: 'io-error',
+          error: `Failed to read version ${version.slice(0, 8)}: ${msg}`,
+        };
   }
   const files = fileList
     .split('\n')
@@ -68,10 +77,11 @@ export async function restoreSkillVersion(opts: {
     try {
       staged.push({ rel, destAbs, content: await sg.raw('show', `${version}:${shadowFile}`) });
     } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
       return {
         ok: false,
         code: 'io-error',
-        error: `Failed reading ${rel} at ${version.slice(0, 8)}: ${(e as Error).message}`,
+        error: `Failed reading ${rel} at ${version.slice(0, 8)}: ${msg}`,
       };
     }
   }
