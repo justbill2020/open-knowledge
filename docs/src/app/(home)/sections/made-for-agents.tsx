@@ -1,4 +1,4 @@
-import { Hexagon, History, type LucideIcon, Plug } from 'lucide-react';
+import { Hexagon, type LucideIcon, Plug, Search } from 'lucide-react';
 import Image from 'next/image';
 import { EXAMPLE_KB_SHARE_URL } from '@/lib/site';
 import { MarketingButton } from '../marketing-button';
@@ -15,20 +15,20 @@ type Feature = {
 const features: Feature[] = [
   {
     icon: Hexagon,
-    title: 'Agent-native skills',
+    title: 'Agent skills',
     description:
       'Your agents know how to navigate, edit and grow your knowledge base out of the box.',
   },
   {
     icon: Plug,
-    title: 'Built in MCP',
-    description:
-      'Plug your docs straight into Claude, Cursor, Codex, and OpenCode. No copy-paste, no export.',
+    title: 'Native MCP',
+    description: 'Plug your knowledge base straight into Claude, Cursor, Codex, and other agents.',
   },
   {
-    icon: History,
-    title: 'Per-change undo and version history',
-    description: 'Every change is yours to keep, tweak or undo. Nothing is final until you say so.',
+    icon: Search,
+    title: 'Agentic Search',
+    description:
+      'Help agents find the right content with built-in embeddings and hierarchical RAG.',
   },
 ];
 

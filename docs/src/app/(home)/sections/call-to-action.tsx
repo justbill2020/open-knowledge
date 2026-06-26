@@ -110,7 +110,7 @@ export function CallToAction() {
               showIcon
               iconDirection="down"
             >
-              Download for macOS
+              DOWNLOAD FOR MAC
             </MarketingButton>
             <Link
               href="/docs/get-started/quickstart#ok-install-web-app-linux-windows-intel-mac"

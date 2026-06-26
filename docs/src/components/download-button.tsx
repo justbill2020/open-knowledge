@@ -9,7 +9,7 @@ type DownloadButtonProps = {
 
 export function DownloadButton({
   href = STABLE_DMG_URL,
-  label = 'Download for macOS',
+  label = 'DOWNLOAD FOR MAC',
 }: DownloadButtonProps) {
   return (
     <Link

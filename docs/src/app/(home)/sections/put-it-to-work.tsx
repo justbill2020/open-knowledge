@@ -19,16 +19,16 @@ const cards: UseCaseCard[] = [
       'A shared knowledge base your agents read from and write to — the persistent memory behind every session.',
   },
   {
-    visual: <EngSpecsGraphic />,
-    title: 'Engineering specs',
-    description:
-      'Specs, RFCs and runbooks living next to the code, edited by humans and coding agents in the same loop.',
-  },
-  {
     visual: <KnowledgeBaseGraphic />,
     title: 'Knowledge base',
     description:
       'A living wiki for your team — docs, notes, and decisions in plain markdown, kept current by everyone who works on them.',
+  },
+  {
+    visual: <EngSpecsGraphic />,
+    title: 'Engineering specs',
+    description:
+      'Specs, RFCs and runbooks living next to the code, edited by humans and coding agents in the same loop.',
   },
 ];
 

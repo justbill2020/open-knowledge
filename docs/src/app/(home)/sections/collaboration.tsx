@@ -225,7 +225,7 @@ export function Collaboration() {
         <div className="flex flex-col gap-8">
           <SectionHeading
             tag="Sharing"
-            description="One click to share a doc or a whole space. People and agents collaborate on the same files; everything syncs through git, so history and ownership stay yours."
+            description="One click to share a doc or project with your team. Everything syncs through git, so history and ownership stay yours."
           >
             Collaborate with your team.
           </SectionHeading>

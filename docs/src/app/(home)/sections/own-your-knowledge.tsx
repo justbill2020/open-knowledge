@@ -26,7 +26,7 @@ export function OwnYourKnowledge() {
     <Section className="container flex flex-col gap-12">
       <SectionHeading
         tag="Privacy first"
-        description="Local-first, open source, plain files you own. Platform-agnostic by design."
+        description="Local-first, open source, plain files you own."
       >
         Own your knowledge.
       </SectionHeading>

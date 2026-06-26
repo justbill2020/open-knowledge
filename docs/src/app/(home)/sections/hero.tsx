@@ -39,7 +39,7 @@ export function Hero() {
           className="items-center"
           tag="Open source"
           headingClassName="sm:text-6xl text-5xl"
-          description="A rich text editor for you and your agents. Private, open source, and free."
+          description="A rich text editor and knowledge base for you and your agents. Private, open source, and free."
         >
           {SITE_HEADLINE}
         </SectionHeading>
@@ -52,7 +52,7 @@ export function Hero() {
             showIcon
             iconDirection="down"
           >
-            Download for macOS
+            DOWNLOAD FOR MAC
           </MarketingButton>
           <Link
             href="/docs/get-started/quickstart#ok-install-web-app-linux-windows-intel-mac"

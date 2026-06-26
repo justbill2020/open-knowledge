@@ -134,7 +134,7 @@ export function SplashFallback({ heading }: { heading: string }) {
 
           <div className="mt-10 flex flex-wrap items-center gap-4">
             <a href={SPLASH_DOWNLOAD_URL} className={splashPrimaryButton}>
-              <SplashButtonLabel direction="down">Download for macOS</SplashButtonLabel>
+              <SplashButtonLabel direction="down">DOWNLOAD FOR MAC</SplashButtonLabel>
             </a>
             <SplashCliButton installCommand={SPLASH_INSTALL_COMMAND} />
           </div>
