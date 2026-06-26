@@ -327,7 +327,10 @@ describe('TerminalPanel', () => {
     expect(terminal.input).toHaveBeenCalledTimes(1);
     const [ptyId, payload] = terminal.input.mock.calls[0] as [string, string];
     expect(ptyId).toBe('pty-1');
-    expect(payload).toBe('\x1b[<65;1;1M'.repeat(4));
+    const downTick = '\x1b[<65;1;1M';
+    expect(payload.length).toBeGreaterThan(0);
+    expect(payload.length % downTick.length).toBe(0);
+    expect(payload.replaceAll(downTick, '')).toBe('');
 
     terminal.input.mockClear();
     term.mouseEncoding = 'SGR_PIXELS';

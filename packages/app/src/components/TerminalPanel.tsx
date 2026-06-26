@@ -123,6 +123,7 @@ function TerminalSession({
       fontSize: 13,
       scrollback: 10000,
       smoothScrollDuration: 125,
+      scrollSensitivity: 3,
       theme: xtermThemeForMode(initialResolvedThemeRef.current),
     });
     termRef.current = term;
@@ -202,7 +203,7 @@ function TerminalSession({
         event.deltaY,
         event.deltaMode,
         wheelRowAccumulator,
-        { cellHeight, sensitivity: 1, maxRowsPerEvent: 4, viewportRows: term.rows },
+        { cellHeight, sensitivity: 1.5, maxRowsPerEvent: 20, viewportRows: term.rows },
       );
       wheelRowAccumulator = accumulator;
       if (count > 0) bridge.terminal.input(ptyId, sgrWheelReport(button).repeat(count));
