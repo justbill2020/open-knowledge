@@ -446,7 +446,7 @@ jobs:
                   text: { type: "plain_text", text: "🎉 OpenKnowledge \($version) released", emoji: true } },
                 { type: "section",
                   text: { type: "mrkdwn",
-                          text: ("A new stable release is live.\n\n*<\($release_url)|Release notes & downloads>*  ·  *<https://openknowledge.ai/download|Get the app>*") } }
+                          text: ("*<\($release_url)|Release notes & downloads>*") } }
               ]
             }')"
           # The failing curl sits in an `if` condition, which `set -e` does
