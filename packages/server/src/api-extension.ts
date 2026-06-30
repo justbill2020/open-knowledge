@@ -90,6 +90,7 @@ import {
   instantiateDoc,
   isHiddenDocName,
   isManagedArtifactDocName,
+  isValidAttachmentFolderPath,
   LINKABLE_ASSET_EXTENSIONS,
   type LifecycleStatus,
   LinkGraphSuccessSchema,
@@ -110,6 +111,7 @@ import {
   MetricsParseHealthSuccessSchema,
   MetricsReconciliationSuccessSchema,
   mediaKindForSidebarAssetExtension,
+  normalizeAttachmentFolderPath,
   OK_DIR,
   OrphansSuccessSchema,
   PageHeadingsSuccessSchema,
@@ -825,6 +827,7 @@ interface UploadResult {
   filename: string;
   mimeType: string;
   parentDocName: string;
+  placement: string;
   tempPath: string;
   sha: string;
   byteLength: number;
@@ -847,6 +850,7 @@ function readUploadBody(req: IncomingMessage, projectDir: string): Promise<Uploa
     let filename = 'upload';
     let mimeType = '';
     let parentDocName = '';
+    let placement = '';
     let tempPath: string | undefined;
     let pipelineError: unknown;
     let fileEventFired = false;
@@ -866,6 +870,7 @@ function readUploadBody(req: IncomingMessage, projectDir: string): Promise<Uploa
 
     bb.on('field', (name, val) => {
       if (name === 'parentDocName') parentDocName = val;
+      if (name === 'placement') placement = val;
     });
 
     bb.on('file', (_fieldname, file, info) => {
@@ -894,6 +899,7 @@ function readUploadBody(req: IncomingMessage, projectDir: string): Promise<Uploa
             filename,
             mimeType,
             parentDocName,
+            placement,
             tempPath: path,
             sha: hasher.digest(),
             byteLength: hasher.byteLength(),
@@ -918,6 +924,7 @@ function readUploadBody(req: IncomingMessage, projectDir: string): Promise<Uploa
         filename: '',
         mimeType: '',
         parentDocName,
+        placement,
         tempPath: '',
         sha: '',
         byteLength: 0,
@@ -1751,6 +1758,7 @@ export interface ApiExtensionOptions {
   ephemeral?: boolean;
   serverInstanceId: string;
   getFileIndex: () => ReadonlyMap<string, FileIndexEntry>;
+  getAttachmentFolderPath?: () => string;
   getAllFilesIndex?: () => ReadonlyMap<string, FileIndexEntry>;
   getFileIndexGeneration?: () => number;
   mutateFileIndex?: (event: DiskEvent) => void;
@@ -1846,6 +1854,7 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
     contentDir,
     serverInstanceId,
     getFileIndex,
+    getAttachmentFolderPath,
     getAllFilesIndex = getFileIndex,
     mutateFileIndex = (event: DiskEvent) =>
       applyDiskEventToLiveAllFilesIndex(event, getAllFilesIndex),
@@ -8155,7 +8164,14 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
       return;
     }
 
-    const { filename, tempPath, sha, byteLength, parentDocName: rawParentDocName } = uploadResult;
+    const {
+      filename,
+      tempPath,
+      sha,
+      byteLength,
+      parentDocName: rawParentDocName,
+      placement: rawPlacement,
+    } = uploadResult;
 
     const cleanupTempfile = () => {
       if (existsSync(tempPath)) {
@@ -8165,14 +8181,19 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
       }
     };
 
-    const validated = validateBody(UploadRequestSchema, { parentDocName: rawParentDocName }, res, {
-      handler: 'upload-asset',
-    });
+    const validated = validateBody(
+      UploadRequestSchema,
+      { parentDocName: rawParentDocName, placement: rawPlacement || undefined },
+      res,
+      {
+        handler: 'upload-asset',
+      },
+    );
     if (!validated.ok) {
       cleanupTempfile();
       return;
     }
-    const { parentDocName } = validated.value;
+    const { parentDocName, placement } = validated.value;
 
     const { agentId, agentName } = extractAgentIdentity(
       Object.fromEntries(new URL(req.url ?? '', 'http://localhost').searchParams.entries()),
@@ -8199,11 +8220,36 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
     }
 
     const resolvedContentDir = resolve(contentDir);
-    const destDir = resolveUploadDestDir(
-      parentDocName,
-      DEFAULT_ATTACHMENT_FOLDER_PATH,
-      resolvedContentDir,
-    );
+    let rawAttachmentFolderPath: string;
+    try {
+      rawAttachmentFolderPath =
+        placement === 'parent-dir'
+          ? DEFAULT_ATTACHMENT_FOLDER_PATH
+          : (getAttachmentFolderPath?.() ?? DEFAULT_ATTACHMENT_FOLDER_PATH);
+    } catch (err) {
+      cleanupTempfile();
+      log.error({ err }, '[upload] project config has invalid content.attachmentFolderPath');
+      errorResponse(
+        res,
+        500,
+        'urn:ok:error:internal-server-error',
+        'Server configuration error: invalid attachment folder path.',
+        {
+          handler: 'upload-asset',
+          cause: err,
+        },
+      );
+      return;
+    }
+    if (!isValidAttachmentFolderPath(rawAttachmentFolderPath)) {
+      cleanupTempfile();
+      errorResponse(res, 400, 'urn:ok:error:invalid-request', 'Invalid attachment folder path.', {
+        handler: 'upload-asset',
+      });
+      return;
+    }
+    const attachmentFolderPath = normalizeAttachmentFolderPath(rawAttachmentFolderPath);
+    const destDir = resolveUploadDestDir(parentDocName, attachmentFolderPath, resolvedContentDir);
     if (!isWithinContentDir(destDir, resolvedContentDir)) {
       cleanupTempfile();
       errorResponse(res, 400, 'urn:ok:error:path-escape', 'Path escape detected.', {

@@ -176,6 +176,7 @@ describe('SettingsDialogShell userBinding gating (Tier-3 mount)', () => {
     expect(screen.getByRole('navigation', { name: 'Settings sections' })).toBeTruthy();
     expect(screen.getByText('User')).toBeTruthy();
     expect(screen.getByText('This project')).toBeTruthy();
+    expect(screen.queryByTestId('settings-sidebar-item-attachments')).toBeNull();
     expect(screen.queryByText('Integrations') === null).toBe(true);
     expect(
       screen.getByTestId('settings-sidebar-item-preferences').getAttribute('aria-current'),

@@ -11,8 +11,11 @@ import {
   CONFIG_DOC_NAME_PROJECT_LOCAL,
   CONFIG_DOC_NAME_USER,
   CONFIG_DOC_NAMES,
+  type ConfigIssue,
   createBasenameIndex,
+  DEFAULT_ATTACHMENT_FOLDER_PATH,
   humanFormat,
+  isKnownConfigError,
   type MarkdownManager,
   type Principal,
   parseGlobalSkillBundleDoc,
@@ -241,6 +244,31 @@ export function createServer(options: ServerOptions): ServerInstance {
   } = options;
 
   const log = getLogger('server');
+
+  function readProjectAttachmentFolderPath(): string {
+    const project = readConfigSafely({
+      absPath: resolveConfigPath('project', projectDir),
+      sideline: false,
+      warn: (message) => log.warn({ message }, '[config] could not read project config'),
+    });
+    if (!project.valid) {
+      const attachmentIssues =
+        isKnownConfigError(project.error) && project.error.code === 'SCHEMA_INVALID'
+          ? (project.error.issues as ConfigIssue[]).filter(
+              (issue) => issue.path.map(String).join('.') === 'content.attachmentFolderPath',
+            )
+          : [];
+      if (attachmentIssues.length > 0) {
+        const details = attachmentIssues.map((issue) => issue.message).join('; ');
+        throw new Error(`Invalid content.attachmentFolderPath in project config: ${details}`);
+      }
+      log.warn(
+        {},
+        '[config] committed content.attachmentFolderPath unavailable (project config invalid) — using default attachment placement',
+      );
+    }
+    return project.value.content.attachmentFolderPath ?? DEFAULT_ATTACHMENT_FOLDER_PATH;
+  }
 
   function readProjectAutoSyncEnabled(): boolean {
     const local = readConfigSafely({
@@ -705,6 +733,7 @@ export function createServer(options: ServerOptions): ServerInstance {
       contentFilter,
       serverInstanceId,
       getFileIndex: () => (watcher ? watcher.getFileIndex() : new Map()),
+      getAttachmentFolderPath: readProjectAttachmentFolderPath,
       getAllFilesIndex: () => (watcher ? watcher.getAllFilesIndex() : new Map()),
       getFileIndexGeneration: () => watcher?.getFileIndexGeneration() ?? 0,
       mutateFileIndex: (event) => watcher?.mutateFileIndex(event),

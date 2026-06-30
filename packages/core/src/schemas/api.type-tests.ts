@@ -61,11 +61,15 @@ void _missingSrc;
 const _validHasSrc: UploadAssetSuccess = { src: 'foo.png' };
 void _validHasSrc;
 
-const _validRequest: UploadRequest = { parentDocName: 'notes/index' };
+const _validRequest: UploadRequest = {
+  parentDocName: 'notes/index',
+  placement: 'configured-attachments',
+};
 void _validRequest;
 
 const _withAgentIdentity: UploadRequest = {
   parentDocName: 'notes/index',
+  placement: 'parent-dir',
   agentId: 'claude-1',
   agentName: 'Claude',
 };

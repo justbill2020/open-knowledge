@@ -119,6 +119,7 @@ export type ProblemDetails = z.infer<typeof ProblemDetailsSchema>;
 export const UploadRequestSchema = z
   .object({
     parentDocName: z.string().min(1),
+    placement: z.enum(['configured-attachments', 'parent-dir']).default('configured-attachments'),
     agentId: z.string().min(1).optional(),
     agentName: z.string().min(1).optional(),
   })

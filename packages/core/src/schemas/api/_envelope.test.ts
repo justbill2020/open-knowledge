@@ -332,6 +332,17 @@ describe('UploadRequestSchema', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.parentDocName).toBe('notes/index');
+      expect(result.data.placement).toBe('configured-attachments');
+    }
+  });
+
+  test('parses explicit upload placement modes', () => {
+    for (const placement of ['configured-attachments', 'parent-dir'] as const) {
+      const result = UploadRequestSchema.safeParse({ parentDocName: 'notes/index', placement });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.placement).toBe(placement);
+      }
     }
   });
 
@@ -355,6 +366,14 @@ describe('UploadRequestSchema', () => {
 
   test('fails when parentDocName is empty', () => {
     const result = UploadRequestSchema.safeParse({ parentDocName: '' });
+    expect(result.success).toBe(false);
+  });
+
+  test('fails when placement is unknown', () => {
+    const result = UploadRequestSchema.safeParse({
+      parentDocName: 'notes/index',
+      placement: 'somewhere-else',
+    });
     expect(result.success).toBe(false);
   });
 });

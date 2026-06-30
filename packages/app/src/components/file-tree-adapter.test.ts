@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import type { ContextMenuItem, FileTreeDropTarget } from '@pierre/trees';
 import { OK_SIDEBAR_DRAG_MIME } from '@/lib/sidebar-drag';
 import {
+  appendSidebarUploadFields,
   collectTreeFolderPathsFromDocuments,
   computeTreeAncestorPaths,
   computeTreeDropDestinationPath,
@@ -150,6 +151,11 @@ describe('file-tree-adapter', () => {
     expect(uploadParentDocNameForFolderDrop('docs', 'clip.pdf')).toBe('docs/clip.pdf');
     expect(uploadParentDocNameForFolderDrop('docs/', 'clip.pdf')).toBe('docs/clip.pdf');
     expect(uploadParentDocNameForFolderDrop('', 'clip.pdf')).toBe('clip.pdf');
+
+    const formData = new FormData();
+    appendSidebarUploadFields(formData, 'docs', 'clip.pdf');
+    expect(formData.get('parentDocName')).toBe('docs/clip.pdf');
+    expect(formData.get('placement')).toBe('parent-dir');
 
     expect(uploadedPathForSidebarDrop('docs', { src: 'clip.pdf' })).toBe('docs/clip.pdf');
     expect(
