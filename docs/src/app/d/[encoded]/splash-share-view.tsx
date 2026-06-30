@@ -1,5 +1,6 @@
 import { DotIcon, GitBranchIcon } from 'lucide-react';
 import Link from 'next/link';
+import { GitHubIcon } from '@/components/icons/github';
 import { OkWordmark } from '@/components/ok-wordmark';
 import { buildCloneCommand, SPLASH_INSTALL_COMMAND, type SplashView } from '@/lib/share-splash';
 import { DOWNLOAD_ROUTE } from '@/lib/site';
@@ -57,6 +58,7 @@ export function SplashShareView({ encoded, view }: { encoded: string; view: OkSp
               className="flex w-fit items-center gap-1.5 text-lg leading-relaxed text-slide-muted underline decoration-slide-muted/30 underline-offset-4 outline-none transition-colors hover:text-slide-text hover:decoration-slide-text/50 focus-visible:rounded focus-visible:no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slide-accent"
               data-testid="splash-repo-path"
             >
+              <GitHubIcon className="size-4" aria-hidden="true" />
               {view.repoPath}
             </a>
 
@@ -86,7 +88,7 @@ export function SplashShareView({ encoded, view }: { encoded: string; view: OkSp
       </section>
 
       <div className="relative z-10">
-        <SiteFooter />
+        <SiteFooter showSubscribe={false} />
       </div>
     </main>
   );
@@ -138,7 +140,7 @@ export function SplashFallback({ heading }: { heading: string }) {
       </section>
 
       <div className="relative z-10">
-        <SiteFooter />
+        <SiteFooter showSubscribe={false} />
       </div>
     </main>
   );

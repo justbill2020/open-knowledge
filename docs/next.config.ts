@@ -94,6 +94,22 @@ const nextConfig: NextConfig = {
         destination: '/docs/advanced/folders-and-templates',
         permanent: true,
       },
+      // `/download` has no page of its own, so the bare path 404s; forward it
+      // to the stable channel. permanent:false (307, not 308) keeps it a soft
+      // alias — `/download` can later become a real channel-picker page
+      // without a browser-cached permanent redirect getting in the way. Both
+      // slash variants are listed because skipTrailingSlashRedirect (above)
+      // disables Next's automatic `/path/` → `/path` normalization.
+      {
+        source: '/download',
+        destination: '/download/stable',
+        permanent: false,
+      },
+      {
+        source: '/download/',
+        destination: '/download/stable',
+        permanent: false,
+      },
     ];
   },
 };
