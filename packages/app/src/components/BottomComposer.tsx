@@ -196,7 +196,7 @@ export function BottomComposer({
     }
     const apply = () => {
       followBottom();
-      root.style.setProperty('--ask-composer-height', `${card.offsetHeight + 24}px`);
+      root.style.setProperty('--ask-composer-height', `${card.offsetHeight + 56}px`);
     };
     apply();
     revealCaret();
