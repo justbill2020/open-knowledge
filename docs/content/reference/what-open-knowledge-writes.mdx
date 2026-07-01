@@ -1,0 +1,210 @@
+---
+title: What OpenKnowledge writes to your system
+sidebarTitle: What it writes
+icon: LuHardDrive
+description: Every file OpenKnowledge creates or changes — when, where, in-project vs. your home directory — plus the opt-outs and what leaves your machine (nothing by default).
+---
+
+OpenKnowledge keeps your knowledge base as plain markdown in your own project directory, but the tooling around it — the CLI, the MCP server, and the desktop app — also writes a handful of supporting files, some of them **outside the project**, in your home directory, your shell startup files, your editors' configs, and the macOS Keychain.
+
+This page lists every one of them: **when** each write happens, **what** it is, and **where** it lands. Everything here is verified against the source.
+
+<Callout type="info" title="The short version">
+  **Nothing leaves your machine by default.** Diagnostic logs and telemetry are local-only — there's no usage phone-home. The handful of things that *can* send data off your machine — semantic search, a diagnostic bundle, GitHub sync, and the desktop app's update check — are opt-in or on-demand, except the desktop app's update check, which runs automatically on launch. All of them are listed under [What leaves your machine](#what-leaves-your-machine).
+</Callout>
+
+## How to read this page
+
+Writes fall into two buckets, and each table's **Scope** column tells you which:
+
+- **In-project** — inside your project folder. Either **committed** (shared through git with your team) or **gitignored** (this machine only, under `.ok/local/` or `.git/`).
+- **Outside-project** — your **home directory** (`~/.ok/`, `~/Library/...`), your **shell startup files** (`~/.zshrc` and friends), your editors' **user-level configs**, or the macOS **Keychain**.
+
+There are five moments OpenKnowledge writes to disk: installing the package, `ok init`, `ok start`, `ok mcp`, and the desktop app. Jump to the [opt-outs](#opt-outs-in-one-place) if that's all you need.
+
+## When you install the package
+
+Installing `@inkeep/open-knowledge` from npm (or invoking it with `npx`) drops the two CLI binaries plus a bundled native addon, and runs a `postinstall` step that registers a small "discovery" skill so the AI editors on your machine know OpenKnowledge exists.
+
+| Path | What it is | Scope |
+| --- | --- | --- |
+| `ok`, `open-knowledge` (on your `PATH`) | The two CLI binaries (identical entry point) | Outside-project (npm global/bin) |
+| `<pkg>/dist/native/` | Bundled native TOML-editing addon, shipped inside the package | Outside-project (package dir) |
+| `~/.agents/skills/open-knowledge-discovery/` | The **discovery skill** — a short instruction file that teaches any agent host how to find and initialize OpenKnowledge. Installed via `npx skills add … --agent '*' -g` | Outside-project (home dir) |
+| `~/.ok/skill-state.yml` | Records which skill version is installed, so the step is skipped next time | Outside-project (home dir) |
+| `~/.ok/skill-install-events.jsonl` | Append-only local log of skill-install attempts | Outside-project (home dir) |
+
+The `postinstall` step is **non-fatal** (install always succeeds even if it fails) and **version-gated** (it does nothing if the current version is already installed). It writes only the discovery skill into the shared `~/.agents/skills/` directory; it does not touch your editors' individual skill folders. The only network access is npm fetching the `skills` helper.
+
+<Callout type="info" title="Opt out">
+  Install with `npm install --ignore-scripts` to skip the `postinstall` skill step entirely. You can always add the skills later from `ok init`.
+</Callout>
+
+## `ok init`
+
+`ok init` turns a folder into an OpenKnowledge project. It scaffolds the project's `.ok/` directory, and — unless you pass `--no-mcp` — registers the `open-knowledge` MCP server with the AI editors it detects. The MCP registration is **surgical**: it adds only its own entry and leaves your other settings, comments, and formatting byte-for-byte intact (if a config can't be parsed safely, it's left untouched and reported).
+
+### In-project (this project)
+
+| Path | What it is | Scope |
+| --- | --- | --- |
+| `.ok/`, `.ok/config.yml` | Project directory and its [config](/docs/reference/configuration) | In-project, committed |
+| `.ok/.gitignore` | Keeps machine-local runtime state (`local/`, `principal.json`, `server.lock`, …) out of git | In-project, committed |
+| `.okignore` | Paths excluded from the editor, search, and agents — see [Ignore patterns](/docs/features/ignore-patterns) | In-project, committed |
+| `.gitignore` (project root) | Seeded (with `.DS_Store`) **only** when `ok init` creates a new git repo | In-project, committed |
+| `.mcp.json`, `.cursor/mcp.json`, `.codex/config.toml`, `opencode.json` | Project-scoped MCP registration, one per detected editor (with `--scope project` or `both`) | In-project, committed |
+| `.claude/skills/`, `.cursor/skills/`, `.codex/skills/`, `.opencode/skills/` | Project-local "rich" OpenKnowledge skill (`SKILL.md`), one per detected editor | In-project, committed |
+| `.claude/launch.json` | Configures Claude Code's preview pane to open the editor (on a local UI port, `39848`) | In-project, committed |
+
+### Outside-project (user-level editor configs)
+
+With `--scope user` or `both` (the default), `ok init` also registers the `open-knowledge` MCP server in each detected editor's **user-level** config, so it's available in every project:
+
+| Path | Editor | Scope |
+| --- | --- | --- |
+| `~/.claude.json` | Claude Code | Outside-project (editor config) |
+| `~/Library/Application Support/Claude/claude_desktop_config.json` | Claude Desktop | Outside-project (editor config) |
+| `~/.cursor/mcp.json` | Cursor | Outside-project (editor config) |
+| `~/.codex/config.toml` | Codex | Outside-project (editor config) |
+| `~/.config/opencode/opencode.json` | OpenCode | Outside-project (editor config) |
+
+`ok init` also re-runs the user-global skill install (the discovery skill above) and, if you choose **local-only** sharing, adds the OpenKnowledge paths to `.git/info/exclude` so `.ok/` stays off your remote.
+
+<Callout type="info" title="Controlling it">
+  - `--no-mcp` — scaffold `.ok/` only; register nothing with any editor.
+  - `--scope user | project | both` — where the MCP entry is written. In an interactive terminal, `ok init` prompts for this; scripted/CI runs default to `both`, so pass the flag to constrain them.
+  - `--local-only` (vs `--shared`) — keep `.ok/` out of git.
+</Callout>
+
+## `ok start`
+
+`ok start` runs the collaboration server. Most of what it writes stays **inside your project**, gitignored under `.ok/local/`, plus a shadow git repo for the timeline and recovery features. It also runs a few **repair sweeps** on each boot that can touch files outside the project — see [below](#repair-sweeps).
+
+| Path | What it is | Scope |
+| --- | --- | --- |
+| `.ok/local/server.lock`, `.ok/local/ui.lock` | Advertise the running server's and web UI's ports | In-project, gitignored |
+| `.ok/local/principal.json` | Your local identity (id, email) for edit attribution | In-project, gitignored |
+| `.ok/local/sync-state.json`, `.ok/local/conflicts.json` | GitHub-sync engine state | In-project, gitignored |
+| `.ok/local/state.json`, `.ok/local/last-spawn-error.log` | State-schema manifest and the UI sibling's error log | In-project, gitignored |
+| `.ok/local/telemetry/spans-*.jsonl` | Local diagnostic spans, rotated at ~50 MB | In-project, gitignored |
+| `.ok/local/logs/server-*.jsonl` | Local server logs, rotated at ~25 MB | In-project, gitignored |
+| `.ok/local/cache/<branch>/backlinks.json` | Backlink-graph cache | In-project, gitignored |
+| `.git/ok/` | Shadow git repo holding per-writer work-in-progress refs (powers the timeline) | In-project, gitignored (inside `.git/`) |
+
+Diagnostic logs and telemetry are **on by default but local-only** — credential-bearing attributes are redacted (`[REDACTED]`) before anything is written, the files rotate at the size caps above, and nothing leaves the machine until you explicitly run `ok diagnose bundle`. Turn the local sink off entirely with `telemetry.localSink.enabled: false`; see [Configuration](/docs/reference/configuration).
+
+### Repair sweeps
+
+On each boot, `ok start` also re-checks a few things that drift as OpenKnowledge updates and rewrites any that have fallen out of the current canonical form — a no-op when nothing has changed. These sweeps **only update entries that already exist**; they never add one where there wasn't one.
+
+| What it re-checks | Where | Scope |
+| --- | --- | --- |
+| Existing `open-knowledge` MCP entries | The same editor configs `ok init` writes — **both** user-level (`~/.claude.json`, `~/.cursor/mcp.json`, …) and project-level | Outside-project (editor config) **and** in-project |
+| `.claude/launch.json` | Your project | In-project, committed |
+| OpenKnowledge skill files | Project (`.claude/skills/…`) and user-global (`~/.agents/skills/…`) | In-project **and** outside-project (home dir) |
+
+These are the same sweeps the [desktop app](#ok-desktop-macos-app) runs. Disable all three with `OK_RECLAIM_DISABLE=1`.
+
+## `ok mcp`
+
+`ok mcp` is the stdio bridge your editor spawns to talk to the server. It **writes nothing to disk** — it routes tool calls to a running `ok start` backend (starting one on the first write).
+
+## OK Desktop (macOS app)
+
+The packaged macOS app writes some app-level state and logs, and — because a `.dmg` app can't put a CLI on your `PATH` on its own — it manages a `PATH` shim and shell startup entries so `ok` works in your terminal too. **All of the shell and `PATH` behavior below is macOS-only, packaged-build-only, and disabled by `OK_RECLAIM_DISABLE=1`.** It never uses `sudo`, never runs an admin prompt, and never installs a login item.
+
+### App data, logs, and updates
+
+| Path | What it is | Scope |
+| --- | --- | --- |
+| `~/Library/Application Support/OpenKnowledge/state.json` | Recent projects, window/view state, update channel | Outside-project (home dir) |
+| `~/Library/Application Support/OpenKnowledge/path-install.json` | Records the `PATH`/shell changes it made, so they can be reverted | Outside-project (home dir) |
+| `~/.ok/logs/desktop.<date>.log` | Desktop app + renderer log | Outside-project (home dir) |
+| `~/.ok/mcp-status.json` | Records your first-launch MCP-setup consent choice | Outside-project (home dir) |
+| `~/Library/Caches/OpenKnowledge-updater/` | Staged auto-update downloads (electron-updater) | Outside-project (home dir) |
+
+The app registers the `openknowledge://` URL scheme (for deep links) and checks for updates against the OpenKnowledge GitHub releases feed. Updates are **not** downloaded automatically until you choose to update; they install on the next quit. Override the feed with `OK_UPDATER_FEED_URL`.
+
+### Shell and `PATH`
+
+| Path | What it is | Scope |
+| --- | --- | --- |
+| `~/.ok/bin/ok`, `~/.ok/bin/open-knowledge` | Symlinks to the CLI bundled inside the app | Outside-project (home dir) |
+| `~/.ok/env.sh` | A managed shim that prepends `~/.ok/bin` to your `PATH` | Outside-project (home dir) |
+| `~/.zshrc`, `~/.bash_profile`, `~/.config/fish/conf.d/open-knowledge.fish` | A **fenced managed block** that sources `~/.ok/env.sh` | Outside-project (shell config) |
+
+The managed block is clearly fenced so you can see and remove it:
+
+```bash
+# >>> open-knowledge cli >>>
+[ -f "$HOME/.ok/env.sh" ] && . "$HOME/.ok/env.sh"
+# <<< open-knowledge cli <<<
+```
+
+Delete the block and the app **won't re-add it** — the removal is recorded and respected. Or set `OK_RECLAIM_DISABLE=1` to disable all of this before first launch.
+
+### Keeping MCP entries current
+
+On each launch (and on each project open), the app runs the **same [repair sweeps](#repair-sweeps) as `ok start`** — rewriting *existing* `open-knowledge` MCP entries, `.claude/launch.json`, and skill files to the current canonical form, and **never adding** an entry to an editor that doesn't already have one. On a project open it also rewrites an existing `open-knowledge` entry in that project's `.vscode/settings.json`. This keeps a working setup from drifting as the app updates, and is covered by the same first-launch consent and the `OK_RECLAIM_DISABLE=1` opt-out.
+
+## Your home directory and credentials (`~/.ok/`)
+
+Pulling the home-directory writes together — this is everything that can live under `~/.ok/`, across all of the above:
+
+| Path | What it is | Sensitive? |
+| --- | --- | --- |
+| `~/.ok/global.yml` | User-global [config](/docs/reference/configuration) (applies to every project) | No |
+| `~/.ok/secrets.yml` | Embeddings provider API key for [semantic search](/docs/reference/configuration#semantic-search), if you set one. Written `0600`; never in `config.yml` | **Yes** (`0600`) |
+| `~/.ok/auth.yml` | Auth-token fallback, used only when the Keychain is unavailable. Written `0600` | **Yes** (`0600`) |
+| `~/.ok/skill-state.yml`, `~/.ok/skill-install-events.jsonl` | Skill-install bookkeeping | No |
+| `~/.ok/stats.jsonl` | Local "open with AI" handoff stats — local-only, no phone-home | No |
+| `~/.ok/mcp-status.json` | Desktop first-launch MCP consent record | No |
+| `~/.ok/logs/`, `~/.ok/bug-reports/` | Desktop logs and generated diagnostic bundles | No |
+| `~/.ok/bin/`, `~/.ok/env.sh` | Desktop `PATH` shim (see above) | No |
+
+**Auth tokens** (for GitHub sync, sharing, and cloning) are stored in the macOS **Keychain** under the service name `open-knowledge`. The `~/.ok/auth.yml` file is only a fallback for headless environments where the Keychain isn't reachable; when the Keychain becomes available, the token is migrated into it and the file copy is removed.
+
+## Opt-outs in one place
+
+| To skip… | Do this |
+| --- | --- |
+| The `postinstall` skill install | `npm install --ignore-scripts` |
+| All editor MCP registration in `ok init` | `ok init --no-mcp` |
+| User-level (vs project) MCP writes | `ok init --scope project` |
+| Committing `.ok/` to git | `ok init --local-only` (or choose "local only" when prompted) |
+| The `ok start` / desktop repair sweeps and the desktop app's shell / `PATH` changes | `OK_RECLAIM_DISABLE=1` (also delete the managed block from your shell config to remove the `PATH` entry) |
+| Local diagnostic logs and telemetry | `telemetry.localSink.enabled: false` in config |
+| Auto-starting the MCP server | `OK_MCP_AUTOSTART=0` |
+
+To review or reverse the footprint after the fact, `ok diagnose` reports what's on disk, and the desktop `path-install.json` records exactly which shell/`PATH` changes were made.
+
+## What leaves your machine
+
+By default, **nothing.** Everything above is written to your own disk. The only ways data leaves your machine are these — all opt-in or on-demand, except the desktop app's update check, which is automatic:
+
+| What | When | Where it goes |
+| --- | --- | --- |
+| Diagnostic bundle | Only when you run `ok diagnose bundle` (you can inspect it first) | Wherever you send it |
+| Semantic search embeddings | Only when you enable [semantic search](/docs/reference/configuration#semantic-search) **and** set a key — off by default | Your configured embeddings provider (OpenAI by default) |
+| GitHub sync / share | When you sync, clone, publish, or share | GitHub |
+| Update check | Automatically, on desktop-app launch | OpenKnowledge releases feed (GitHub) |
+| npm/`npx` fetch | During install | The npm registry |
+
+Local diagnostic logs and telemetry are scrubbed of credential-bearing attributes and never sent anywhere on their own.
+
+## See also
+
+<Cards>
+  <Card title="Configuration" href="/docs/reference/configuration">
+    Every config key and environment variable, including the telemetry and semantic-search settings referenced here.
+  </Card>
+  <Card title="CLI &amp; web app" href="/docs/reference/cli">
+    Install the CLI, run `ok init` / `ok start`, and the commands behind these writes.
+  </Card>
+  <Card title="Ignore patterns" href="/docs/features/ignore-patterns">
+    Control which files the editor, search, and agents can see.
+  </Card>
+  <Card title="Core Concepts" href="/docs/reference/core-concepts">
+    Why the file system is the database, and how attribution works.
+  </Card>
+</Cards>
