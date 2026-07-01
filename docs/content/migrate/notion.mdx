@@ -1,0 +1,70 @@
+---
+title: From Notion
+description: How to export a Notion workspace to Markdown and open it in OpenKnowledge, what carries over, and where the two differ.
+icon: LuFileInput
+---
+
+This guide will cover exporting your Notion workspace to markdown files so that you can access them from OpenKnowledge. There are several key differences between OpenKnowledge and Notion that make this export incomplete and those will be covered here.
+
+## Export your workspace from Notion
+
+1. In Notion, click on your workspace in the top left and go to **Settings**.
+2. Under **General**, scroll down to **Export**.
+3. Set **Export format** to **Markdown & CSV** and leave all the default settings.
+4. Download and **unzip** the export folder and move it to your desired location.
+
+## Open the export in OpenKnowledge
+
+### macOS Desktop app
+
+Open OpenKnowledge, choose **Open folder on disk**, select the unzipped export folder, and proceed through the **Setup** screen with defaults selected.
+
+### Linux, Windows, Intel Mac
+
+Install the [ok CLI](/docs/reference/cli), `cd` into the unzipped folder, and run `ok init && ok start --open`.
+
+## What exports cleanly
+
+| Notion content | In OpenKnowledge |
+| --- | --- |
+| Headings, paragraphs, bold / italic, quotes, and dividers | Render natively and are preserved in the exported markdown. |
+| Bulleted, numbered, and to-do lists | Render natively, including nesting and `- [ ]` checkboxes. |
+| Code blocks | Render with syntax highlighting. |
+| Simple (inline) tables | Convert to Markdown pipe tables and render as tables. |
+| Images and file attachments | Downloaded into the export folder next to each page and referenced with relative `![alt](path)` links; images render inline. See [Assets and embeds](/docs/features/assets-and-embeds). |
+
+## Where the two differ
+
+A number of Notion features don't survive the Markdown & CSV export, or land as plain text.
+
+| Notion feature | What happens |
+| --- | --- |
+| **Databases** (tables, boards, calendars, galleries, timelines) | Each exports as a stub page, a `<name>_all.csv` of the whole table, and a folder holding one markdown file per row. The per-row pages are first-class docs, but there is no support for viewing complete CSV tables. |
+| **Relations, rollups, formulas** | Not represented in the Markdown & CSV export. |
+| **Database row properties** | Exported as plain `Key: Value` lines under the page title, not YAML frontmatter. |
+| **Callouts** | Exported as raw `<aside>` HTML. The content is preserved, but it isn't converted to OpenKnowledge's native callout (`> [!note]`), so it doesn't pick up callout styling. |
+| **Toggles and toggle headings** | Nested content is preserved, but the collapsible toggle wrapper is lost. |
+| **Synced blocks** | Written out as ordinary content wherever they appear; the link between copies is gone. |
+| **Web bookmarks and embeds** (Figma, video, PDF, etc.) | Converted to plain links. The rich preview card or inline embed is gone. Uploaded files download alongside the page. |
+| **Links between pages** | Notion percent-encodes every link target (every exported filename ends in ` <id>`). Fixable in bulk after import by decoding `%20` and trimming the trailing ` <id>`. |
+| **Pasted or inline images** | Some images export inline as base64 `data:` URIs instead of downloaded files. They don't render and add very large lines to the file. Downloaded `![alt](file.png)` images are unaffected. |
+| **Page icons and cover images** | Not exported. |
+| **Comments, page history, and backlinks** | Not included in the export. |
+
+## Clean up after import (optional)
+
+Most of the rough edges above are mechanical to fix, and the AI agent connected to your project can do it in bulk through OpenKnowledge's [MCP tools](/docs/reference/mcp). Paste any of these prompts to your agent:
+
+- **Decode internal links.** _"In every markdown file, decode `%20` and other percent-escapes in relative `.md` link targets so the links resolve."_ Do this first so the next step can rewrite links.
+- **Drop the Notion ID from filenames.** _"Rename every page to remove the trailing ` <32-character hex id>` from its filename, and verify the links that point to it."_
+- **Promote row properties to frontmatter.** _"On pages exported from databases, turn the `Key: Value` lines under the title into a YAML frontmatter block."_ They then show up in the [Properties panel](/docs/features/editor#properties).
+- **Convert callouts.** _"Replace each `<aside>…</aside>` block with an OpenKnowledge callout (`> [!note]`)."_
+- **Remove inline base64 images.** _"Find `[](data:image/...;base64,...)` blobs and remove them — they don't render and bloat the file."_
+
+## See also
+
+- [GitHub sync](/docs/features/github-sync): keep your project synced with your team through GitHub
+- [Quickstart](/docs/get-started/quickstart): the five-minute setup
+- [Core concepts](/docs/reference/core-concepts): links, backlinks, and the file-system-as-database model
+- [Assets and embeds](/docs/features/assets-and-embeds): how images and file references behave
+

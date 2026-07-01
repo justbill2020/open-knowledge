@@ -1,10 +1,10 @@
 ---
-title: Using with Obsidian
+title: From Obsidian
 icon: custom/Obsidian
 description: How to open an existing Obsidian vault in OpenKnowledge, which markdown syntax carries over, and where the two differ.
 ---
 
-OpenKnowledge and Obsidian are both editors over a folder of plain markdown — [the files are the database](/docs/reference/core-concepts#the-file-system-is-the-database). So there is nothing to import or convert: point OpenKnowledge at your existing vault and your notes, links, tags, and frontmatter come across as they are.
+OpenKnowledge and Obsidian are both editors over a [folder of plain markdown](/docs/reference/core-concepts#the-file-system-is-the-database). This means that you can point OpenKnowledge at your existing vault and your notes, links, tags, and frontmatter work out of the box.
 
 <Callout type="info">
   OpenKnowledge works **directly on your markdown files** — it never moves, renames, or rewrites them just for opening a vault. It keeps its own state in a `.ok/` directory and ignores Obsidian's `.obsidian/` folder, so your Obsidian setup stays exactly where it is.
@@ -12,9 +12,9 @@ OpenKnowledge and Obsidian are both editors over a folder of plain markdown — 
 
 ## Open your vault
 
-### MacOS Desktop app
+### macOS Desktop app
 
-Open OpenKnowledge, choose **Open folder on disk**, and select your existing vault folder, then proceed through the **Setup** screen. OpenKnowledge uses the folder in place — it doesn't copy or move your notes. 
+Open OpenKnowledge, choose **Open folder on disk**, and select your existing vault folder, then proceed through the **Setup** screen. OpenKnowledge uses the folder in place — it doesn't copy or move your notes.
 
 ### Linux, Windows, Intel Mac
 
@@ -69,3 +69,4 @@ Getting an AI agent to work *well* inside an Obsidian vault usually means adding
 - [Timeline and recovery](/docs/features/timeline-and-recovery): version history and point-in-time rollback
 - [Ignore patterns](/docs/features/ignore-patterns): keep folders out of the editor, search, and agents
 - [Assets and embeds](/docs/features/assets-and-embeds): how images and file references behave
+- [GitHub sync](/docs/features/github-sync): keep your project synced with your team through GitHub
