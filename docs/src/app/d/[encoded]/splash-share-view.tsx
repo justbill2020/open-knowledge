@@ -1,11 +1,11 @@
 import { DotIcon, GitBranchIcon } from 'lucide-react';
 import Link from 'next/link';
+import { DotTexture } from '@/components/dot-texture';
+import { SiteFooter } from '@/components/footer';
 import { GitHubIcon } from '@/components/icons/github';
 import { OkWordmark } from '@/components/ok-wordmark';
 import { buildCloneCommand, SPLASH_INSTALL_COMMAND, type SplashView } from '@/lib/share-splash';
 import { DOWNLOAD_ROUTE } from '@/lib/site';
-import { DotTexture } from '../../(home)/dot-texture';
-import { SiteFooter } from '../../(home)/footer';
 import { SplashButtonLabel, splashPrimaryButton } from './splash-buttons';
 import { SplashCliButton } from './splash-cli-button';
 import { SplashCtaPanel } from './splash-cta-panel';

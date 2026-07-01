@@ -1,17 +1,17 @@
 import { describe, expect, test } from 'bun:test';
 import { NextRequest } from 'next/server';
-import { middleware } from './middleware.ts';
+import { proxy } from './proxy.ts';
 
 function run(host: string, pathAndQuery: string) {
   const req = new NextRequest(`https://${host}${pathAndQuery}`, { headers: { host } });
-  return middleware(req);
+  return proxy(req);
 }
 
 const APEX = 'openknowledge.ai';
 const WWW = 'www.openknowledge.ai';
 const AASA = '/.well-known/apple-app-site-association';
 
-describe('middleware: www -> apex canonicalization', () => {
+describe('proxy: www -> apex canonicalization', () => {
   test('www + AASA passes through (no redirect) so Apple gets a direct 200', () => {
     const res = run(WWW, AASA);
     expect(res.headers.get('location')).toBeNull();

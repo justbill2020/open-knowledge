@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
+import { SiteFooter } from '@/components/footer';
+import { MarketingButton } from '@/components/marketing-button';
+import SectionHeading from '@/components/section-heading';
 import { BRAND_ASSETS, BRAND_ROUTE, BRAND_ZIP } from '@/lib/brand-assets';
 import { cn } from '@/lib/utils';
-import { SiteFooter } from '../footer';
-import { MarketingButton } from '../marketing-button';
-import SectionHeading from '../section-heading';
 
 export const metadata: Metadata = {
   title: 'Brand assets',

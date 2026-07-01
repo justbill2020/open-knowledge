@@ -1,6 +1,13 @@
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { withMicrofrontends } from '@vercel/microfrontends/next/config';
 import { createMDX } from 'fumadocs-mdx/next';
 import type { NextConfig } from 'next';
 
+// Routing home is `/docs` — this app serves no landing page at `/`. In the
+// production deployment the apex `/` is served by a separate app, so `/` never
+// reaches this project there; a standalone deployment should set its default
+// route to `/docs`.
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   reactCompiler: {
@@ -125,5 +132,13 @@ const nextConfig: NextConfig = {
 };
 
 const withMDX = createMDX();
+const baseConfig = withMDX(nextConfig);
 
-export default withMDX(nextConfig);
+// `withMicrofrontends` requires a microfrontends.json that declares this app. That
+// file names the private marketing app and is a Microfrontends deploy concern of
+// agents-private only, so it is excluded from the public mirror — the standalone
+// OSS docs build has none. Apply the wrapper only when the config is present,
+// leaving the mirror (and any standalone clone) a plain Next.js app.
+const microfrontendsConfig = fileURLToPath(new URL('./microfrontends.json', import.meta.url));
+
+export default existsSync(microfrontendsConfig) ? withMicrofrontends(baseConfig) : baseConfig;

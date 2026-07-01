@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { ComponentProps, ReactNode } from 'react';
-import { DotTexture } from '@/app/(home)/dot-texture';
-import { SiteFooter } from '@/app/(home)/footer';
+import { DotTexture } from '@/components/dot-texture';
+import { SiteFooter } from '@/components/footer';
 import { OkWordmark } from '@/components/ok-wordmark';
 import { cn } from '@/lib/utils';
 

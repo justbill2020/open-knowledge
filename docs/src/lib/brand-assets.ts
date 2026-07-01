@@ -36,5 +36,3 @@ export const BRAND_ASSETS: BrandAsset[] = [
     tile: 'muted',
   },
 ];
-
-export const PRIMARY_BRAND_ASSET = BRAND_ASSETS[0];
