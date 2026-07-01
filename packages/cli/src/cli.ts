@@ -24,6 +24,7 @@ import { diagnoseCommand } from './commands/diagnose.ts';
 import { embeddingsCommand } from './commands/embeddings/index.ts';
 import { initCommand } from './commands/init.ts';
 import { mcpCommand } from './commands/mcp.ts';
+import { migrateCommand } from './commands/migrate.ts';
 import { openCommand } from './commands/open.ts';
 import { previewCommand } from './commands/preview.ts';
 import { psCommand } from './commands/ps.ts';
@@ -128,6 +129,8 @@ program.addCommand(mcp);
 program.addCommand(initCommand());
 
 program.addCommand(seedCommand());
+
+program.addCommand(migrateCommand());
 
 program.addCommand(coworkCommand(), { hidden: true });
 
