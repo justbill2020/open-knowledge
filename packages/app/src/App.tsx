@@ -14,6 +14,7 @@ import { requestTerminalLaunch } from '@/components/handoff/terminal-launch-even
 import { composeTerminalLaunchPrompt } from '@/components/handoff/useHandoffDispatch';
 import { InstallInClaudeDesktopDialog } from '@/components/InstallInClaudeDesktopDialog';
 import { McpConsentDialog } from '@/components/McpConsentDialog';
+import { NativeChatPanel } from '@/components/NativeChatPanel';
 import { isNewItemShortcut, NewItemDialog } from '@/components/NewItemDialog';
 import {
   downgradeFolderIndexForHashNav,
@@ -385,6 +386,7 @@ function AppBody() {
           open={commandPaletteOpen}
           onOpenChange={setCommandPaletteOpen}
         />
+        <NativeChatPanel />
         {/* Electron BrowserWindow renders with `titleBarStyle: 'hiddenInset'` +
             `transparent: true` + `vibrancy: 'sidebar'`, so the renderer owns
             window-drag affordance. Existing chrome rows (EditorHeader,

@@ -242,6 +242,17 @@ import { type NormalizedSummary, normalizeSummary } from './agent-write-summary.
 import { isAllowedApiOrigin } from './api-origin.ts';
 import { collectReferencedAssets, toContentRelativePath } from './asset-references.ts';
 import { assetContentTypeForPath } from './asset-serve-middleware.ts';
+import {
+  appendChatEvent,
+  archiveChatSession,
+  type ChatBackend,
+  type ChatContextItem,
+  type ChatEvent,
+  type ChatMode,
+  createChatSession,
+  listChatSessions,
+  readChatEvents,
+} from './chat-store.ts';
 import { getLocalDir } from './config/paths.ts';
 import { CONFIG_VALIDATION_REVERT_ORIGIN } from './config-edit-origin.ts';
 import { DocInConflictError, isDocInConflict, respondDocInConflict } from './conflict-errors.ts';
@@ -1979,6 +1990,73 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
 
   const installedAgentsCache = createInstalledAgentsProbe({
     probe: installedAgentsProbe ?? createOsProbe(process.platform),
+  });
+  const chatProjectDir = projectDir ?? contentDir;
+
+  const ChatModeSchema = z.enum(['ask', 'plan', 'agent', 'custom']);
+  const ChatBackendSchema = z.enum(['codex', 'claude', 'cursor', 'opencode', 'gemini', 'custom']);
+  const ChatContextItemSchema = z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('file'), path: z.string().min(1) }),
+    z.object({ kind: z.literal('folder'), path: z.string().min(1) }),
+    z.object({
+      kind: z.literal('selection'),
+      path: z.string().min(1),
+      startLine: z.number().int().positive().optional(),
+      endLine: z.number().int().positive().optional(),
+      text: z.string(),
+    }),
+    z.object({
+      kind: z.literal('graph-neighbor'),
+      path: z.string().min(1),
+      sourcePath: z.string().min(1).optional(),
+    }),
+    z.object({
+      kind: z.literal('search-result'),
+      path: z.string().min(1),
+      query: z.string(),
+      snippet: z.string().optional(),
+    }),
+  ]);
+  const CreateChatRequestSchema = z.object({
+    title: z.string().min(1),
+    mode: ChatModeSchema,
+    backend: ChatBackendSchema,
+    context: z.array(ChatContextItemSchema).default([]),
+  });
+  const AppendChatEventRequestSchema = z.object({
+    id: z.string().uuid(),
+    event: z.union([
+      z.object({
+        type: z.literal('chat.mode'),
+        from: ChatModeSchema,
+        to: ChatModeSchema,
+        changedAt: z.string(),
+      }),
+      z.object({
+        type: z.literal('chat.backend'),
+        from: ChatBackendSchema,
+        to: ChatBackendSchema,
+        changedAt: z.string(),
+        reason: z.enum(['user_selected', 'fallback', 'custom']),
+      }),
+      z.object({
+        type: z.literal('chat.context'),
+        items: z.array(ChatContextItemSchema),
+      }),
+      z.object({
+        type: z.literal('message'),
+        role: z.enum(['user', 'assistant', 'system']),
+        content: z.string(),
+        createdAt: z.string(),
+      }),
+    ]),
+  });
+  const ArchiveChatRequestSchema = z.object({ id: z.string().uuid() });
+  const RunChatRequestSchema = z.object({
+    id: z.string().uuid(),
+    content: z.string().min(1),
+    mode: ChatModeSchema,
+    backend: ChatBackendSchema,
   });
 
   function resolveDocPath(docName: string): string | null {
@@ -13378,6 +13456,225 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
     { handler: 'semantic-status', method: 'GET', skipBodyParse: true },
   );
 
+  function writeChatJson(res: ServerResponse, status: number, body: unknown): void {
+    res.statusCode = status;
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'no-store');
+    res.end(JSON.stringify(body));
+  }
+
+  const handleChats = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+    if (req.method === 'GET') {
+      const parsed = new URL(req.url ?? '/api/chats', 'http://localhost');
+      const id = parsed.searchParams.get('id');
+      const archived = parsed.searchParams.get('archived') === 'true';
+      if (id) {
+        writeChatJson(res, 200, {
+          events: readChatEvents(chatProjectDir, id, { archived }),
+        });
+        return;
+      }
+      writeChatJson(res, 200, {
+        chats: listChatSessions(chatProjectDir, { archived }),
+      });
+      return;
+    }
+
+    return withValidation(
+      CreateChatRequestSchema,
+      async (_innerReq, innerRes, body) => {
+        const session = createChatSession(chatProjectDir, {
+          title: body.title,
+          mode: body.mode as ChatMode,
+          backend: body.backend as ChatBackend,
+          context: body.context as ChatContextItem[],
+        });
+        writeChatJson(innerRes, 201, { session });
+      },
+      { handler: 'chats-create', method: 'POST' },
+    )(req, res);
+  };
+
+  const handleChatEvents = withValidation(
+    AppendChatEventRequestSchema,
+    async (_req, res, body) => {
+      appendChatEvent(chatProjectDir, body.id, body.event as ChatEvent);
+      writeChatJson(res, 200, { ok: true });
+    },
+    { handler: 'chats-events', method: 'POST' },
+  );
+
+  const handleChatArchive = withValidation(
+    ArchiveChatRequestSchema,
+    async (_req, res, body) => {
+      const session = archiveChatSession(chatProjectDir, body.id);
+      writeChatJson(res, 200, { session });
+    },
+    { handler: 'chats-archive', method: 'POST' },
+  );
+
+  function buildChatPrompt(args: {
+    content: string;
+    mode: ChatMode;
+    events: readonly ChatEvent[];
+  }): string {
+    const context = args.events
+      .filter((event): event is Extract<ChatEvent, { type: 'chat.context' }> => {
+        return event.type === 'chat.context';
+      })
+      .flatMap((event) => event.items);
+    const contextLines =
+      context.length === 0
+        ? 'No explicit context attachments.'
+        : context
+            .map((item) => {
+              if (item.kind === 'selection') {
+                const range =
+                  item.startLine && item.endLine ? ` lines ${item.startLine}-${item.endLine}` : '';
+                return `- selection: ${item.path}${range}\n${item.text}`;
+              }
+              return `- ${item.kind}: ${item.path}`;
+            })
+            .join('\n');
+
+    return [
+      `You are answering inside OpenKnowledge native chat.`,
+      `Mode: ${args.mode}.`,
+      `Workspace: ${chatProjectDir}.`,
+      '',
+      'Context attachments:',
+      contextLines,
+      '',
+      'User message:',
+      args.content,
+    ].join('\n');
+  }
+
+  function resolveChatCliInvocation(backend: ChatBackend, mode: ChatMode, prompt: string) {
+    const readOnlyMode = mode === 'ask' || mode === 'plan';
+    switch (backend) {
+      case 'codex':
+        return {
+          command: process.env.OK_CHAT_CODEX_PATH ?? 'codex',
+          args: [
+            'exec',
+            '--cd',
+            chatProjectDir,
+            '--sandbox',
+            readOnlyMode ? 'read-only' : 'workspace-write',
+            '-a',
+            'never',
+            prompt,
+          ],
+        };
+      case 'cursor':
+        return {
+          command: process.env.OK_CHAT_CURSOR_PATH ?? 'cursor-agent',
+          args: [
+            '--print',
+            '--workspace',
+            chatProjectDir,
+            '--trust',
+            ...(mode === 'ask' || mode === 'plan' ? ['--mode', mode] : ['--force']),
+            prompt,
+          ],
+        };
+      case 'claude':
+        return {
+          command: process.env.OK_CHAT_CLAUDE_PATH ?? 'claude',
+          args: ['-p', prompt],
+        };
+      case 'opencode':
+        return {
+          command: process.env.OK_CHAT_OPENCODE_PATH ?? 'opencode',
+          args: ['run', prompt],
+        };
+      case 'gemini':
+        return {
+          command: process.env.OK_CHAT_GEMINI_PATH ?? 'gemini',
+          args: ['-p', prompt],
+        };
+      case 'custom':
+        return null;
+    }
+  }
+
+  async function runChatCli(backend: ChatBackend, mode: ChatMode, prompt: string): Promise<string> {
+    const invocation = resolveChatCliInvocation(backend, mode, prompt);
+    if (!invocation) {
+      return 'Custom CLI execution is not configured yet. Set a concrete backend or add a custom executable profile.';
+    }
+    return await new Promise<string>((resolveRun) => {
+      let stdout = '';
+      let stderr = '';
+      let settled = false;
+      const child = spawn(invocation.command, invocation.args, {
+        cwd: chatProjectDir,
+        shell: process.platform === 'win32',
+        windowsHide: true,
+      });
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        child.kill();
+        resolveRun('The CLI session timed out after 5 minutes.');
+      }, 300_000);
+      child.stdout?.on('data', (chunk) => {
+        stdout += String(chunk);
+      });
+      child.stderr?.on('data', (chunk) => {
+        stderr += String(chunk);
+      });
+      child.on('error', (err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolveRun(`Could not start ${backend}: ${err.message}`);
+      });
+      child.on('close', (code) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        const output = stdout.trim();
+        if (code === 0 && output) {
+          resolveRun(output);
+          return;
+        }
+        const detail = stderr.trim() || output || `exit code ${code}`;
+        resolveRun(`${backend} did not return a successful response: ${detail}`);
+      });
+    });
+  }
+
+  const handleChatRun = withValidation(
+    RunChatRequestSchema,
+    async (_req, res, body) => {
+      const userEvent: ChatEvent = {
+        type: 'message',
+        role: 'user',
+        content: body.content,
+        createdAt: new Date().toISOString(),
+      };
+      appendChatEvent(chatProjectDir, body.id, userEvent);
+      const events = readChatEvents(chatProjectDir, body.id);
+      const prompt = buildChatPrompt({
+        content: body.content,
+        mode: body.mode as ChatMode,
+        events,
+      });
+      const output = await runChatCli(body.backend as ChatBackend, body.mode as ChatMode, prompt);
+      const assistantEvent: ChatEvent = {
+        type: 'message',
+        role: 'assistant',
+        content: output,
+        createdAt: new Date().toISOString(),
+      };
+      appendChatEvent(chatProjectDir, body.id, assistantEvent);
+      writeChatJson(res, 200, { events: [userEvent, assistantEvent] });
+    },
+    { handler: 'chats-run', method: 'POST' },
+  );
+
   const routes: Record<string, (req: IncomingMessage, res: ServerResponse) => Promise<void>> = {
     '/api/config': handleApiConfig,
     '/api/asset': handleAsset,
@@ -13407,6 +13704,10 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
     '/api/skill-targets': handleSkillTargets,
     '/api/search': handleSearch,
     '/api/semantic-status': handleSemanticStatus,
+    '/api/chats': handleChats,
+    '/api/chats/events': handleChatEvents,
+    '/api/chats/archive': handleChatArchive,
+    '/api/chats/run': handleChatRun,
     '/api/suggest-links': handleSuggestLinks,
     '/api/page-headings': handlePageHeadings,
     '/api/create-page': handleCreatePage,
@@ -13507,6 +13808,10 @@ export function createApiExtension(options: ApiExtensionOptions): Extension {
     '/api/skill-targets',
     '/api/seed/apply',
     '/api/client-logs',
+    '/api/chats',
+    '/api/chats/events',
+    '/api/chats/archive',
+    '/api/chats/run',
   ]);
   const STATE_MUTATING_PREFIXES: ReadonlyArray<string> = ['/api/local-op/'];
 
