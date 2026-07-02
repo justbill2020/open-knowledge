@@ -1,3 +1,4 @@
+
 export const TERMINAL_NEW_TAB_BARE_KEY = 'ok-terminal-new-tab-bare-v1';
 
 export interface NewTabStorage {
@@ -20,7 +21,8 @@ export function writePreferBareTerminal(bare: boolean, storage?: NewTabStorage):
     const s = storage ?? localStorage;
     if (bare) s.setItem(TERMINAL_NEW_TAB_BARE_KEY, '1');
     else s.removeItem(TERMINAL_NEW_TAB_BARE_KEY);
-  } catch {}
+  } catch {
+  }
 }
 
 export function getInitialPreferBareTerminal(): boolean {

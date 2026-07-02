@@ -1,3 +1,4 @@
+
 const PLAIN = /^[A-Za-z0-9][A-Za-z0-9 ._/-]*$/;
 const YAML_TYPED = /^(true|false|null|~)$/i;
 const YAML_NUMERIC =

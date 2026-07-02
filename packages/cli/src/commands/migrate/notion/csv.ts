@@ -1,3 +1,4 @@
+
 export interface ParsedCsv {
   header: string[];
   rows: string[][];

@@ -751,6 +751,7 @@ function EditorAreaInner({
   const editorAbsorbsResidual =
     (rightPanel != null && !initialRightCollapsed) || terminalColumnPresent;
 
+
   return (
     <div className="relative flex min-h-0 flex-1" ref={setGroupContainerEl}>
       <ResizablePanelGroup

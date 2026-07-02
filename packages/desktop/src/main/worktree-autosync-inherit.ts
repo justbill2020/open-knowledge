@@ -1,3 +1,4 @@
+
 import { existsSync, readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import { resolveConfigPath, writeConfigPatch } from '@inkeep/open-knowledge-core/server';

@@ -1,3 +1,4 @@
+
 import { context, propagation, type Span } from '@opentelemetry/api';
 import { onFirstContent } from '@/lib/perf/startup-marks';
 import { getAppTracer } from './telemetry-impl';
@@ -18,8 +19,10 @@ export function initStartupTrace(): void {
     onFirstContent((firstContentMs) => {
       try {
         span.end(firstContentMs);
-      } catch {}
+      } catch {
+      }
       startupSpan = undefined;
     });
-  } catch {}
+  } catch {
+  }
 }

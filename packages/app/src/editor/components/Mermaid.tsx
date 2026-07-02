@@ -1,3 +1,4 @@
+
 import { Trans } from '@lingui/react/macro';
 import { AlertTriangle } from 'lucide-react';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
@@ -32,6 +33,7 @@ function loadMermaid() {
     });
   return mermaidPromise;
 }
+
 
 const SHAPES: ReadonlyArray<{ open: string; close: string }> = [
   { open: '[[', close: ']]' },

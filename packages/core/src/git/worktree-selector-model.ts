@@ -1,3 +1,4 @@
+
 import type { BridgeWorktreeEntry } from './worktree-list-parser.ts';
 
 export interface WorktreeSelectorEntry {

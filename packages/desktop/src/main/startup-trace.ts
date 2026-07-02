@@ -1,3 +1,4 @@
+
 import { getTracer, initTelemetry } from '@inkeep/open-knowledge-server';
 import { type Context, context, propagation, type Span, trace } from '@opentelemetry/api';
 import { getLogger } from './desktop-logger.ts';
@@ -58,14 +59,16 @@ export function childSpan(
     const span = getTracer().startSpan(name, { startTime: startMs }, rootContext);
     span.setAttributes(attributes);
     span.end(endMs);
-  } catch {}
+  } catch {
+  }
 }
 
 export function endRoot(endMs: number = Date.now()): void {
   if (!rootSpan) return;
   try {
     rootSpan.end(endMs);
-  } catch {}
+  } catch {
+  }
   rootSpan = undefined;
   rootContext = undefined;
   active = false;
